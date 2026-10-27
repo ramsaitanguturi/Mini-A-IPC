@@ -59,3 +59,24 @@ bash ./bench/capture_environment.sh
 
 See `docs/experiment.md` for a source-grounded account of the attached Danyliuk (2026) paper's methodology and the exact reproduction boundaries. This implementation does not pin CPU cores or collect P99/system-call counts.
 
+
+## Kernel-module implementation (new)
+
+A separate loadable kernel module is now included at `kernel/aipc_module.c`. It exposes a bounded shared ring buffer as `/dev/aipc` with blocking `read`/`write`, wait queues, a mutex, and `poll`. Build the client and module with:
+
+```bash
+make
+make kernel-module
+```
+
+Then load/test/unload on Linux with matching kernel headers:
+
+```bash
+sudo insmod kernel/aipc_module.ko
+make kernel-test
+sudo ITERATIONS=10 ./tests/kernel/test_load_unload.sh
+python3 ./bench/benchmark_kernel_mailbox.py --trials 7 --messages 1000
+sudo rmmod aipc_module
+```
+
+See [`docs/kernel-module.md`](docs/kernel-module.md) for architecture, setup, limitations, and validation steps. The `aipc_read()` copy-fault data-loss issue is addressed by committing ring-buffer consumption only after `copy_to_user()` succeeds. The kernel tests now cover independent producer/consumer processes and full/empty nonblocking behavior, and `tests/kernel/test_load_unload.sh` checks repeated load/unload cycles. `bench/benchmark_kernel_mailbox.py` records exploratory throughput CSVs, not a matched comparison. The module is a separate kernel transport prototype; it does not yet replace the existing user-space adaptive selector or implement kernel-space adaptive selection.
