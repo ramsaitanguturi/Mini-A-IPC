@@ -25,10 +25,10 @@ This is a teaching implementation, not a full reproduction of the A-IPC paper. T
 ## Repeatable benchmark CSV
 
 ```bash
-./bench/run_benchmarks.sh
+bash ./bench/run_benchmarks.sh
 ```
 
-Optional settings: `COUNT=20000 TRIALS=7 ./bench/run_benchmarks.sh`. The script records actual measurements in `results/benchmark.csv`. It skips shared-memory tests above the mailbox capacity.
+Optional settings: `COUNT=20000 TRIALS=7 bash ./bench/run_benchmarks.sh`. The script records actual measurements in `results/benchmark.csv`. It skips shared-memory tests above the mailbox capacity.
 
 
 ## Automated correctness tests
@@ -37,16 +37,25 @@ Optional settings: `COUNT=20000 TRIALS=7 ./bench/run_benchmarks.sh`. The script 
 make test
 ```
 
-Tests cover pipe and shared-memory round trips, adaptive routing of a large payload to pipes, direct shared-memory rejection above 1024 bytes, zero values, nonnumeric input, and invalid modes.
+Tests cover pipe and shared-memory round trips, adaptive routing, oversized payloads, invalid arguments, unexpected child exits, and independent shared-memory payload validation in the mixed benchmark.
 
-## Full calibration and mixed-workload experiment
+## Calibration and interleaved mixed-workload experiment
 
 ```bash
-COUNT=10000 TRIALS=5 ./bench/run_experiments.sh
+COUNT=10000 TRIALS=5 bash ./bench/run_experiments.sh
 ```
 
-The script creates `results/benchmark.csv`, `results/calibration.csv`, `results/threshold.txt`, and `results/mixed_workload.csv`. The mixed workload is measured as two batches (80% 64-byte, 20% 16-KiB) and is not a single interleaved stream. It calibrates the threshold from measured medians and passes it through `AIPC_THRESHOLD` for adaptive runs.
+The script creates `results/benchmark.csv`, `results/calibration.csv`, `results/threshold.txt`, and `results/mixed_workload.csv`. Calibration uses fixed pipe and shared-memory runs to choose a threshold; default-threshold adaptive rows are labeled as baselines and are excluded from calibration. Evaluation then runs a single deterministic, shuffled sequence containing 80% 64-byte messages and 20% 16-KiB messages through fixed-pipe and adaptive policies. Both policies use the same sequence order.
+
+The mixed shared-memory consumer independently validates each request payload against the expected sequence bytes before acknowledging it, and the parent validates the returned response.
+
+Capture the actual target environment before final runs:
+
+```bash
+bash ./bench/capture_environment.sh
+```
 
 ## Paper methodology note
 
 See `docs/experiment.md` for a source-grounded account of the attached Danyliuk (2026) paper's methodology and the exact reproduction boundaries. This implementation does not pin CPU cores or collect P99/system-call counts.
+

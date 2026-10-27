@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
@@ -61,6 +62,8 @@ int ipc_pipe_run(size_t payload_size, size_t count,
     size_t i;
     int status = 0;
     uint64_t start, end;
+    struct sigaction ignore_pipe, old_pipe;
+    int sigpipe_changed = 0;
 
     if (!payload_size || !count || !elapsed_ns || !errors) {
         errno = EINVAL;
@@ -77,15 +80,23 @@ int ipc_pipe_run(size_t payload_size, size_t count,
 
     if (pipe(request_pipe) < 0 || pipe(response_pipe) < 0) goto fail;
 
+    memset(&ignore_pipe, 0, sizeof(ignore_pipe));
+    ignore_pipe.sa_handler = SIG_IGN;
+    sigemptyset(&ignore_pipe.sa_mask);
+    if (sigaction(SIGPIPE, &ignore_pipe, &old_pipe) < 0) goto fail;
+    sigpipe_changed = 1;
+
     child = fork();
     if (child < 0) goto fail;
 
     if (child == 0) {
         unsigned char *child_buffer = malloc(payload_size);
+        const char *fault = getenv("AIPC_TEST_CHILD_EXIT");
         size_t j;
         close(request_pipe[1]);
         close(response_pipe[0]);
 
+        if (fault != NULL && strcmp(fault, "pipe") == 0) _exit(77);
         if (!child_buffer) _exit(2);
         for (j = 0; j < count; ++j) {
             if (read_all(request_pipe[0], child_buffer, payload_size) < 0 ||
@@ -119,8 +130,12 @@ int ipc_pipe_run(size_t payload_size, size_t count,
 
     close(request_pipe[1]); request_pipe[1] = -1;
     close(response_pipe[0]); response_pipe[0] = -1;
-    if (waitpid(child, &status, 0) < 0) goto fail;
+    while (waitpid(child, &status, 0) < 0) {
+        if (errno == EINTR) continue;
+        goto fail;
+    }
     free(send_buffer); free(receive_buffer);
+    if (sigpipe_changed) sigaction(SIGPIPE, &old_pipe, NULL);
 
     if (!WIFEXITED(status) || WEXITSTATUS(status) != 0 || *errors != 0) {
         errno = EIO;
@@ -136,6 +151,7 @@ fail:
         if (response_pipe[0] >= 0) close(response_pipe[0]);
         if (response_pipe[1] >= 0) close(response_pipe[1]);
         free(send_buffer); free(receive_buffer);
+        if (sigpipe_changed) sigaction(SIGPIPE, &old_pipe, NULL);
         errno = saved_errno;
         return -1;
     }

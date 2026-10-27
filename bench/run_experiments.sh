@@ -2,7 +2,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-make
+make all
 mkdir -p results
 COUNT="${COUNT:-10000}"
 TRIALS="${TRIALS:-5}"
@@ -10,7 +10,9 @@ RAW="results/benchmark.csv"
 SUMMARY="results/calibration.csv"
 MIXED="results/mixed_workload.csv"
 
-printf 'trial,mode,selected_transport,payload_bytes,exchanges,elapsed_ns,avg_latency_ns,throughput_exchanges_s,validation_errors\n' > "$RAW"
+# Phase labels prevent default-threshold adaptive baselines from being confused
+# with the calibrated policy evaluated below.
+printf 'phase,trial,mode,selected_transport,payload_bytes,exchanges,elapsed_ns,avg_latency_ns,throughput_exchanges_s,validation_errors\n' > "$RAW"
 for size in 64 128 256 512 1024 16384; do
   for mode in pipe shm adaptive; do
     if [[ "$mode" == "shm" && "$size" -gt 1024 ]]; then continue; fi
@@ -21,76 +23,78 @@ for size in 64 128 256 512 1024 16384; do
       latency="$(printf '%s\n' "$output" | awk -F': ' '/Average round-trip latency:/ {print $2}' | awk '{print $1}')"
       throughput="$(printf '%s\n' "$output" | awk -F': ' '/^Throughput:/ {print $2}' | awk '{print $1}')"
       errors="$(printf '%s\n' "$output" | awk -F': ' '/Validation errors:/ {print $2}')"
-      printf '%s,%s,%s,%s,%s,%s,%s,%s,%s\n' "$trial" "$mode" "$selected" "$size" "$COUNT" "$elapsed" "$latency" "$throughput" "$errors" >> "$RAW"
+      if [[ "$mode" != "adaptive" && "$size" -le 1024 ]]; then
+        phase="calibration"
+      elif [[ "$mode" == "adaptive" ]]; then
+        phase="baseline_default_threshold"
+      else
+        phase="baseline_fixed_transport"
+      fi
+      printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' "$phase" "$trial" "$mode" "$selected" "$size" "$COUNT" "$elapsed" "$latency" "$throughput" "$errors" >> "$RAW"
     done
   done
 done
 
-# Calibrate threshold from median latency for each tested size.
-# Choose the largest size <= 1024 where SHM median is lower than pipe median.
+# Calibration uses only fixed pipe/shared-memory runs for 64-1024 B.
 python3 - "$RAW" "$SUMMARY" <<'PY'
 import csv, statistics, sys
 raw, out = sys.argv[1:]
 rows = list(csv.DictReader(open(raw, newline="")))
-sizes = sorted({int(r["payload_bytes"]) for r in rows if int(r["payload_bytes"]) <= 1024})
+sizes = sorted({int(r["payload_bytes"]) for r in rows
+                if r["phase"] == "calibration" and int(r["payload_bytes"]) <= 1024})
 medians = {}
 for size in sizes:
     for mode in ("pipe", "shm"):
         vals = [float(r["avg_latency_ns"]) for r in rows
-                if int(r["payload_bytes"]) == size and r["mode"] == mode]
+                if r["phase"] == "calibration" and int(r["payload_bytes"]) == size
+                and r["mode"] == mode and int(r["validation_errors"]) == 0]
         if vals:
             medians[(size, mode)] = statistics.median(vals)
+# Pick the largest tested size up to which SHM wins at every tested size.
 threshold = 0
-for s in sizes:
-    if (s, "pipe") not in medians or (s, "shm") not in medians:
+for size in sizes:
+    if (size, "pipe") not in medians or (size, "shm") not in medians:
         break
-    if medians[(s, "shm")] < medians[(s, "pipe")]:
-        threshold = s
+    if medians[(size, "shm")] < medians[(size, "pipe")]:
+        threshold = size
     else:
         break
 with open(out, "w", newline="") as f:
     w = csv.writer(f)
-    w.writerow(["payload_bytes","pipe_median_avg_latency_ns","shm_median_avg_latency_ns","shm_faster","calibrated_threshold_bytes"])
-    for s in sizes:
-        p, h = medians.get((s,"pipe"), float("nan")), medians.get((s,"shm"), float("nan"))
-        w.writerow([s, f"{p:.2f}", f"{h:.2f}", str(h < p).lower(), threshold])
+    w.writerow(["phase","payload_bytes","pipe_median_avg_latency_ns","shm_median_avg_latency_ns","shm_faster","calibrated_threshold_bytes"])
+    for size in sizes:
+        p, h = medians.get((size,"pipe"), float("nan")), medians.get((size,"shm"), float("nan"))
+        w.writerow(["calibration",size,f"{p:.2f}",f"{h:.2f}",str(h < p).lower(),threshold])
 with open("results/threshold.txt","w") as f:
     f.write(str(threshold) + "\n")
-print(f"Calibrated threshold: {threshold} bytes (0 means SHM was not faster at tested sizes)")
+print(f"Calibration complete. Selected threshold: {threshold} bytes")
 PY
 
 THRESHOLD="$(cat results/threshold.txt)"
-printf 'trial,policy,workload,payload_mix,exchanges,elapsed_ns,avg_latency_ns,throughput_exchanges_s,validation_errors,threshold_bytes\n' > "$MIXED"
-SMALL_COUNT=$((COUNT * 80 / 100))
-LARGE_COUNT=$((COUNT - SMALL_COUNT))
-if (( SMALL_COUNT < 1 )); then SMALL_COUNT=1; fi
-if (( LARGE_COUNT < 1 )); then LARGE_COUNT=1; fi
+printf 'phase,trial,policy,sequence_id,small_bytes,large_bytes,small_percent,large_percent,exchanges,elapsed_ns,avg_latency_ns,throughput_exchanges_s,validation_errors,threshold_bytes\n' > "$MIXED"
 
-# Mixed workload is run as two measured batches (small and bulk) because this
-# teaching implementation launches one persistent child per transport run.
-# Startup time is outside each measured interval; batch times are summed.
+# Same deterministic shuffled sequence (same seed and count) is generated by
+# mini-aipc-mixed for both policies. Every message is routed in the same order.
 for policy in pipe adaptive; do
   for ((trial=1; trial<=TRIALS; trial++)); do
-    if [[ "$policy" == "pipe" ]]; then
-      small="$(./mini-aipc --mode pipe --size 64 --count "$SMALL_COUNT")"
-      large="$(./mini-aipc --mode pipe --size 16384 --count "$LARGE_COUNT")"
+    if [[ "$policy" == "adaptive" ]]; then
+      output="$(./mini-aipc-mixed --policy adaptive --count "$COUNT" --threshold "$THRESHOLD")"
     else
-      small="$(AIPC_THRESHOLD="$THRESHOLD" ./mini-aipc --mode adaptive --size 64 --count "$SMALL_COUNT")"
-      large="$(AIPC_THRESHOLD="$THRESHOLD" ./mini-aipc --mode adaptive --size 16384 --count "$LARGE_COUNT")"
+      output="$(./mini-aipc-mixed --policy pipe --count "$COUNT" --threshold "$THRESHOLD")"
     fi
-    s_elapsed="$(printf '%s\n' "$small" | awk -F': ' '/^Elapsed:/ {print $2}' | awk '{print $1}')"
-    l_elapsed="$(printf '%s\n' "$large" | awk -F': ' '/^Elapsed:/ {print $2}' | awk '{print $1}')"
-    total=$((s_elapsed + l_elapsed))
-    exchanges=$((SMALL_COUNT + LARGE_COUNT))
-    avg="$(awk -v t="$total" -v n="$exchanges" 'BEGIN {printf "%.2f", t/n}')"
-    thr="$(awk -v t="$total" -v n="$exchanges" 'BEGIN {if(t>0) printf "%.2f", n*1000000000/t; else print "0"}')"
-    errs="$(printf '%s\n%s\n' "$small" "$large" | awk -F': ' '/Validation errors:/ {sum += $2} END {print sum+0}')"
-    printf '%s,%s,80small_20bulk,64B:80%%+16384B:20%%,%s,%s,%s,%s,%s,%s,%s\n' \
-      "$trial" "$policy" "$exchanges" "$total" "$avg" "$thr" "$errs" "$THRESHOLD" >> "$MIXED"
+    small="$(printf '%s\n' "$output" | awk -F': ' '/^Small messages:/ {print $2}')"
+    large="$(printf '%s\n' "$output" | awk -F': ' '/^Large messages:/ {print $2}')"
+    exchanges="$(printf '%s\n' "$output" | awk -F': ' '/^Exchanges:/ {print $2}')"
+    elapsed="$(printf '%s\n' "$output" | awk -F': ' '/^Elapsed:/ {print $2}' | awk '{print $1}')"
+    latency="$(printf '%s\n' "$output" | awk -F': ' '/^Average latency:/ {print $2}' | awk '{print $1}')"
+    throughput="$(printf '%s\n' "$output" | awk -F': ' '/^Throughput:/ {print $2}' | awk '{print $1}')"
+    errors="$(printf '%s\n' "$output" | awk -F': ' '/^Validation errors:/ {print $2}')"
+    printf 'evaluation,%s,%s,seed_A1C2026,%s,%s,80,20,%s,%s,%s,%s,%s,%s\n' \
+      "$trial" "$policy" "$small" "$large" "$exchanges" "$elapsed" "$latency" "$throughput" "$errors" "$THRESHOLD" >> "$MIXED"
   done
 done
 
-echo "Wrote raw measurements: $RAW"
-echo "Wrote calibration summary: $SUMMARY"
-echo "Wrote mixed-workload batches: $MIXED"
-echo "Threshold is written to results/threshold.txt"
+echo "Wrote raw baseline/calibration rows: $RAW"
+echo "Wrote calibration-only summary: $SUMMARY"
+echo "Wrote calibrated-policy mixed-workload evaluation: $MIXED"
+echo "Calibrated threshold: $THRESHOLD bytes"

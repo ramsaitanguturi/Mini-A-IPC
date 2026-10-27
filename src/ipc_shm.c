@@ -10,6 +10,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <time.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -31,6 +32,35 @@ static int sem_wait_retry(sem_t *sem)
         return -1;
     }
     return 0;
+}
+
+
+static int sem_wait_monitor_child(sem_t *sem, pid_t *child, int *child_reaped)
+{
+    for (;;) {
+        struct timespec deadline;
+        if (clock_gettime(CLOCK_REALTIME, &deadline) < 0) return -1;
+        deadline.tv_nsec += 100000000L; /* poll child status every 100 ms */
+        if (deadline.tv_nsec >= 1000000000L) {
+            deadline.tv_sec++;
+            deadline.tv_nsec -= 1000000000L;
+        }
+        if (sem_timedwait(sem, &deadline) == 0) return 0;
+        if (errno == EINTR) continue;
+        if (errno != ETIMEDOUT) return -1;
+
+        if (*child > 0) {
+            int status;
+            pid_t w = waitpid(*child, &status, WNOHANG);
+            if (w == *child) {
+                *child = -1;
+                *child_reaped = 1;
+                errno = ECHILD;
+                return -1;
+            }
+            if (w < 0 && errno != EINTR) return -1;
+        }
+    }
 }
 
 static void reap_child(pid_t child, int terminate)
@@ -90,6 +120,8 @@ int ipc_shm_run(size_t payload_size, size_t count,
 
     if (child == 0) {
         size_t j;
+        const char *fault = getenv("AIPC_TEST_CHILD_EXIT");
+        if (fault != NULL && strcmp(fault, "shm") == 0) _exit(77);
         for (j = 0; j < count; ++j) {
             if (sem_wait_retry(&box->request_full) < 0) _exit(4);
             if (box->request_length == 0 ||
@@ -108,12 +140,12 @@ int ipc_shm_run(size_t payload_size, size_t count,
 
     start = monotonic_ns();
     for (i = 0; i < count; ++i) {
-        if (sem_wait_retry(&box->request_empty) < 0) { ++*errors; goto exchange_done; }
+        if (sem_wait_monitor_child(&box->request_empty, &child, &child_reaped) < 0) { ++*errors; goto exchange_done; }
         memcpy(box->request, expected, payload_size);
         box->request_length = payload_size;
         if (sem_post(&box->request_full) < 0) { ++*errors; goto exchange_done; }
 
-        if (sem_wait_retry(&box->response_full) < 0) { ++*errors; goto exchange_done; }
+        if (sem_wait_monitor_child(&box->response_full, &child, &child_reaped) < 0) { ++*errors; goto exchange_done; }
         if (box->response_length != payload_size ||
             memcmp(box->response, expected, payload_size) != 0)
             ++*errors;

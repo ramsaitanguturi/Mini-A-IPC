@@ -18,21 +18,21 @@ The implementation uses one parent and one child per run and request/response ex
 - Pipe mode uses two anonymous pipes.
 - Shared-memory mode uses POSIX shared memory and process-shared semaphores, with a 1024-byte mailbox.
 - Adaptive mode uses a payload-size threshold; calibration measures pipe and shared-memory average round-trip latency at 64, 128, 256, 512 and 1024 bytes.
-- Mixed-workload experiment combines 80% 64-byte exchanges and 20% 16384-byte exchanges. The current harness measures this as two batches and sums their timed intervals, not as a single interleaved stream.
+- Mixed-workload experiment generates one deterministic shuffled sequence of 80% 64-byte messages and 20% 16384-byte messages. The fixed-pipe and adaptive policies each process the same sequence order.
 
 ## Reproducibility commands
 
 ```bash
 make clean && make
 make test
-COUNT=10000 TRIALS=5 ./bench/run_experiments.sh
+COUNT=10000 TRIALS=5 bash ./bench/run_experiments.sh
 ```
 
 Outputs:
 - `results/benchmark.csv`: per-trial raw measurements.
 - `results/calibration.csv`: median latency by payload size and the selected threshold.
 - `results/threshold.txt`: calibrated threshold in bytes.
-- `results/mixed_workload.csv`: fixed-pipe versus adaptive batch comparison.
+- `results/mixed_workload.csv`: fixed-pipe versus adaptive interleaved-sequence evaluation.
 
 ## Reproduction boundary
 
@@ -46,7 +46,30 @@ Not reproduced:
 1. FIFO, System V/POSIX message queues, or Unix domain sockets.
 2. CPU affinity/pinning, explicit mitigation control, P99/P99.9 tail-latency collection, or syscall counting.
 3. The paper's hardware/software configuration and its cited published values.
-4. A true interleaved mixed stream; current mixed comparison sums two batches.
+4. P99/P99.9 tail-latency collection, CPU affinity/pinning, or syscall counting.
 5. Futex synchronization specifically; this implementation uses POSIX semaphores.
 
 The attached paper is a classical IPC review, not the separate A-IPC adaptive-ring-buffer paper. Do not cite its reported values as results from the A-IPC paper. Record the exact WSL kernel, CPU, compiler, and run settings in the final report. Measurements must be collected on the user's Ubuntu WSL installation; measurements from another environment must be labeled separately.
+
+
+## Calibration versus evaluation
+
+`results/benchmark.csv` includes a `phase` column:
+- `calibration`: fixed pipe and fixed shared-memory measurements at 64, 128, 256, 512 and 1024 bytes. Only these rows determine the threshold.
+- `baseline_default_threshold`: adaptive runs made with the default threshold, recorded for reference but excluded from calibration.
+
+`results/mixed_workload.csv` is a separate evaluation phase. The C benchmark creates one deterministic shuffled sequence containing 80% 64-byte messages and 20% 16384-byte messages. It uses the same seed and count for the fixed-pipe and adaptive policy runs. The adaptive policy selects a transport separately for each message using the calibrated threshold. This is an interleaved sequence, not two batches summed together.
+
+## Failure-path tests
+
+`make test` includes fault injection through `AIPC_TEST_CHILD_EXIT=pipe` and `AIPC_TEST_CHILD_EXIT=shm`. It verifies that the parent returns an error rather than being killed by `SIGPIPE` or waiting indefinitely on an unposted semaphore. These tests cover selected child-exit paths, not every possible failure mode.
+
+## Environment capture
+
+Run:
+
+```bash
+bash ./bench/capture_environment.sh
+```
+
+This writes `results/environment.txt` with OS release, WSL marker/version where available, kernel, CPU, GCC version, compiler flags, and experiment settings. Run it on the target Ubuntu WSL environment before collecting final measurements. Do not substitute environment details from another machine or container.
