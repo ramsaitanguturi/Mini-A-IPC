@@ -19,3 +19,7 @@ A POSIX shared-memory object is created with `shm_open`, sized with `ftruncate`,
 ### Adaptive mode
 
 The selector chooses shared memory when `size <= 1024`; otherwise it chooses pipes. This is a simple payload-size rule. It does not implement EWMA telemetry or hysteresis.
+
+## Synchronization and failure cleanup update
+
+The shared-memory mailbox tracks each successful `sem_init()` separately. On cleanup, it terminates and reaps a child that may otherwise be blocked on a semaphore before destroying any initialized semaphores. It also handles interrupted `sem_wait()` and `waitpid()` calls. This is best-effort process cleanup; forced termination of a process cannot guarantee recovery from every possible kernel or machine failure.

@@ -14,6 +14,7 @@ clean:
 	rm -f $(TARGET) results/benchmark.csv
 
 test: $(TARGET)
-	./$(TARGET) --mode pipe --size 64 --count 1000
-	./$(TARGET) --mode shm --size 64 --count 1000
-	./$(TARGET) --mode adaptive --size 16384 --count 1000
+	./tests/test_cli.sh
+
+bench: $(TARGET)
+	./bench/run_experiments.sh

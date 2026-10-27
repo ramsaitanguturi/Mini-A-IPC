@@ -21,6 +21,7 @@ static int parse_size(const char *s, size_t *out)
 {
     char *end = NULL;
     unsigned long long v;
+    if (s[0] == '-') return -1;
     errno = 0;
     v = strtoull(s, &end, 10);
     if (errno || !s[0] || !end || *end != '\0' || v == 0 || v > SIZE_MAX)
@@ -53,8 +54,26 @@ int main(int argc, char **argv)
     else if (strcmp(mode, "adaptive") == 0) requested = TRANSPORT_ADAPTIVE;
     else { usage(argv[0]); return 2; }
 
+    size_t threshold = DEFAULT_THRESHOLD;
+    const char *threshold_env = getenv("AIPC_THRESHOLD");
+    if (threshold_env != NULL) {
+        char *end = NULL;
+        unsigned long long parsed;
+        errno = 0;
+        if (threshold_env[0] == '-' || threshold_env[0] == '\0') {
+            fprintf(stderr, "Invalid AIPC_THRESHOLD value\n");
+            return 2;
+        }
+        parsed = strtoull(threshold_env, &end, 10);
+        if (errno != 0 || end == threshold_env || *end != '\0' || parsed > SIZE_MAX) {
+            fprintf(stderr, "Invalid AIPC_THRESHOLD value\n");
+            return 2;
+        }
+        threshold = (size_t)parsed;
+    }
+
     selected = requested == TRANSPORT_ADAPTIVE
-        ? select_transport(size, DEFAULT_THRESHOLD) : requested;
+        ? select_transport(size, threshold) : requested;
 
     printf("Requested mode: %s\n", transport_name(requested));
     printf("Selected transport: %s\n", transport_name(selected));
