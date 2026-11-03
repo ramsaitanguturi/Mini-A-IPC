@@ -6,6 +6,7 @@ const char *transport_name(transport_t transport)
     case TRANSPORT_PIPE: return "pipe";
     case TRANSPORT_SHM: return "shm";
     case TRANSPORT_ADAPTIVE: return "adaptive";
+    case TRANSPORT_FIFO: return "fifo";
     default: return "unknown";
     }
 }

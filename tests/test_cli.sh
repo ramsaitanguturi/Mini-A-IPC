@@ -11,6 +11,25 @@ fail() { echo "FAIL: $1"; exit 1; }
 grep -q 'Validation errors: 0' /tmp/aipc_pipe.out || fail "pipe validation"
 pass "pipe round-trip"
 
+./mini-aipc --mode fifo --size 64 --count 100 >/tmp/aipc_fifo.out || fail "fifo correctness"
+grep -q 'Validation errors: 0' /tmp/aipc_fifo.out || fail "fifo validation"
+pass "fifo round-trip"
+
+./bin/ipc_fifo >/tmp/aipc_fifo_standalone.out || fail "standalone fifo default run"
+grep -q 'Validation errors: 0' /tmp/aipc_fifo_standalone.out || fail "standalone fifo validation"
+grep -q 'Response validated successfully' /tmp/aipc_fifo_standalone.out || fail "standalone fifo integrity"
+pass "standalone bin/ipc_fifo default demonstration"
+
+./bin/ipc_fifo --size 128 --count 50 >/tmp/aipc_fifo_standalone_sized.out || fail "standalone fifo with arguments"
+grep -q 'Validation errors: 0' /tmp/aipc_fifo_standalone_sized.out || fail "standalone fifo arguments validation"
+pass "standalone bin/ipc_fifo custom size and count"
+
+# Verify FIFO cleanup: no leftover FIFO files in /tmp
+if ls /tmp/mini_aipc_req_*.fifo /tmp/mini_aipc_resp_*.fifo >/dev/null 2>&1; then
+  fail "FIFO files were not cleaned up from /tmp"
+fi
+pass "fifo cleanup verified"
+
 ./mini-aipc --mode shm --size 64 --count 100 >/tmp/aipc_shm.out || fail "shared-memory correctness"
 grep -q 'Validation errors: 0' /tmp/aipc_shm.out || fail "shared-memory validation"
 pass "shared-memory round-trip"
@@ -27,11 +46,15 @@ pass "shared-memory rejects oversized payload"
 for args in \
   "--mode pipe --size 0 --count 1" \
   "--mode pipe --size 64 --count 0" \
+  "--mode fifo --size 0 --count 1" \
+  "--mode fifo --size 64 --count 0" \
   "--mode nope --size 64 --count 1" \
   "--mode pipe --size nope --count 1" \
   "--mode pipe --size -1 --count 1"; do
   if ./mini-aipc $args >/dev/null 2>&1; then fail "invalid arguments accepted: $args"; fi
 done
+if ./bin/ipc_fifo --size 0 --count 1 >/dev/null 2>&1; then fail "standalone fifo accepted size 0"; fi
+if ./bin/ipc_fifo --invalid >/dev/null 2>&1; then fail "standalone fifo accepted invalid option"; fi
 pass "invalid arguments rejected"
 
 # Child-exit fault injection verifies the parent returns rather than hanging
@@ -43,6 +66,14 @@ else
   [[ "$code" -ne 124 ]] || fail "parent hung after pipe child exit"
 fi
 pass "pipe child exit handled without SIGPIPE termination or hang"
+
+if timeout 5s env AIPC_TEST_CHILD_EXIT=fifo ./mini-aipc --mode fifo --size 64 --count 100 >/tmp/aipc_fifo_child_exit.out 2>&1; then
+  fail "fifo child-exit fault should fail"
+else
+  code=$?
+  [[ "$code" -ne 124 ]] || fail "parent hung after fifo child exit"
+fi
+pass "fifo child exit handled without hang"
 
 if timeout 5s env AIPC_TEST_CHILD_EXIT=shm ./mini-aipc --mode shm --size 64 --count 100 >/tmp/aipc_shm_child_exit.out 2>&1; then
   fail "shared-memory child-exit fault should fail"

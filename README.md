@@ -1,6 +1,13 @@
 # Mini A-IPC
 
-A small C/Linux IPC experiment for Ubuntu on WSL. It compares parent-child request/response exchanges using anonymous pipes and a bounded POSIX shared-memory mailbox, then adds a payload-size selector.
+A small C/Linux IPC experiment for Ubuntu on WSL. It supports four independent IPC mechanisms:
+
+1. **Anonymous Pipes** (`--mode pipe`)
+2. **Named Pipes / FIFOs** (`--mode fifo` and standalone `bin/ipc_fifo`)
+3. **POSIX Shared Memory** (`--mode shm`)
+4. **Kernel Character Device Mailbox** (`/dev/aipc` + `aipc-client`)
+
+It compares parent-child request/response exchanges using anonymous pipes, named pipes (FIFOs), and a bounded POSIX shared-memory mailbox, with a payload-size selector for pipe and shared memory.
 
 ## Build
 
@@ -11,12 +18,85 @@ make
 ## Run
 
 ```bash
+# Multi-mode CLI
 ./mini-aipc --mode pipe --size 64 --count 10000
+./mini-aipc --mode fifo --size 64 --count 10000
 ./mini-aipc --mode shm --size 64 --count 10000
 ./mini-aipc --mode adaptive --size 16384 --count 10000
+
+# Standalone FIFO executable
+./bin/ipc_fifo
+./bin/ipc_fifo --size 128 --count 1000
 ```
 
-The shared-memory mailbox supports payloads up to 1024 bytes. Adaptive mode selects shared memory for payloads up to 1024 bytes and pipes for larger payloads.
+The shared-memory mailbox supports payloads up to 1024 bytes. Adaptive mode selects shared memory for payloads up to 1024 bytes and pipes for larger payloads. FIFO operates as an independent transport.
+
+## Architecture
+
+```
+                               +-----------------------------+
+                               |     Mini A-IPC Suite        |
+                               +-----------------------------+
+                                              |
+                +-----------------------------+-----------------------------+
+                |                             |                             |
+                v                             v                             v
+     +---------------------+       +---------------------+       +---------------------+
+     |   Anonymous Pipes   |       |  Named Pipes (FIFO) |       | POSIX Shared Memory |
+     |    (ipc_pipe.c)     |       |    (ipc_fifo.c)     |       |     (ipc_shm.c)     |
+     +---------------------+       +---------------------+       +---------------------+
+                ^                             |                             ^
+                |                             v                             |
+                |               +---------------------------+               |
+                |               |   Standalone Executable   |               |
+                |               |       bin/ipc_fifo        |               |
+                |               +---------------------------+               |
+                |                                                           |
+                +----------------------+             +----------------------+
+                                       |             |
+                                       v             v
+                                 +-------------------------+
+                                 |  Adaptive IPC Selector  |
+                                 |  (size <= threshold)    |
+                                 +-------------------------+
+
+                          Independent Kernel Module Transport:
+                               +-------------------------+
+                               |   Kernel Mailbox LKM    |
+                               |  /dev/aipc (char dev)   |
+                               +-------------------------+
+```
+
+## FIFO (Named Pipe) IPC
+
+### What is a FIFO?
+A FIFO (First-In, First-Out) is a unidirectional IPC channel that transfers bytes between processes in sequential order.
+
+### Why is it called a named pipe?
+Unlike standard anonymous pipes that exist only in memory without names, a FIFO is associated with a specific file path on the filesystem (e.g. `/tmp/mini_aipc_req_<pid>.fifo`). Any process that knows this filename and possesses appropriate permissions can access it using standard file operations (`open`, `read`, `write`, `close`).
+
+### Difference between anonymous pipes and FIFOs
+- **Anonymous Pipes (`pipe`):** Ephemeral and restricted to processes with shared ancestry (e.g. parent and child processes inheriting descriptors through `fork()`). They vanish as soon as descriptors are closed.
+- **Named Pipes (`mkfifo`):** Visible in the filesystem directory structure. Any unrelated processes can open them by pathname. They persist in the filesystem until explicitly removed via `unlink()`.
+
+### How `mkfifo()` works
+The `mkfifo()` system call creates a filesystem node of type `S_IFIFO` with specified permission bits (e.g. `0666`). It creates the directory entry and inode without consuming data blocks on the disk; message data flows strictly through kernel memory buffers.
+
+### Parent-child communication using two FIFO files
+Because a FIFO is unidirectional, bidirectional request-response communication requires two distinct FIFO files to prevent race conditions:
+1. `req_fifo`: Parent writes requests; child reads requests.
+2. `resp_fifo`: Child writes responses; parent reads responses.
+
+To avoid deadlock, both processes follow a strict rendezvous sequence:
+- Child opens `req_fifo` for reading (`O_RDONLY`), then `resp_fifo` for writing (`O_WRONLY`).
+- Parent opens `req_fifo` for writing (`O_WRONLY`), then `resp_fifo` for reading (`O_RDONLY`).
+- Both rendezvous on `req_fifo` first, then on `resp_fifo` second, eliminating deadlock risk.
+- Upon completion or failure, the parent unlinks both FIFO files.
+
+### Advantages and limitations
+- **Advantages:** Standard file descriptor semantics, inspectable from shell commands (`cat`, `echo`), accessible across unrelated processes, automatic synchronization via blocking `open()`.
+- **Limitations:** Requires filesystem cleanup (`unlink()`), incurs kernel context switching and data copy overhead compared to zero-copy shared memory.
+- **Selector status:** FIFO is implemented as an independent IPC mechanism and standalone utility (`bin/ipc_fifo`); the dual-transport adaptive selector focuses on shared memory vs. anonymous pipes. Detailed explanation and viva questions are available in [`docs/FIFO_EXPLANATION.md`](docs/FIFO_EXPLANATION.md).
 
 ## Important limitation
 

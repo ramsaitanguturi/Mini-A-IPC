@@ -12,6 +12,14 @@ Two anonymous pipes are used because a conventional pipe is unidirectional:
 
 `read_all` and `write_all` handle partial transfers and interruptions.
 
+### FIFO (Named Pipe) mode
+
+Two named pipes (FIFOs) created in `/tmp` via `mkfifo()` are used for bidirectional communication:
+- request FIFO: parent writes requests, child reads requests
+- response FIFO: child writes responses, parent reads responses
+
+Processes open the FIFOs in a fixed, symmetrical order (parent opens request WR then response RD; child opens request RD then response WR) to eliminate deadlock. Both FIFO special files are unlinked from the filesystem on success and on error. A standalone executable (`bin/ipc_fifo`) provides a dedicated demonstration and benchmarking tool.
+
 ### Shared-memory mode
 
 A POSIX shared-memory object is created with `shm_open`, sized with `ftruncate`, and mapped with `mmap(MAP_SHARED)`. Four process-shared semaphores coordinate request and response slot ownership. The mailbox is limited to 1024-byte payloads.

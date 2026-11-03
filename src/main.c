@@ -9,12 +9,13 @@
 static void usage(const char *program)
 {
     fprintf(stderr,
-        "Usage: %s --mode pipe|shm|adaptive --size BYTES --count N\n"
+        "Usage: %s --mode pipe|shm|fifo|adaptive --size BYTES --count N\n"
         "Examples:\n"
         "  %s --mode pipe --size 64 --count 10000\n"
         "  %s --mode shm --size 64 --count 10000\n"
+        "  %s --mode fifo --size 64 --count 10000\n"
         "  %s --mode adaptive --size 16384 --count 10000\n",
-        program, program, program, program);
+        program, program, program, program, program);
 }
 
 static int parse_size(const char *s, size_t *out)
@@ -51,6 +52,7 @@ int main(int argc, char **argv)
 
     if (strcmp(mode, "pipe") == 0) requested = TRANSPORT_PIPE;
     else if (strcmp(mode, "shm") == 0) requested = TRANSPORT_SHM;
+    else if (strcmp(mode, "fifo") == 0) requested = TRANSPORT_FIFO;
     else if (strcmp(mode, "adaptive") == 0) requested = TRANSPORT_ADAPTIVE;
     else { usage(argv[0]); return 2; }
 
@@ -81,6 +83,8 @@ int main(int argc, char **argv)
 
     if (selected == TRANSPORT_SHM)
         rc = ipc_shm_run(size, count, &elapsed_ns, &errors);
+    else if (selected == TRANSPORT_FIFO)
+        rc = ipc_fifo_run(size, count, &elapsed_ns, &errors);
     else
         rc = ipc_pipe_run(size, count, &elapsed_ns, &errors);
 
