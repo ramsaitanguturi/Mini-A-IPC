@@ -77,6 +77,8 @@ def test_kernel_module():
     assert 'aipc->shutdown = true;' in src, 'Missing shutdown assertion in aipc_exit'
     assert 'READ_ONCE(aipc->shutdown)' in src, 'Missing shutdown checks in wait queues'
     assert 'class_create' in src, 'class_create missing'
+    assert 'noop_llseek' in src, 'noop_llseek missing for modern kernel compatibility'
+    assert 'no_llseek,' not in src, 'Deprecated no_llseek should not be used'
 
 run_test('Kernel module compiles with correct version header and safe shutdown', test_kernel_module)
 

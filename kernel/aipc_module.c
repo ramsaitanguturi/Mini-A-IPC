@@ -180,7 +180,7 @@ static const struct file_operations aipc_fops = {
     .read = aipc_read,
     .write = aipc_write,
     .poll = aipc_poll,
-    .llseek = no_llseek,
+    .llseek = noop_llseek,
 };
 
 static int __init aipc_init(void)

@@ -20,6 +20,7 @@ This document tracks all identified bugs, edge-case failures, synchronization fl
 | **BUG-10** | Benchmark Script | [`bench/benchmark_kernel_mailbox.py:63-68`](bench/benchmark_kernel_mailbox.py#L63-L68) | **Medium** | Fragile `sleep(0.02)` synchronization and missing subprocess timeouts | **Fixed & Verified** |
 | **BUG-11** | Shared Memory | [`src/ipc_shm.c:130-135`](src/ipc_shm.c#L130-L135) | **Low** | Semaphore protocol inversion (writes response before `response_empty` wait) | **Fixed & Verified** |
 | **BUG-12** | Documentation | [`docs/FIFO_EXPLANATION.md:145`](docs/FIFO_EXPLANATION.md#L145) | **Low** | Leaked workstation absolute path (`c:/Users/ramsa/...`) | **Fixed & Verified** |
+| **BUG-13** | Kernel Module | [`kernel/aipc_module.c:183`](kernel/aipc_module.c#L183) | **Critical** | `no_llseek` removed in modern Linux kernels (6.12+), breaking build | **Fixed & Verified** |
 
 ---
 
@@ -130,3 +131,10 @@ This verifies:
 - **Flaw:** Hardcoded `file:///c:/Users/ramsa/...` absolute workstation path.
 - **Fix:** Changed to relative markdown link [`src/ipc_fifo.c`](../src/ipc_fifo.c).
 - **Verification:** Verified file link points to relative repository path.
+
+### BUG-13: `no_llseek` Undeclared on Modern Linux Kernels (6.12+)
+- **File:** `kernel/aipc_module.c`
+- **Severity:** Critical
+- **Flaw:** Starting in Linux 6.12, the VFS stub `no_llseek` was completely removed from `<linux/fs.h>`. Compiling the module on modern distributions (such as Fedora with 6.12+ or 7.x kernels) failed with `error: 'no_llseek' undeclared here; did you mean 'noop_llseek'?`.
+- **Fix:** Replaced `.llseek = no_llseek` with `.llseek = noop_llseek` (supported since Linux 2.6.37).
+- **Verification:** Verified compatibility and clean file operations table definition.
