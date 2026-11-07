@@ -127,12 +127,12 @@ int ipc_shm_run(size_t payload_size, size_t count,
             if (box->request_length == 0 ||
                 box->request_length > SHM_MAX_PAYLOAD) _exit(5);
 
+            if (sem_wait_retry(&box->response_empty) < 0) _exit(7);
             memcpy(box->response, box->request, box->request_length);
             box->response_length = box->request_length;
 
             /* Release request slot, then publish response. */
             if (sem_post(&box->request_empty) < 0) _exit(6);
-            if (sem_wait_retry(&box->response_empty) < 0) _exit(7);
             if (sem_post(&box->response_full) < 0) _exit(8);
         }
         _exit(0);

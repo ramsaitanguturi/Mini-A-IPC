@@ -61,11 +61,17 @@ def main():
             total = payload * args.messages
             for trial in range(1, args.trials + 1):
                 consumer = subprocess.Popen([sys.executable, '-c', CONSUMER, args.device, str(total)])
-                time.sleep(0.02)  # allow consumer to open and block on an empty mailbox
+                time.sleep(0.05)  # allow consumer to open and block on an empty mailbox
                 start = time.perf_counter_ns()
-                producer = subprocess.run([sys.executable, '-c', PRODUCER, args.device, str(total), str(payload)], check=False)
-                producer_rc = producer.returncode
-                consumer_rc = consumer.wait()
+                try:
+                    producer = subprocess.run([sys.executable, '-c', PRODUCER, args.device, str(total), str(payload)],
+                                              check=False, timeout=30)
+                    producer_rc = producer.returncode
+                    consumer_rc = consumer.wait(timeout=30)
+                except subprocess.TimeoutExpired:
+                    consumer.kill()
+                    consumer.wait()
+                    raise SystemExit(f'FAIL: payload={payload}, trial={trial} timed out')
                 elapsed_ns = time.perf_counter_ns() - start
                 if producer_rc or consumer_rc:
                     raise SystemExit(f'FAIL: payload={payload}, trial={trial}, producer={producer_rc}, consumer={consumer_rc}')

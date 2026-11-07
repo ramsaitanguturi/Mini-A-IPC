@@ -165,7 +165,7 @@ sems = 4;
             size_t n = sizes[i];
             if (strcmp(policy, "adaptive") == 0 && n <= threshold && n <= SHM_MAX_PAYLOAD) {
                 unsigned char expected[SHM_MAX_PAYLOAD];
-                if (wait_sem_monitor(&box->full_req, &child, &child_reaped) < 0) _exit(21);
+                if (wait_sem(&box->full_req) < 0) _exit(21);
                 if (box->request_length != n) _exit(22);
                 fill_payload(expected, n, i);
                 /* The consumer independently validates before acknowledging. */
@@ -244,6 +244,19 @@ cleanup:
     return result;
 }
 
+static int parse_size(const char *s, size_t *out)
+{
+    char *end = NULL;
+    unsigned long long v;
+    if (s[0] == '-') return -1;
+    errno = 0;
+    v = strtoull(s, &end, 10);
+    if (errno || !s[0] || !end || *end != '\0' || v > SIZE_MAX)
+        return -1;
+    *out = (size_t)v;
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     const char *policy = NULL;
@@ -252,12 +265,22 @@ int main(int argc, char **argv)
     uint64_t elapsed = 0;
     for (i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "--policy") && i + 1 < argc) policy = argv[++i];
-        else if (!strcmp(argv[i], "--count") && i + 1 < argc) count = (size_t)strtoull(argv[++i], NULL, 10);
-        else if (!strcmp(argv[i], "--threshold") && i + 1 < argc) threshold = (size_t)strtoull(argv[++i], NULL, 10);
+        else if (!strcmp(argv[i], "--count") && i + 1 < argc) {
+            if (parse_size(argv[++i], &count) < 0) {
+                fprintf(stderr, "Invalid count value\n");
+                return 2;
+            }
+        }
+        else if (!strcmp(argv[i], "--threshold") && i + 1 < argc) {
+            if (parse_size(argv[++i], &threshold) < 0) {
+                fprintf(stderr, "Invalid threshold value\n");
+                return 2;
+            }
+        }
         else { fprintf(stderr, "Usage: %s --policy pipe|adaptive [--count N] [--threshold BYTES]\n", argv[0]); return 2; }
     }
     if (!policy || (strcmp(policy,"pipe") && strcmp(policy,"adaptive")) || !count || count % 5 != 0) {
-        fprintf(stderr, "Policy must be pipe|adaptive and count must be a positive multiple of 5\\n");
+        fprintf(stderr, "Policy must be pipe|adaptive and count must be a positive multiple of 5\n");
         return 2;
     }
     if (run_mixed(policy, count, threshold, &elapsed, &errors, &small, &large) < 0) {

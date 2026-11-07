@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /* Mini A-IPC: bounded kernel-space byte-stream mailbox for Linux. */
+#include <linux/version.h>
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/fs.h>
@@ -32,6 +33,7 @@ struct aipc_device {
     struct mutex lock;
     wait_queue_head_t readers;
     wait_queue_head_t writers;
+    bool shutdown;
 };
 
 static struct aipc_device *aipc;
@@ -72,6 +74,11 @@ static ssize_t aipc_read(struct file *file, char __user *out, size_t count, loff
 
     for (;;) {
         if (mutex_lock_interruptible(&aipc->lock)) { ret = -ERESTARTSYS; goto out; }
+        if (READ_ONCE(aipc->shutdown)) {
+            mutex_unlock(&aipc->lock);
+            ret = -EPIPE;
+            goto out;
+        }
         if (aipc->used) {
             n = min(count, aipc->used);
             n = min(n, aipc->capacity);
@@ -102,8 +109,9 @@ static ssize_t aipc_read(struct file *file, char __user *out, size_t count, loff
         }
         mutex_unlock(&aipc->lock);
         if (file->f_flags & O_NONBLOCK) { ret = -EAGAIN; goto out; }
-        ret = wait_event_interruptible(aipc->readers, READ_ONCE(aipc->used) > 0);
+        ret = wait_event_interruptible(aipc->readers, READ_ONCE(aipc->shutdown) || READ_ONCE(aipc->used) > 0);
         if (ret) { ret = -ERESTARTSYS; goto out; }
+        if (READ_ONCE(aipc->shutdown)) { ret = -EPIPE; goto out; }
     }
 out:
     kfree(tmp);
@@ -126,6 +134,11 @@ static ssize_t aipc_write(struct file *file, const char __user *in, size_t count
         if (copy_from_user(tmp, in + done, chunk)) { ret = done ? (ssize_t)done : -EFAULT; goto out; }
         for (;;) {
             if (mutex_lock_interruptible(&aipc->lock)) { ret = done ? (ssize_t)done : -ERESTARTSYS; goto out; }
+            if (READ_ONCE(aipc->shutdown)) {
+                mutex_unlock(&aipc->lock);
+                ret = done ? (ssize_t)done : -EPIPE;
+                goto out;
+            }
             if (aipc->capacity > aipc->used) {
                 size_t n = min(chunk, aipc->capacity - aipc->used);
                 ring_write(aipc, tmp, n);
@@ -136,8 +149,9 @@ static ssize_t aipc_write(struct file *file, const char __user *in, size_t count
             }
             mutex_unlock(&aipc->lock);
             if (file->f_flags & O_NONBLOCK) { ret = done ? (ssize_t)done : -EAGAIN; goto out; }
-            ret = wait_event_interruptible(aipc->writers, READ_ONCE(aipc->used) < aipc->capacity);
+            ret = wait_event_interruptible(aipc->writers, READ_ONCE(aipc->shutdown) || READ_ONCE(aipc->used) < aipc->capacity);
             if (ret) { ret = done ? (ssize_t)done : -ERESTARTSYS; goto out; }
+            if (READ_ONCE(aipc->shutdown)) { ret = done ? (ssize_t)done : -EPIPE; goto out; }
         }
     }
     ret = (ssize_t)done;
@@ -150,8 +164,10 @@ static __poll_t aipc_poll(struct file *file, poll_table *wait)
 {
     __poll_t mask = 0;
     (void)file;
+    if (READ_ONCE(aipc->shutdown)) return EPOLLHUP | EPOLLERR;
     poll_wait(file, &aipc->readers, wait);
     poll_wait(file, &aipc->writers, wait);
+    if (READ_ONCE(aipc->shutdown)) return EPOLLHUP | EPOLLERR;
     if (READ_ONCE(aipc->used) > 0) mask |= EPOLLIN | EPOLLRDNORM;
     if (READ_ONCE(aipc->used) < aipc->capacity) mask |= EPOLLOUT | EPOLLWRNORM;
     return mask;
@@ -218,8 +234,13 @@ static void __exit aipc_exit(void)
     class_destroy(aipc->class);
     cdev_del(&aipc->cdev);
     unregister_chrdev_region(aipc->devno, 1);
+
+    mutex_lock(&aipc->lock);
+    aipc->shutdown = true;
+    mutex_unlock(&aipc->lock);
     wake_up_interruptible_all(&aipc->readers);
     wake_up_interruptible_all(&aipc->writers);
+
     kfree(aipc->buffer);
     kfree(aipc);
     aipc = NULL;

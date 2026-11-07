@@ -12,5 +12,6 @@ for ((i=1; i<=ITERATIONS; i++)); do
   [[ ! -e /sys/class/aipc/aipc ]] || { echo "FAIL: sysfs device remains after unload" >&2; exit 1; }
   echo "PASS: load/unload iteration $i/$ITERATIONS"
 done
+mkdir -p "$ROOT/results"
 dmesg | tail -n 100 > "$ROOT/results/kernel-load-unload-dmesg.txt"
 echo "Saved recent kernel log to results/kernel-load-unload-dmesg.txt; review for warnings."

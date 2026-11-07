@@ -142,7 +142,7 @@ To achieve reliable bidirectional request-response communication:
 
 ## 10. Code Walkthrough: `src/ipc_fifo.c`
 
-Here is an explanation of every function in [src/ipc_fifo.c](file:///c:/Users/ramsa/Desktop/mini-aipc/src/ipc_fifo.c):
+Here is an explanation of every function in [`src/ipc_fifo.c`](../src/ipc_fifo.c):
 
 ### 1. `write_all(int fd, const void *buffer, size_t length)`
 - Loops over `write()` until all `length` bytes are transmitted.

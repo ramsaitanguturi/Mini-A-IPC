@@ -28,6 +28,7 @@ print("PASS: empty nonblocking read returns EAGAIN")
 PY
 
 # A separate reader process and writer process demonstrate inter-process IPC.
+mkdir -p "$ROOT/results"
 msg="producer-consumer-$(date +%s%N)-$$"
 expected="$ROOT/results/kernel-consumer.expected"
 actual="$ROOT/results/kernel-consumer.actual"

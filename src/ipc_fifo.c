@@ -92,8 +92,8 @@ int ipc_fifo_run(size_t payload_size, size_t count,
     unlink(req_fifo);
     unlink(resp_fifo);
 
-    /* Create the two named pipes */
-    if (mkfifo(req_fifo, 0666) < 0 || mkfifo(resp_fifo, 0666) < 0)
+    /* Create the two named pipes with user-only permissions */
+    if (mkfifo(req_fifo, 0600) < 0 || mkfifo(resp_fifo, 0600) < 0)
         goto fail;
 
     /* Ignore SIGPIPE so write errors return EPIPE instead of terminating */
@@ -217,6 +217,19 @@ fail:
 }
 
 #ifdef IPC_FIFO_STANDALONE
+static int parse_fifo_size(const char *s, size_t *out)
+{
+    char *end = NULL;
+    unsigned long long v;
+    if (s[0] == '-') return -1;
+    errno = 0;
+    v = strtoull(s, &end, 10);
+    if (errno || !s[0] || !end || *end != '\0' || v == 0 || v > SIZE_MAX)
+        return -1;
+    *out = (size_t)v;
+    return 0;
+}
+
 uint64_t monotonic_ns(void)
 {
     struct timespec ts;
@@ -234,14 +247,10 @@ int main(int argc, char **argv)
     if (argc == 1) {
         printf("=== Mini A-IPC: Standalone FIFO (Named Pipe) Demonstration ===\n");
     } else if (argc == 5 && strcmp(argv[1], "--size") == 0 && strcmp(argv[3], "--count") == 0) {
-        long s = atol(argv[2]);
-        long c = atol(argv[4]);
-        if (s <= 0 || c <= 0) {
+        if (parse_fifo_size(argv[2], &size) < 0 || parse_fifo_size(argv[4], &count) < 0) {
             fprintf(stderr, "Error: size and count must be positive integers\n");
             return 2;
         }
-        size = (size_t)s;
-        count = (size_t)c;
     } else {
         fprintf(stderr, "Usage: %s [--size BYTES --count N]\n", argv[0]);
         return 2;
