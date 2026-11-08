@@ -52,11 +52,11 @@ The paper highlights the following key experimental requirements for high-perfor
 | Metric | Formula / Calculation | Significance in HPC Scenarios |
 |---|---|---|
 | **Average Latency (RTT)** | `\frac{\sum_{i=1}^N \Delta t_i}{N}` | Overall baseline communication delay. |
-| **Median Latency (P50)** | Sample at rank `\lfloor 0.50 \times N \rfloor` | Typical latency unaffected by infrequent extreme spikes. |
-| **99th Percentile (P99)** | Sample at rank `\lfloor 0.99 \times N \rfloor` | Tail latency experienced by 1 in 100 messages; critical for SLA guarantees. |
-| **99.9th Percentile (P99.9)**| Sample at rank `\lfloor 0.999 \times N \rfloor` | Extreme tail latency, reflecting scheduler preemption or interrupt interference. |
-| **Minimum Latency (Min)** | `\min_i (\Delta t_i)` | Hardware limit when caches are warm and no context switches intervene. |
-| **Maximum Latency (Max)** | `\max_i (\Delta t_i)` | Worst-case round-trip delay observed during the trial. |
+| **Median Latency (P50)** | Odd $N$: `\text{samples}[N / 2]`; Even $N$: `\frac{\text{samples}[N / 2 - 1] + \text{samples}[N / 2]}{2.0}` | Conventional median unaffected by infrequent extreme spikes. |
+| **99th Percentile (P99)** | Nearest rank `k = \lceil 0.99 \times N \rceil`, index `= k - 1` | Tail latency experienced by 1 in 100 messages; critical for SLA guarantees. |
+| **99.9th Percentile (P99.9)**| Nearest rank `k = \lceil 0.999 \times N \rceil`, index `= k - 1` (max for $N < 1000$) | Extreme tail latency, reflecting scheduler preemption or interrupt interference. |
+| **Minimum Latency (Min)** | `\min_i (\Delta t_i) = \text{samples}[0]` | Hardware limit when caches are warm and no context switches intervene. |
+| **Maximum Latency (Max)** | `\max_i (\Delta t_i) = \text{samples}[N - 1]` | Worst-case round-trip delay observed during the trial. |
 | **Throughput** | `\frac{N}{\text{Total Elapsed Time}}` (msg/s) | Message-processing capacity under continuous load. |
 
 ---

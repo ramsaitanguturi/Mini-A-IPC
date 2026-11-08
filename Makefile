@@ -1,6 +1,6 @@
 CC := gcc
 CFLAGS := -std=c11 -D_POSIX_C_SOURCE=200809L -D_GNU_SOURCE -Wall -Wextra -Wpedantic -O2 -Iinclude
-LDFLAGS := -pthread -lrt
+LDFLAGS := -pthread -lrt -lm
 TARGET := mini-aipc
 MIXED_TARGET := mini-aipc-mixed
 AIPC_CLIENT := aipc-client
@@ -39,7 +39,7 @@ kernel-bench:
 	python3 ./bench/benchmark_kernel_mailbox.py
 
 clean:
-	rm -rf $(TARGET) $(MIXED_TARGET) $(AIPC_CLIENT) bin results/benchmark.csv results/calibration.csv results/threshold.txt results/mixed_workload.csv results/environment.txt results/comparative_benchmark.csv results/syscall_benchmark.csv
+	rm -rf $(TARGET) $(MIXED_TARGET) $(AIPC_CLIENT) bin results/benchmark.csv results/calibration.csv results/threshold.txt results/mixed_workload.csv
 
 test: all
 	bash ./tests/test_cli.sh

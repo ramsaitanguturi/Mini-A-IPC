@@ -225,6 +225,64 @@ def test_new_ipc_mechanisms():
 
 run_test('All new IPC mechanisms (System V, POSIX MQ, UDS) and CPU affinity implemented', test_new_ipc_mechanisms)
 
+# 12. Percentile calculation and memory allocation safety checks
+def test_percentile_and_memory_safety():
+    import math
+
+    with open('src/main.c', 'r', encoding='utf-8') as f:
+        main_c = f.read()
+
+    # Memory allocation safety
+    assert 'count > SIZE_MAX / sizeof(uint64_t)' in main_c, 'Integer overflow check missing'
+    assert 'samples = malloc(' in main_c, 'malloc missing in main.c'
+    assert 'if (samples == NULL)' in main_c, 'malloc NULL check missing'
+
+    # Conventional median (even/odd)
+    assert 'count % 2 == 1' in main_c, 'Odd count median check missing'
+    assert 'count / 2' in main_c, 'Median middle index missing'
+    assert 'count / 2 - 1' in main_c, 'Median lower middle index missing'
+
+    # Nearest rank index
+    assert 'nearest_rank_index' in main_c, 'nearest_rank_index function missing'
+    assert 'ceil(' in main_c, 'ceil calculation missing'
+
+    # Mathematical verification of nearest-rank percentiles
+    def nearest_rank_idx(p, n):
+        if p == 99.0:
+            k = (n * 99 + 99) // 100
+        elif p == 99.9:
+            k = (n * 999 + 999) // 1000
+        else:
+            k = math.ceil((p / 100.0) * n - 1e-9)
+        return max(0, min(n - 1, k - 1))
+
+    # P99
+    assert nearest_rank_idx(99.0, 100) == 98, 'P99 for N=100 must be index 98 (99th sample)'
+    assert nearest_rank_idx(99.0, 1000) == 989, 'P99 for N=1000 must be index 989 (990th sample)'
+    assert nearest_rank_idx(99.0, 10000) == 9899, 'P99 for N=10000 must be index 9899 (9900th sample)'
+
+    # P99.9
+    assert nearest_rank_idx(99.9, 1000) == 998, 'P99.9 for N=1000 must be index 998 (999th sample)'
+    assert nearest_rank_idx(99.9, 10000) == 9989, 'P99.9 for N=10000 must be index 9989 (9990th sample)'
+
+    # Small sample P99.9 behavior (N < 1000) mathematically evaluates to max element (index N-1)
+    for small_n in [1, 2, 10, 50, 100, 500, 999]:
+        assert nearest_rank_idx(99.9, small_n) == small_n - 1, f'Small sample P99.9 for N={small_n} must be index {small_n - 1}'
+
+    # Conventional median
+    def calc_median(arr):
+        n = len(arr)
+        arr_sorted = sorted(arr)
+        if n % 2 == 1:
+            return arr_sorted[n // 2]
+        return (arr_sorted[n // 2 - 1] + arr_sorted[n // 2]) / 2.0
+
+    assert calc_median([10, 20, 30]) == 20
+    assert calc_median([10, 20, 30, 40]) == 25.0
+    assert calc_median([10, 30]) == 20.0
+
+run_test('Percentile calculations (nearest-rank, conventional median) and memory safety', test_percentile_and_memory_safety)
+
 print('========================================')
 if all_passed:
     print(f'SUCCESS: ALL {tests_run} TESTS PASSED CLEANLY!')

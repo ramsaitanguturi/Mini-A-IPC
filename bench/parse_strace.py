@@ -17,12 +17,15 @@ def parse_strace(filename, mechanism, payload_bytes, exchanges):
             # Check if this line has 6 columns (has errors column) or 5 columns (no errors)
             # Format with errors: [%time, seconds, usecs/call, calls, errors, syscall_name]
             # Format without errors: [%time, seconds, usecs/call, calls, syscall_name]
-            name = parts[-1]
-            if len(parts) >= 6:
-                cnt = int(parts[-3])
-            elif len(parts) == 5:
-                cnt = int(parts[-2])
-            else:
+            try:
+                name = parts[-1]
+                if len(parts) >= 6:
+                    cnt = int(parts[-3])
+                elif len(parts) == 5:
+                    cnt = int(parts[-2])
+                else:
+                    continue
+            except (ValueError, IndexError):
                 continue
 
             if name == "total":

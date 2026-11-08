@@ -107,7 +107,8 @@ for args in \
   "--mode pipe --size nope --count 1" \
   "--mode pipe --size -1 --count 1" \
   "--mode pipe --size 64 --count 1 --cpu-producer -5" \
-  "--mode pipe --size 64 --count 1 --trial 0"; do
+  "--mode pipe --size 64 --count 1 --trial 0" \
+  "--mode pipe --size 64 --count 18446744073709551615"; do
   if ./mini-aipc $args >/dev/null 2>&1; then fail "invalid arguments accepted: $args"; fi
 done
 if ./bin/ipc_fifo --size 0 --count 1 >/dev/null 2>&1; then fail "standalone fifo accepted size 0"; fi

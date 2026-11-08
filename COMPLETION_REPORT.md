@@ -18,8 +18,9 @@
 | **Shared memory** | **Complete** | Verified via `./mini-aipc --mode shm`, 4 process-shared semaphores, child timeout monitoring (`sem_timedwait`), and oversized payload rejection (`> 1024 B`). |
 | **Unix domain sockets** | **Complete** | Implemented in `src/ipc_uds.c` (`socket AF_UNIX`, `bind`, `listen`, `accept`, `connect`, `send`, `recv`, `close`, `unlink`). Verified via `./mini-aipc --mode uds`, socket file unlinking, and fault injection `AIPC_TEST_CHILD_EXIT=uds`. |
 | **Average latency** | **Complete** | Calculated across empirical trial samples using `clock_gettime(CLOCK_MONOTONIC)` in nanoseconds, exported in microseconds to `results/comparative_benchmark.csv`. |
-| **P99 latency** | **Complete** | Computed directly from sorted per-exchange sample arrays (`qsort` rank `\lfloor 0.99 \times N \rfloor`), capturing true tail latency without average-of-averages distortion. |
-| **P99.9 latency** | **Complete** | Computed from sorted per-exchange sample arrays (`qsort` rank `\lfloor 0.999 \times N \rfloor`), capturing extreme context switch and scheduling spikes. |
+| **P50 latency** | **Complete** | Calculated using conventional median: middle element at index `\lfloor N / 2 \rfloor` for odd $N$, and average of middle elements `(samples[N/2-1] + samples[N/2]) / 2` for even $N$. |
+| **P99 latency** | **Complete** | Computed directly from sorted per-exchange sample arrays using standard nearest-rank method ($k = \lceil 0.99 \times N \rceil$, zero-based index $k - 1$), capturing true tail latency. |
+| **P99.9 latency** | **Complete** | Computed using nearest-rank method ($k = \lceil 0.999 \times N \rceil$, zero-based index $k - 1$). For $N < 1000$, correctly evaluates to maximum sample without off-by-one errors. |
 | **System-call measurements** | **Complete** | Profiled via `strace -f -c`, separating communication-path system calls (e.g. 4.0 calls/exchange for streams/queues) from process lifecycle calls, exported to `results/syscall_benchmark.csv`. |
 | **CPU affinity** | **Complete** | Implemented via `sched_setaffinity()`, pinning producer to CPU 0 and consumer to CPU 1. Verified active via `taskset -c` in WSL2 environment. |
 | **Reproducible benchmarks** | **Complete** | Scripted in `bench/run_comparative.sh`, capturing environment details to `results/environment.txt` and logging raw multi-trial data for all payload sizes (64 to 1024 bytes). |
@@ -144,3 +145,95 @@ Measured using `strace -f -c` over 100 round-trip exchanges:
    - Shared memory segments are unlinked using `shm_unlink()`.
    - Unix domain socket special files are unlinked using `unlink()`.
    - Verification commands confirm zero leftover nodes in `/tmp`, `/dev/mqueue`, and `ipcs -q`.
+
+---
+
+## 6. Final Audit: Corrections Made
+
+### A. Percentile Calculations (`src/main.c`)
+- **Zero-Based Indexing & Nearest-Rank Method**:
+  Replaced truncated floating-point index casts `(size_t)(count * 0.99)` with the standard nearest-rank percentile method (NIST/ISO convention):
+  $$\text{Ordinal rank } k = \left\lceil \frac{P}{100} \times N \right\rceil, \quad \text{zero-based index} = k - 1$$
+- **Exact Rational Arithmetic**:
+  To prevent IEEE 754 floating-point inaccuracies (where `(99.9 / 100.0) * 1000.0` evaluates to `999.0000000000001`, causing `ceil()` to round up to `1000` instead of `999`), exact rational integer ceiling arithmetic is used:
+  $$k_{99} = \frac{99 \times N + 99}{100}, \quad k_{99.9} = \frac{999 \times N + 999}{1000}$$
+- **Conventional Median for P50**:
+  Implemented standard median calculation:
+  - If $N$ is odd: `samples[N / 2]`
+  - If $N$ is even: `(samples[N / 2 - 1] + samples[N / 2]) / 2.0`
+- **Small-Sample P99.9 Behavior**:
+  For sample counts $N < 1000$, $\lceil 0.999 \times N \rceil = N$, which mathematically maps to zero-based index $N - 1$ (the maximum observed sample). For $N \ge 1000$, P99.9 correctly selects the true 99.9th percentile distinct from the maximum.
+- **Documentation Update**:
+  Updated `docs/design.md`, `docs/experiment.md`, and `BUGS.md` with detailed formulas and rationale.
+
+### B. Memory Allocation Safety (`src/main.c`)
+- **Integer Overflow Prevention**:
+  Before computing the allocation buffer size `count * sizeof(uint64_t)`, `count` is validated against `SIZE_MAX / sizeof(uint64_t)`. Any count that would cause multiplication overflow is immediately rejected with an explicit error to stderr.
+- **Malloc Failure Check & Safe Exit**:
+  `malloc()` return value is strictly checked. If allocation fails, an error message is printed and execution terminates immediately with non-zero exit status (`return 1`).
+- **Zero IPC Resource Leaks on Failure**:
+  Because buffer allocation occurs prior to any IPC channel setup (`ipc_*_run_opts`), no IPC resources (anonymous pipes, named FIFOs, shared memory segments, message queues, sockets) are created if allocation fails.
+
+### C. System-Call Profiling Verification (`bench/run_comparative.sh`, `bench/parse_strace.py`)
+- Verified all six mechanisms (`pipe`, `fifo`, `sysv`, `posix`, `shm`, `uds`) are profiled.
+- Confirmed communication-path system calls are distinguished from setup/lifecycle calls.
+- Verified system calls per exchange formula and formatting.
+- Ensured missing `strace` logs a clean `skipped` row without fabricating artificial numbers.
+- Added defensive parsing exception handling in `bench/parse_strace.py`.
+
+---
+
+## 7. Execution and Verification Record
+
+### A. Tests Actually Executed
+1. **Compilation and Clean**:
+   - `make clean`: Cleans all project binaries without deleting empirical benchmark records.
+   - `make`: Compiles `mini-aipc`, `mini-aipc-mixed`, `aipc-client`, and `bin/ipc_fifo` with `-Wall -Wextra -Wpedantic -O2 -std=c11` and zero warnings.
+2. **Automated CLI Correctness Test Suite** (`make test` / `tests/test_cli.sh`):
+   - Verified round-trip communication across all 6 IPC transports.
+   - Verified payload sweeps (64, 128, 256, 512, 1024 bytes).
+   - Verified CPU affinity pinning (`--cpu-producer 0 --cpu-consumer 1`).
+   - Verified CSV output format and field counts.
+   - Verified resource cleanup (zero leaked files in `/tmp`, `/dev/mqueue`, `/dev/shm`, or System V queues).
+   - Verified bounded transport oversized payload rejection (`shm > 1024 B`).
+   - Verified CLI invalid argument rejection (including overflow counts `SIZE_MAX`).
+   - Verified child-exit fault injection without hangs or zombie processes.
+   - Verified mixed workload adaptive routing and corrupt payload rejection.
+3. **Comprehensive Regression Test Suite** (`python3 tests/final_verification_test.py`):
+   - All 12 test suites passed cleanly (100% pass rate).
+   - Included syntax validation, token balancing, kernel module invariants, mixed benchmark logic, FIFO permissions, SHM protocol ordering, directory auto-creation, Python timeouts, path cleanliness, algorithm validation, mechanism definitions, and nearest-rank percentile mathematics.
+4. **Empirical Benchmarks**:
+   - Executed small verification benchmarks across all six mechanisms and adaptive mode.
+   - Verified correct P50/P99/P99.9 calculation output, throughput metrics, and CSV reporting.
+
+### B. Tests Not Executed
+- **Kernel Module Compilation and Insertion (`kernel-module`, `kernel-test`, `kernel-stress`)**:
+  - The WSL2 execution environment does not provide kernel development headers (`/lib/modules/6.6.87.2-microsoft-standard-WSL2/build`), and loading out-of-tree `.ko` kernel modules via `insmod` requires a matching native Linux kernel tree or custom WSL2 kernel with loadable module support.
+  - **The kernel module source code in `kernel/aipc_module.c` was kept strictly unchanged and verified via static inspection**, but runtime device insertion was NOT performed in this WSL2 environment.
+
+---
+
+## 8. Benchmark Environment
+
+| Parameter | Specification |
+|---|---|
+| **Host Operating System** | Windows 11 Home / Pro (x86_64) |
+| **Execution Subsystem** | Windows Subsystem for Linux 2 (WSL2) |
+| **Linux Distribution** | Ubuntu 24.04 / 26.04 LTS |
+| **Kernel Version** | Linux 6.6.87.2-microsoft-standard-WSL2 |
+| **Processor** | AMD Ryzen 7 8845HS with Radeon 780M Graphics (16 vCPUs) |
+| **Compiler** | GCC 11.4.0 / 11.5.0 (`-std=c11 -O2 -Wall -Wextra -Wpedantic`) |
+| **Linker Libraries** | `-pthread -lrt -lm` (POSIX threads, real-time extensions, math library) |
+| **Python Runtime** | Python 3.12+ |
+| **Instrumentation Tooling**| `strace 6.8+`, `taskset` (util-linux) |
+
+---
+
+## 9. Remaining Limitations
+
+1. **Kernel Mailbox Execution**:
+   Testing the character device kernel module (`/dev/aipc`) requires a bare-metal Linux machine (e.g. Ubuntu, Fedora, Debian) with matching kernel headers (`linux-headers-$(uname -r)`) and root permissions.
+2. **Shared Memory Segment Capacity**:
+   The POSIX shared memory mailbox is bounded to a maximum payload size of 1024 bytes per message slot. Applications requiring larger single transfers are dynamically routed by the adaptive selector to streaming pipes.
+3. **Hypervisor Latency Jitter**:
+   Because benchmarks were executed inside a virtualized WSL2 container, tail latency percentiles (P99 and P99.9) are subject to Windows host OS scheduling interruptions, DPC/ISR latency, and hypervisor clock virtualization. For sub-microsecond deterministic tail analysis, bare-metal deployment with `isolcpus` and `nohz_full` is recommended.

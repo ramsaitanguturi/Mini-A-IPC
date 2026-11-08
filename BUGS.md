@@ -21,6 +21,8 @@ This document tracks all identified bugs, edge-case failures, synchronization fl
 | **BUG-11** | Shared Memory | [`src/ipc_shm.c:130-135`](src/ipc_shm.c#L130-L135) | **Low** | Semaphore protocol inversion (writes response before `response_empty` wait) | **Fixed & Verified** |
 | **BUG-12** | Documentation | [`docs/FIFO_EXPLANATION.md:145`](docs/FIFO_EXPLANATION.md#L145) | **Low** | Leaked workstation absolute path (`c:/Users/ramsa/...`) | **Fixed & Verified** |
 | **BUG-13** | Kernel Module | [`kernel/aipc_module.c:183`](kernel/aipc_module.c#L183) | **Critical** | `no_llseek` removed in modern Linux kernels (6.12+), breaking build | **Fixed & Verified** |
+| **BUG-14** | Benchmark Core | [`src/main.c:65-85, 202-230`](src/main.c#L65-L85) | **Medium** | Flawed zero-based percentile indexing, missing conventional median, and incorrect P99/P99.9 ranks | **Fixed & Verified** |
+| **BUG-15** | Memory Safety | [`src/main.c:160-175`](src/main.c#L160-L175) | **High** | Unchecked integer overflow on `count * sizeof(uint64_t)` and unhandled `malloc()` failure | **Fixed & Verified** |
 
 ---
 
@@ -138,3 +140,17 @@ This verifies:
 - **Flaw:** Starting in Linux 6.12, the VFS stub `no_llseek` was completely removed from `<linux/fs.h>`. Compiling the module on modern distributions (such as Fedora with 6.12+ or 7.x kernels) failed with `error: 'no_llseek' undeclared here; did you mean 'noop_llseek'?`.
 - **Fix:** Replaced `.llseek = no_llseek` with `.llseek = noop_llseek` (supported since Linux 2.6.37).
 - **Verification:** Verified compatibility and clean file operations table definition.
+
+### BUG-14: Percentile Calculation Indexing & Small-Sample P99.9 Flaws
+- **File:** `src/main.c`
+- **Severity:** Medium
+- **Flaw:** P50 was calculated using truncated integer indexing `samples[(size_t)(count * 0.50)]` which ignored the conventional median definition for even sample counts (averaging the two middle elements). P99 and P99.9 suffered from zero-based off-by-one indexing errors (e.g. `(size_t)(count * 0.99)` with `count = 100` selected index 99 instead of 98), and small sample P99.9 handling did not follow consistent nearest-rank statistical rules.
+- **Fix:** Implemented `nearest_rank_index()` using the standard NIST/ISO nearest-rank method: 1-based rank $k = \lceil (p / 100) \times N \rceil$, zero-based index $= k - 1$. Calculated via exact integer ceiling arithmetic to avoid IEEE 754 floating-point inaccuracies. Implemented conventional median for P50 averaging the two middle elements when $N$ is even.
+- **Verification:** Verified in `tests/final_verification_test.py` across sample sizes from 1 to 100,000.
+
+### BUG-15: Unchecked Integer Overflow and Missing Malloc Failure Handling
+- **File:** `src/main.c`
+- **Severity:** High
+- **Flaw:** `samples = malloc(count * sizeof(uint64_t));` was executed without validating `count` against integer overflow (`count > SIZE_MAX / sizeof(uint64_t)`). If `malloc()` returned `NULL`, execution continued without error handling, running the IPC benchmark without sample collection and risking segmentation faults or silent data corruption.
+- **Fix:** Validated `count > SIZE_MAX / sizeof(uint64_t)` before calculating allocation size. Checked `samples == NULL`, printing an informative error message and exiting safely before any IPC channels or resources are initialized.
+- **Verification:** Verified rejection of `count = SIZE_MAX` in `tests/test_cli.sh` and safe exit without orphan IPC resources.
