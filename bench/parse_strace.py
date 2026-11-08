@@ -10,6 +10,37 @@ Distinguishes:
 Supports both:
   - Detailed trace logs (strace -f -o) -> exact classification isolating fd 1/2 program output
   - Summary logs (strace -c) -> explicit "estimate" labeling when read/write cannot be separated
+
+Classification Architecture and Methodology:
+  - File Descriptor Inspection:
+    Extracts the numerical file descriptor from read/write syscall arguments.
+    Standard output (fd 1) and standard error (fd 2) are isolated as program output ('other').
+  - Dynamic Loader Segregation:
+    Reads matching ELF headers or library/config paths ('/usr/lib', '/etc/') are classified
+    as dynamic linker startup overhead ('other'), preventing them from inflating IPC counts.
+  - IPC Communication Identification:
+    For pipe and fifo, genuine IPC data exchanges occur across dynamically allocated descriptors
+    (fd >= 3), executing strictly 2 reads and 2 writes per request-response exchange (4.00 calls/exchange).
+    For Unix domain sockets, communication occurs via sendto/recvfrom or socket fd streams.
+    For shared memory, user-space memcpy transfers data without system calls; only futex transitions
+    are recorded as communication synchronization.
+
+Limitations of this Classification Model:
+  1. Absence of Full Stateful Inode/FD Table:
+     The parser does not maintain an exhaustive kernel-like descriptor table tracking pipe2,
+     openat, and socket return values across fork() and dup(). If an auxiliary file is opened
+     during runtime on fd >= 3 and read without an ELF or /etc/ signature, it could theoretically
+     be attributed to IPC stream communication.
+  2. Argument String Truncation:
+     Detailed strace logs with truncated argument buffers (e.g. -s default of 32 bytes) might cut off
+     library path signatures if not matched early in the buffer string.
+  3. Summary Mode Aggregation Loss:
+     When strace is run in summary mode (-c), kernel-level aggregation merges all read and write calls
+     regardless of descriptor. In this mode, descriptor disambiguation is mathematically impossible;
+     such results are explicitly classified as 'estimate' to maintain scientific rigor.
+  4. Asynchronous and Interrupted Calls:
+     Unfinished system calls (<unfinished ...> and <... resumed>) are reconstructed linearly per PID.
+     High-concurrency drops or signal interrupts could introduce minor attribution variance.
 """
 
 import sys

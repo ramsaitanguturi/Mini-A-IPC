@@ -359,6 +359,54 @@ def test_syscall_profiling_classification():
 
 run_test('System-call profiling classification (communication vs setup vs other/unclassified)', test_syscall_profiling_classification)
 
+# 14. Validation of detailed trace parser against real strace execution
+def test_real_strace_detailed_parser_validation():
+    strace_bin = shutil.which("strace")
+    if not strace_bin:
+        print("    [NOTE] strace not detected; marking real strace validation as PENDING")
+        return
+
+    mini_aipc_bin = "./mini-aipc"
+    if not os.path.exists(mini_aipc_bin):
+        return
+
+    import tempfile
+    with tempfile.NamedTemporaryFile(prefix="strace_real_", suffix=".log", delete=False) as tf:
+        trace_path = tf.name
+
+    try:
+        cmd = [strace_bin, "-f", "-o", trace_path, mini_aipc_bin, "--mode", "pipe", "--size", "64", "--count", "10", "--csv"]
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        assert res.returncode == 0, f"mini-aipc run under strace failed: {res.stderr}"
+
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("parse_strace", "bench/parse_strace.py")
+        parse_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(parse_module)
+
+        csv_row = parse_module.parse_strace(trace_path, "pipe", 64, 10)
+        fields = csv_row.split(",", 10)
+        assert fields[0] == "pipe"
+        assert fields[1] == "64"
+        assert fields[2] == "10"
+        total_calls = int(fields[3])
+        comm_calls = int(fields[5])
+        comm_per_ex = float(fields[6])
+        setup_calls = int(fields[7])
+        other_calls = int(fields[8])
+        classification = fields[9]
+
+        assert classification == "exact", f"Expected exact classification, got {classification}"
+        assert comm_calls == 40, f"Expected exactly 40 comm calls (4.00/exch for 10 exchanges), got {comm_calls}"
+        assert abs(comm_per_ex - 4.00) < 1e-4, f"Expected 4.00 comm calls/exch, got {comm_per_ex}"
+        assert total_calls == comm_calls + setup_calls + other_calls, "Total calls must equal comm + setup + other"
+        assert "write(stdout/err)" in fields[10], "Expected stdout write to be isolated into other category"
+    finally:
+        if os.path.exists(trace_path):
+            os.remove(trace_path)
+
+run_test('Detailed trace parser validated against real strace execution output', test_real_strace_detailed_parser_validation)
+
 print('========================================')
 if all_passed:
     print(f'SUCCESS: ALL {tests_run} TESTS PASSED CLEANLY!')

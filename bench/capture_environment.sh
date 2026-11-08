@@ -15,8 +15,7 @@ OUT="results/environment.txt"
   if grep -qi microsoft /proc/version 2>/dev/null; then
     grep -i microsoft /proc/version || true
     if command -v wslinfo >/dev/null 2>&1; then
-      wslinfo --wsl-version 2>&1 || true
-      wslinfo --kernel-version 2>&1 || true
+      wslinfo --version 2>&1 || true
     else
       echo "wslinfo not installed; see /proc/version and uname output."
     fi

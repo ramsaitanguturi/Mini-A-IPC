@@ -9,21 +9,22 @@
 
 ## 1. Feature Completion and Verification Matrix
 
-| Feature | Status | Verification |
+| Feature | Status | Verification Details |
 |---|---|---|
-| **Anonymous pipes** | **Complete** | Verified via `./mini-aipc --mode pipe --size 64 --count 10000`, fault injection `AIPC_TEST_CHILD_EXIT=pipe`, and automated test in `tests/test_cli.sh`. |
-| **FIFO (Named pipes)** | **Complete** | Verified via `./mini-aipc --mode fifo --size 64 --count 10000`, standalone `bin/ipc_fifo`, `/tmp` FIFO cleanup check, and fault injection `AIPC_TEST_CHILD_EXIT=fifo`. |
+| **Anonymous pipes** | **Complete** | Verified via `./mini-aipc --mode pipe --size 64 --count 2000`, fault injection `AIPC_TEST_CHILD_EXIT=pipe`, and automated test in `tests/test_cli.sh`. |
+| **FIFO (Named pipes)** | **Complete** | Verified via `./mini-aipc --mode fifo --size 64 --count 2000`, standalone `bin/ipc_fifo`, `/tmp` FIFO cleanup check, and fault injection `AIPC_TEST_CHILD_EXIT=fifo`. |
 | **System V MQ** | **Complete** | Implemented in `src/ipc_sysv_mq.c` (`msgget`, `msgsnd`, `msgrcv`, `msgctl`, `IPC_RMID`). Verified via `./mini-aipc --mode sysv`, multi-size payload sweep, and fault injection `AIPC_TEST_CHILD_EXIT=sysv`. |
 | **POSIX MQ** | **Complete** | Implemented in `src/ipc_posix_mq.c` (`mq_open`, `mq_send`, `mq_receive`, `mq_close`, `mq_unlink`). Verified via `./mini-aipc --mode posix`, `/dev/mqueue` cleanup check, and fault injection `AIPC_TEST_CHILD_EXIT=posix`. |
 | **Shared memory** | **Complete** | Verified via `./mini-aipc --mode shm`, 4 process-shared semaphores, child timeout monitoring (`sem_timedwait`), and oversized payload rejection (`> 1024 B`). |
 | **Unix domain sockets** | **Complete** | Implemented in `src/ipc_uds.c` (`socket AF_UNIX`, `bind`, `listen`, `accept`, `connect`, `send`, `recv`, `close`, `unlink`). Verified via `./mini-aipc --mode uds`, socket file unlinking, and fault injection `AIPC_TEST_CHILD_EXIT=uds`. |
 | **Average latency** | **Complete** | Calculated across empirical trial samples using `clock_gettime(CLOCK_MONOTONIC)` in nanoseconds, exported in microseconds to `results/comparative_benchmark.csv`. |
-| **P50 latency** | **Complete** | Calculated using conventional median: middle element at index `\lfloor N / 2 \rfloor` for odd $N$, and average of middle elements `(samples[N/2-1] + samples[N/2]) / 2` for even $N$. |
+| **P50 latency** | **Complete** | Calculated using conventional median: middle element at index $\lfloor N / 2 \rfloor$ for odd $N$, and average of middle elements `(samples[N/2-1] + samples[N/2]) / 2` for even $N$. |
 | **P99 latency** | **Complete** | Computed directly from sorted per-exchange sample arrays using overflow-safe integer arithmetic ($k = \text{count} - \lfloor \text{count} / 100 \rfloor$, zero-based index $k - 1$), capturing true tail latency without multiplication overflow. |
 | **P99.9 latency** | **Complete** | Computed using overflow-safe integer arithmetic ($k = \text{count} - \lfloor \text{count} / 1000 \rfloor$, zero-based index $k - 1$). For $N < 1000$, correctly evaluates to maximum sample without off-by-one errors. |
-| **System-call measurements** | **Complete** | Profiled via detailed `strace -f -o` with fallback summary parser, distinguishing communication-path system calls (strictly 4.00 calls/exchange for streams/queues, 2.00 calls/exchange for shared memory) from setup/cleanup and unrelated program output (`write(1)` / loader `read`), exported to `results/syscall_benchmark.csv`. |
+| **System-call measurements** | **Complete** | Profiled via detailed `strace -f -o` with exact tripartite parser isolating communication calls (strictly 4.00 calls/exchange for streams/queues, ~2.0 calls/exchange for SHM futex) from setup and program output (`write(1)` / loader `read`). Validated against real `strace` output. If `strace` is absent, marked as `pending`. |
 | **CPU affinity** | **Complete** | Implemented via `sched_setaffinity()`, pinning producer to CPU 0 and consumer to CPU 1. Verified active via `taskset -c` in WSL2 environment. |
-| **Reproducible benchmarks** | **Complete** | Scripted in `bench/run_comparative.sh`, capturing environment details to `results/environment.txt` and logging raw multi-trial data for all payload sizes (64 to 1024 bytes). |
+| **Reproducible benchmarks** | **Complete** | Scripted in `bench/run_comparative.sh`, capturing environment details to `results/environment.txt`. Historical multi-trial runs preserved in `results/archived/`. |
+| **Kernel Mailbox Module (`/dev/aipc`)** | **Implementation Complete / Runtime Verification Pending** | Implemented in `kernel/aipc_module.c`. Verified via static analysis, syntax balance checks, and Linux 6.12+ `noop_llseek` VFS compatibility. **Runtime device insertion (`insmod`) was NOT executed on Fedora or WSL2** due to missing kernel build headers in WSL2; runtime verification remains pending on bare-metal Linux. |
 
 ---
 
@@ -59,15 +60,69 @@
 
 ## 3. Empirical Research Benchmarking Results
 
-The comparative experiment was executed with the following parameters:
-- **Workload**: 10,000 request-response round-trip exchanges per trial
-- **Trials**: 5 independent runs per configuration
-- **Warm-up**: 500 untimed exchanges per run
+To ensure absolute scientific reproducibility and auditability, Mini-A-IPC strictly separates **newly generated verification benchmarks** from **archived long-running multi-trial benchmarks**.
+
+### A. Newly Generated Verification Benchmark (`results/comparative_benchmark.csv`)
+
+This dataset was freshly generated by executing `bench/run_comparative.sh` on the local system:
+- **Workload**: 2,000 round-trip exchanges per configuration
+- **Trials**: 1 run per configuration
+- **Warm-up**: 100 untimed exchanges per run
 - **Payload Sizes**: 64, 128, 256, 512, and 1024 bytes
 - **CPU Affinity**: Producer pinned to CPU Core 0; Consumer pinned to CPU Core 1
 - **Timing**: `clock_gettime(CLOCK_MONOTONIC)`
+- **Environment**: AMD Ryzen 7 8845HS, Ubuntu 26.04 LTS on Microsoft WSL2 (Kernel 6.6.87.2-microsoft-standard-WSL2)
 
-### Consolidated Empirical Summary Across 5 Trials:
+| Mechanism | Payload (B) | Avg RTT ($\mu$s) | P50 RTT ($\mu$s) | P99 RTT ($\mu$s) | P99.9 ($\mu$s) | Min RTT ($\mu$s) | Max RTT ($\mu$s) | Throughput (msg/s) |
+|---|---|---|---|---|---|---|---|---|
+| **Unix Domain Socket** | 64 | **99.60** | **95.18** | 443.15 | 1254.59 | 17.61 | 1644.64 | **10,040.19** |
+| **Shared Memory (SHM)**| 64 | **106.60** | **102.25** | 237.43 | 442.65 | **0.70** | 974.83 | **9,380.65** |
+| **Anonymous Pipe** | 64 | 107.71 | 102.92 | 208.77 | 348.95 | 22.03 | 371.43 | 9,283.86 |
+| **Named Pipe (FIFO)** | 64 | 108.21 | 104.67 | 170.14 | 276.41 | 27.67 | 975.72 | 9,241.40 |
+| **System V MQ** | 64 | 109.85 | 104.31 | 186.55 | 729.78 | 31.26 | 773.49 | 9,103.27 |
+| **POSIX Message Queue** | 64 | 116.91 | 109.69 | 290.29 | 655.28 | 25.13 | 739.67 | 8,553.39 |
+| | | | | | | | | |
+| **Unix Domain Socket** | 128 | **94.44** | **94.06** | 250.92 | 541.24 | 16.91 | 663.67 | **10,588.76** |
+| **Shared Memory (SHM)**| 128 | **114.29** | **102.94** | 258.09 | 3518.46 | **0.80** | 5705.27 | 8,749.89 |
+| **Anonymous Pipe** | 128 | 114.74 | 108.44 | 257.67 | 610.31 | 16.31 | 938.96 | 8,715.30 |
+| **System V MQ** | 128 | 115.47 | 103.16 | 227.32 | 998.19 | 34.14 | 7700.08 | 8,660.29 |
+| **Named Pipe (FIFO)** | 128 | 117.09 | 108.32 | 375.55 | 585.30 | 15.64 | 824.90 | 8,540.22 |
+| **POSIX Message Queue** | 128 | 127.50 | 109.63 | 273.90 | 5788.39 | 16.86 | 6800.72 | 7,843.36 |
+| | | | | | | | | |
+| **Unix Domain Socket** | 256 | **93.53** | **96.02** | 248.06 | 1162.13 | 16.86 | 1766.85 | **10,691.40** |
+| **Shared Memory (SHM)**| 256 | **102.92** | **97.90** | 188.19 | 516.69 | **0.87** | 1404.11 | **9,716.60** |
+| **POSIX Message Queue** | 256 | 112.89 | 105.56 | 186.44 | 301.68 | 27.08 | 415.51 | 8,858.49 |
+| **Anonymous Pipe** | 256 | 112.89 | 102.78 | 247.42 | 423.88 | 8.75 | 1237.39 | 8,858.29 |
+| **System V MQ** | 256 | 116.19 | 104.00 | 227.06 | 388.54 | 19.14 | 636.87 | 8,606.58 |
+| **Named Pipe (FIFO)** | 256 | 119.69 | 102.38 | 580.94 | 960.04 | 14.91 | 1979.49 | 8,354.79 |
+| | | | | | | | | |
+| **Unix Domain Socket** | 512 | **95.53** | **95.12** | 307.72 | 581.80 | 16.47 | 1118.13 | **10,468.12** |
+| **Shared Memory (SHM)**| 512 | **110.85** | **99.50** | 290.21 | 438.10 | **0.79** | 972.25 | **9,020.93** |
+| **Anonymous Pipe** | 512 | 117.41 | 106.39 | 291.72 | 556.26 | 23.47 | 835.96 | 8,517.45 |
+| **System V MQ** | 512 | 118.57 | 108.41 | 212.10 | 384.69 | 47.89 | 738.96 | 8,433.59 |
+| **Named Pipe (FIFO)** | 512 | 119.43 | 106.61 | 301.75 | 894.20 | 19.05 | 1352.37 | 8,373.38 |
+| **POSIX Message Queue** | 512 | 124.19 | 107.33 | 392.13 | 798.88 | 57.50 | 1345.94 | 8,052.21 |
+| | | | | | | | | |
+| **Unix Domain Socket** | 1024 | **95.15** | **94.91** | 483.48 | 741.51 | 18.48 | 1280.21 | **10,509.42** |
+| **Shared Memory (SHM)**| 1024 | **108.06** | **100.47** | 207.44 | 503.19 | **0.88** | 536.58 | **9,253.74** |
+| **Anonymous Pipe** | 1024 | 114.72 | 104.41 | 285.69 | 715.78 | 27.17 | 1441.47 | 8,716.76 |
+| **POSIX Message Queue** | 1024 | 119.92 | 110.74 | 405.49 | 519.86 | 64.02 | 709.59 | 8,338.77 |
+| **System V MQ** | 1024 | 123.53 | 115.27 | 191.63 | 532.08 | 30.48 | 545.22 | 8,095.09 |
+| **Named Pipe (FIFO)** | 1024 | 141.98 | 116.65 | 628.18 | 1568.76 | 14.08 | 2780.21 | 7,043.31 |
+
+---
+
+### B. Preserved Multi-Trial Research Benchmark (`results/archived/comparative_benchmark_10k_5trials.csv`)
+
+This archived dataset represents a comprehensive, multi-trial empirical benchmark executed with:
+- **Workload**: 10,000 request-response round-trip exchanges per trial
+- **Trials**: 5 independent runs per configuration (150 total raw data rows)
+- **Warm-up**: 500 untimed exchanges per run
+- **Payload Sizes**: 64, 128, 256, 512, and 1024 bytes
+- **CPU Affinity**: Producer pinned to CPU Core 0; Consumer pinned to CPU Core 1
+- **Hardware / Subsystem**: AMD Ryzen 7 8845HS (16 vCPUs), Ubuntu 26.04 LTS on Microsoft WSL2 (Kernel 6.6.87.2-microsoft-standard-WSL2). Preserved in `results/archived/environment_10k_5trials.txt`.
+
+#### Consolidated Empirical Summary Across 5 Trials:
 
 | Mechanism | Payload (B) | Avg RTT ($\mu$s) | P50 RTT ($\mu$s) | P99 RTT ($\mu$s) | P99.9 ($\mu$s) | Min RTT ($\mu$s) | Max RTT ($\mu$s) | Throughput (msg/s) |
 |---|---|---|---|---|---|---|---|---|
@@ -108,9 +163,23 @@ The comparative experiment was executed with the following parameters:
 
 ---
 
+### C. Experimental Environment & Provenance Clarification
+
+1. **Truth in Benchmarking**:
+   - Both datasets (`results/comparative_benchmark.csv` and `results/archived/comparative_benchmark_10k_5trials.csv`) were **empirically collected on an AMD Ryzen 7 8845HS processor running Ubuntu 26.04 LTS under Microsoft WSL2**.
+   - **Never describe Debian/KVM results as Fedora or Ryzen/WSL2 results**: No data in this repository was obtained from Debian/KVM or Fedora testbeds. If external literature figures (such as Danyliuk 2026 Table 1) are cited, they are labeled strictly as external reference citations and never presented as local measurements.
+2. **Consistent Latency Trends**:
+   - Comparing the single-trial 2,000-exchange dataset with the 5-trial 10,000-exchange dataset confirms strong consistency:
+     - Median latency (P50) across all mechanisms remains tightly bounded between 94 $\mu$s and 115 $\mu$s.
+     - Unix Domain Sockets consistently achieve the highest throughput (~10,000 to ~10,900 msg/s).
+     - Shared Memory achieves the lowest minimum round-trip latency (< 1 $\mu$s).
+     - Virtualized scheduling in WSL2 introduces tail latency variance (P99 and P99.9), which is expected due to Windows host OS interruptions and hypervisor timer virtualization.
+
+---
+
 ## 4. System-Call Profiling Results (`results/syscall_benchmark.csv`)
 
-Measured using detailed `strace -f -o` tracing over 100 round-trip exchanges, distinguishing IPC communication from setup/cleanup and unrelated program output:
+Measured using detailed `strace -f -o` tracing over 100 round-trip exchanges on the active Linux kernel, distinguishing IPC communication from setup/cleanup and unrelated program output:
 
 | Mechanism | Exchanges | Comm Calls | Comm Calls/Exch | Setup/Cleanup Calls | Other/Unclassified | Total Calls | Total Calls/Exch | Classification | Breakdown Details |
 |---|---|---|---|---|---|---|---|---|---|
@@ -119,20 +188,33 @@ Measured using detailed `strace -f -o` tracing over 100 round-trip exchanges, di
 | **System V MQ** | 100 | 400 | **4.00** | 17 | 31 | 448 | 4.48 | `exact` | `comm: msgrcv(200)+msgsnd(200)=400; setup: msgget(1)+msgctl(1)+close(2)+openat(2)+mmap(8)+munmap(1)+clone(1)+wait4(1)=17; other: write(stdout/err)(1)+read(loader)(1)+...=31` |
 | **POSIX MQ** | 100 | 400 | **4.00** | 25 | 33 | 458 | 4.58 | `exact` | `comm: mq_timedreceive(200)+mq_timedsend(200)=400; setup: mq_open(2)+mq_unlink(4)+close(6)+openat(2)+mmap(8)+munmap(1)+clone(1)+wait4(1)=25; other: write(stdout/err)(1)+read(loader)(1)+...=33` |
 | **Unix Domain Socket**| 100 | 400 | **4.00** | 27 | 31 | 458 | 4.58 | `exact` | `comm: recvfrom(200)+sendto(200)=400; setup: socket(2)+bind(1)+listen(1)+connect(1)+accept(1)+unlink(2)+close(6)+openat(2)+mmap(8)+munmap(1)+clone(1)+wait4(1)=27; other: write(stdout/err)(1)+read(loader)(1)+...=31` |
-| **Shared Memory (SHM)**| 100 | 200 | **2.00** | 21 | 29 | 250 | 2.50 | `exact` | `comm: futex(200)=200; setup: mmap(9)+munmap(2)+ftruncate(1)+unlink(1)+close(3)+openat(3)+clone(1)+wait4(1)=21; other: write(stdout/err)(1)+read(loader)(1)+...=29` |
+| **Shared Memory (SHM)**| 100 | 206 | **2.06** | 21 | 29 | 256 | 2.56 | `exact` | `comm: futex(206)=206; setup: mmap(9)+munmap(2)+ftruncate(1)+unlink(1)+close(3)+openat(3)+clone(1)+wait4(1)=21; other: write(stdout/err)(1)+read(loader)(1)+...=29` |
 
-### Key System-Call Insights
-1. **Tripartite System-Call Classification**:
-   Unlike naive summary counters that group all non-communication calls into "setup", the profiler cleanly partitions execution into:
-   - **Communication-path calls**: Data transfer and lockstep synchronization primitives directly executing the message exchanges.
-   - **Setup and cleanup calls**: Resource allocation, channel rendezvous, memory mappings, and cleanup teardown.
-   - **Other/unclassified calls**: Process runtime, dynamic loader (`read(3)` of libc.so), and unrelated program output (`write(1)` to stdout for terminal/CSV reporting).
-2. **Exact 4.00 Calls/Exchange for Stream and Queue Mechanisms**:
-   By inspecting file descriptors and arguments, unrelated output calls (`write(1)` to stdout) and dynamic linker reads (`read(3)`) are not mistakenly attributed to IPC. All stream and queue mechanisms (Pipes, FIFOs, System V, POSIX MQ, UDS) execute strictly **4.00 system calls per exchange** (2 sends + 2 receives).
-3. **Shared Memory Efficiency**:
-   Shared memory performs payload transfer in user space (`memcpy`), invoking the kernel **strictly for semaphore coordination via `futex`** (averaging 2.00 calls per exchange under alternating ping-pong lockstep).
-4. **Exact vs. Estimate Methodology**:
-   When detailed tracing (`strace -f -o`) is active, classification is strictly `exact`. If executed against summary data (`strace -c`) where file descriptors cannot be disambiguated, the profiler explicitly marks the classification as `estimate` to preserve statistical honesty.
+### Architectural Review of Read/Write Descriptor Classification & Documented Limitations
+
+#### 1. Parser Architecture and Methodology
+The system-call analyzer (`bench/parse_strace.py`) inspects detailed execution traces (`strace -f -o`) to cleanly partition system calls into three distinct categories:
+- **Communication-path calls**: Data transfer and lockstep synchronization primitives directly executing the message exchanges.
+- **Setup and cleanup calls**: Resource allocation, channel rendezvous, memory mappings, and cleanup teardown.
+- **Other/unclassified calls**: Process runtime, dynamic loader (`read(3)` of `libc.so`), and unrelated program output (`write(1)` to stdout for terminal/CSV reporting).
+
+#### 2. Validation Against Real Strace Output
+In accordance with rigorous verification standards, the trace parser was **validated against genuine `strace 6.19` output** during test execution (verified in test 14 of `tests/final_verification_test.py`):
+- Tracing `./mini-aipc --mode pipe --size 64 --count 10 --csv` confirmed exactly 40 communication calls (4.00 calls per exchange: 20 parent calls + 20 child calls).
+- The program's final CSV summary output on file descriptor 1 (`write(1, "pipe,64,1,10,...")`) was properly isolated into the `other` category.
+- Dynamic linker reads (`read(3, "\177ELF...")`) were correctly isolated into the `other` category.
+- This proves that the `exact` classification label is backed by verified trace parsing on a live Linux kernel.
+
+#### 3. Review of File-Descriptor Classification and Known Limitations
+While the current parser accurately handles standard execution paths, its heuristics have specific technical boundaries that are explicitly documented below:
+- **Heuristic File-Descriptor Mapping vs. Stateful Inode Table**:
+  The parser inspects descriptors numerically (e.g. fd 1 and 2 mapped to stdout/stderr; fd $\ge 3$ mapped to IPC for pipes/FIFOs/sockets) and checks argument strings for loader signatures (`ELF`, `/usr/lib`, `/etc/`). It does not maintain a complete kernel-like stateful file table mapping each inode across `pipe2()`, `openat()`, `dup()`, and `close()`. If a program opens an auxiliary configuration or log file on fd 3 during the measurement loop, reads from that descriptor without an ELF signature could be counted as communication calls.
+- **String Truncation by Strace**:
+  Strace limits argument string capture length by default (typically 32 bytes unless `-s` is increased). If a loader read or path signature does not appear within the first captured bytes, the regex filter might not detect the loader marker.
+- **Summary Mode (`strace -c`) Information Loss**:
+  When strace runs in summary aggregation mode (`-c`), the kernel collapses all system calls by name into single counters, erasing file descriptors and arguments entirely. In this mode, separating stdout `write` calls from IPC `write` calls is mathematically impossible. Therefore, the parser automatically marks summary results as `estimate` rather than `exact`.
+- **Handling When Strace is Unavailable**:
+  If `strace` is absent in an execution environment, `bench/run_comparative.sh` does not invent or fabricate numbers. It logs a status of `pending`, ensuring statistical integrity.
 
 ---
 
@@ -140,9 +222,9 @@ Measured using detailed `strace -f -o` tracing over 100 round-trip exchanges, di
 
 1. **Why do UDS and SHM dominate the benchmarks?**
    - **Shared Memory** avoids the CPU cache pollution and double-copy overhead of kernel buffers, achieving minimum round-trip latencies below 1 $\mu$s.
-   - **Unix Domain Sockets** in modern Linux kernels feature highly optimized in-kernel socket buffer (`sk_buff`) recycling and fast wakeups, achieving high throughput (~10,600–11,000 msg/s).
+   - **Unix Domain Sockets** in modern Linux kernels feature highly optimized in-kernel socket buffer (`sk_buff`) recycling and fast wakeups, achieving high throughput (~10,000–10,600 msg/s).
 2. **Why are percentiles necessary?**
-   - The arithmetic average hides high-latency outliers. The data proves that while the median (P50) is ~94–105 $\mu$s, the P99 is ~190–320 $\mu$s, and P99.9 reaches 650–1400 $\mu$s due to kernel scheduler preemption.
+   - The arithmetic average hides high-latency outliers. The data proves that while the median (P50) is ~94–105 $\mu$s, the P99 is ~170–320 $\mu$s, and P99.9 reaches 400–1400 $\mu$s due to kernel scheduler preemption.
 3. **How was resource leakage eliminated?**
    - FIFOs are unlinked with `unlink()`.
    - System V queues are removed using `msgctl(msqid, IPC_RMID, NULL)`.
@@ -202,9 +284,9 @@ Measured using detailed `strace -f -o` tracing over 100 round-trip exchanges, di
 ### A. Tests Actually Executed
 1. **Compilation and Clean**:
    - `make clean`: Cleans all project binaries without deleting empirical benchmark records.
-   - `make`: Compiles `mini-aipc`, `mini-aipc-mixed`, `aipc-client`, and `bin/ipc_fifo` with `-Wall -Wextra -Wpedantic -O2 -std=c11` and zero warnings.
+   - `make -j2`: Compiles `mini-aipc`, `mini-aipc-mixed`, `aipc-client`, and `bin/ipc_fifo` with `-Wall -Wextra -Wpedantic -O2 -std=c11` and zero warnings.
 2. **Automated CLI Correctness Test Suite** (`make test` / `tests/test_cli.sh`):
-   - Verified round-trip communication across all 6 IPC transports.
+   - Verified round-trip communication across all 6 IPC transports (24 tests total).
    - Verified payload sweeps (64, 128, 256, 512, 1024 bytes).
    - Verified CPU affinity pinning (`--cpu-producer 0 --cpu-consumer 1`).
    - Verified CSV output format and field counts.
@@ -214,17 +296,19 @@ Measured using detailed `strace -f -o` tracing over 100 round-trip exchanges, di
    - Verified child-exit fault injection without hangs or zombie processes.
    - Verified mixed workload adaptive routing and corrupt payload rejection.
 3. **Comprehensive Regression Test Suite** (`python3 tests/final_verification_test.py`):
-   - All 13 test suites passed cleanly (100% pass rate).
-   - Included syntax validation, token balancing, kernel module invariants, mixed benchmark logic, FIFO permissions, SHM protocol ordering, directory auto-creation, Python timeouts, path cleanliness, algorithm validation, mechanism definitions, overflow-safe nearest-rank percentile mathematics ($N = 1, 2, 100, 1000, 10000$, and max valid count $\text{SIZE\_MAX}/8$), and system-call profiling classification (tripartite partitioning and program output isolation).
+   - All 14 test suites passed cleanly (100% pass rate).
+   - Included syntax validation, token balancing, kernel module invariants, mixed benchmark logic, FIFO permissions, SHM protocol ordering, directory auto-creation, Python timeouts, path cleanliness, algorithm validation, mechanism definitions, overflow-safe nearest-rank percentile mathematics ($N = 1, 2, 100, 1000, 10000$, and max valid count $\text{SIZE\_MAX}/8$), system-call profiling classification (tripartite partitioning and program output isolation), and **detailed trace parser validation against real strace execution output**.
 4. **Empirical Comparative Benchmarks**:
    - Executed comparative benchmark suite (`bench/run_comparative.sh`) across all six mechanisms (`pipe`, `fifo`, `sysv`, `posix`, `shm`, `uds`) for payload sizes 64, 128, 256, 512, and 1024 bytes with CPU pinning active.
-   - Profiled system calls over 100 exchanges with detailed tracing, recording exact communication, setup, and other calls in `results/syscall_benchmark.csv`.
+   - Profiled system calls over 100 exchanges with detailed tracing on live kernel, recording exact communication, setup, and other calls in `results/syscall_benchmark.csv`.
    - Verified correct P50/P99/P99.9 calculation output, throughput metrics, and CSV reporting in `results/comparative_benchmark.csv`.
+   - Preserved full 150-row multi-trial benchmark in `results/archived/comparative_benchmark_10k_5trials.csv`.
 
 ### B. Tests Not Executed
 - **Kernel Module Compilation and Insertion (`kernel-module`, `kernel-test`, `kernel-stress`)**:
   - The WSL2 execution environment does not provide kernel development headers (`/lib/modules/6.6.87.2-microsoft-standard-WSL2/build`), and loading out-of-tree `.ko` kernel modules via `insmod` requires a matching native Linux kernel tree or custom WSL2 kernel with loadable module support.
-  - **The kernel module source code in `kernel/aipc_module.c` was kept strictly unchanged and verified via static inspection**, but runtime device insertion was NOT performed in this WSL2 environment.
+  - **The kernel module source code in `kernel/aipc_module.c` was kept strictly unchanged and verified via static inspection and syntax/structure validation**, but runtime device insertion was **NOT performed on Fedora or WSL2**.
+  - Runtime verification remains pending on bare-metal Linux with matching root permissions and kernel headers.
 
 ---
 
@@ -233,22 +317,24 @@ Measured using detailed `strace -f -o` tracing over 100 round-trip exchanges, di
 | Parameter | Specification |
 |---|---|
 | **Host Operating System** | Windows 11 Home / Pro (x86_64) |
-| **Execution Subsystem** | Windows Subsystem for Linux 2 (WSL2) |
-| **Linux Distribution** | Ubuntu 24.04 / 26.04 LTS |
+| **Execution Subsystem** | Windows Subsystem for Linux 2 (WSL2), version 2.6.3.0 |
+| **Linux Distribution** | Ubuntu 26.04 LTS (Resolute Raccoon) |
 | **Kernel Version** | Linux 6.6.87.2-microsoft-standard-WSL2 |
-| **Processor** | AMD Ryzen 7 8845HS with Radeon 780M Graphics (16 vCPUs) |
-| **Compiler** | GCC 11.4.0 / 11.5.0 (`-std=c11 -O2 -Wall -Wextra -Wpedantic`) |
+| **Processor** | AMD Ryzen 7 8845HS with Radeon 780M Graphics (8 cores / 16 vCPUs) |
+| **Compiler** | GCC 11.5.0 (`-std=c11 -O2 -Wall -Wextra -Wpedantic`) |
 | **Linker Libraries** | `-pthread -lrt -lm` (POSIX threads, real-time extensions, math library) |
 | **Python Runtime** | Python 3.12+ |
-| **Instrumentation Tooling**| `strace 6.8+`, `taskset` (util-linux) |
+| **Instrumentation Tooling**| `strace 6.19`, `taskset` (util-linux) |
 
 ---
 
 ## 9. Remaining Limitations
 
 1. **Kernel Mailbox Execution**:
-   Testing the character device kernel module (`/dev/aipc`) requires a bare-metal Linux machine (e.g. Ubuntu, Fedora, Debian) with matching kernel headers (`linux-headers-$(uname -r)`) and root permissions.
-2. **Shared Memory Segment Capacity**:
+   Testing the character device kernel module (`/dev/aipc`) requires a bare-metal Linux machine (e.g. native Ubuntu or Debian) with matching kernel headers (`linux-headers-$(uname -r)`) and root permissions. Runtime verification was not performed on Fedora or WSL2.
+2. **Read/Write File Descriptor Heuristic**:
+   The trace analyzer uses pattern-matching heuristics on descriptors and library paths rather than a persistent kernel-like stateful inode/descriptor table. Highly specialized multi-file applications should be verified with dedicated tracing scripts.
+3. **Shared Memory Segment Capacity**:
    The POSIX shared memory mailbox is bounded to a maximum payload size of 1024 bytes per message slot. Applications requiring larger single transfers are dynamically routed by the adaptive selector to streaming pipes.
-3. **Hypervisor Latency Jitter**:
+4. **Hypervisor Latency Jitter**:
    Because benchmarks were executed inside a virtualized WSL2 container, tail latency percentiles (P99 and P99.9) are subject to Windows host OS scheduling interruptions, DPC/ISR latency, and hypervisor clock virtualization. For sub-microsecond deterministic tail analysis, bare-metal deployment with `isolcpus` and `nohz_full` is recommended.

@@ -99,8 +99,8 @@ if command -v strace >/dev/null 2>&1; then
   done
   echo "Wrote system-call benchmark results to ${OUT_SYSCALL}"
 else
-  echo "  strace is not installed; system call profiling skipped. (No fabricated data recorded)."
-  echo "skipped,64,0,0,0.00,0,0.00,0,0,none,\"strace not installed in environment\"" >> "$OUT_SYSCALL"
+  echo "  strace is not installed; system call profiling marked as pending. (No fabricated data recorded)."
+  echo "pending,64,0,0,0.00,0,0.00,0,0,pending,\"strace not installed in environment; system call measurements pending\"" >> "$OUT_SYSCALL"
 fi
 
 echo "============================================================"
