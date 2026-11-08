@@ -249,21 +249,41 @@ def test_percentile_and_memory_safety():
     # Mathematical verification of nearest-rank percentiles
     def nearest_rank_idx(p, n):
         if p == 99.0:
-            k = (n * 99 + 99) // 100
+            k = n - n // 100
         elif p == 99.9:
-            k = (n * 999 + 999) // 1000
+            k = n - n // 1000
         else:
             k = math.ceil((p / 100.0) * n - 1e-9)
         return max(0, min(n - 1, k - 1))
 
-    # P99
+    # Required verification for N = 1, 2, 100, 1000, 10000
+    # N = 1
+    assert nearest_rank_idx(99.0, 1) == 0, 'P99 for N=1 must be index 0'
+    assert nearest_rank_idx(99.9, 1) == 0, 'P99.9 for N=1 must be index 0'
+    # N = 2
+    assert nearest_rank_idx(99.0, 2) == 1, 'P99 for N=2 must be index 1'
+    assert nearest_rank_idx(99.9, 2) == 1, 'P99.9 for N=2 must be index 1'
+    # N = 100
     assert nearest_rank_idx(99.0, 100) == 98, 'P99 for N=100 must be index 98 (99th sample)'
+    assert nearest_rank_idx(99.9, 100) == 99, 'P99.9 for N=100 must be index 99 (100th sample)'
+    # N = 1000
     assert nearest_rank_idx(99.0, 1000) == 989, 'P99 for N=1000 must be index 989 (990th sample)'
-    assert nearest_rank_idx(99.0, 10000) == 9899, 'P99 for N=10000 must be index 9899 (9900th sample)'
-
-    # P99.9
     assert nearest_rank_idx(99.9, 1000) == 998, 'P99.9 for N=1000 must be index 998 (999th sample)'
+    # N = 10000
+    assert nearest_rank_idx(99.0, 10000) == 9899, 'P99 for N=10000 must be index 9899 (9900th sample)'
     assert nearest_rank_idx(99.9, 10000) == 9989, 'P99.9 for N=10000 must be index 9989 (9990th sample)'
+
+    # Test the largest valid count mathematically without allocating an enormous array
+    # On 64-bit systems: max valid count is SIZE_MAX / sizeof(uint64_t)
+    size_max = (1 << 64) - 1
+    max_valid_count = size_max // 8  # 2,305,843,009,213,693,951
+    p99_max = nearest_rank_idx(99.0, max_valid_count)
+    p999_max = nearest_rank_idx(99.9, max_valid_count)
+    assert p99_max == max_valid_count - (max_valid_count // 100) - 1, 'P99 max index overflow check'
+    assert p999_max == max_valid_count - (max_valid_count // 1000) - 1, 'P99.9 max index overflow check'
+    assert 0 <= p99_max < max_valid_count, 'P99 max index within array bounds'
+    assert 0 <= p999_max < max_valid_count, 'P99.9 max index within array bounds'
+    assert p99_max < p999_max, 'P99 must be strictly less than P99.9 for large N'
 
     # Small sample P99.9 behavior (N < 1000) mathematically evaluates to max element (index N-1)
     for small_n in [1, 2, 10, 50, 100, 500, 999]:
@@ -282,6 +302,62 @@ def test_percentile_and_memory_safety():
     assert calc_median([10, 30]) == 20.0
 
 run_test('Percentile calculations (nearest-rank, conventional median) and memory safety', test_percentile_and_memory_safety)
+
+# 13. System-call profiling and classification verification
+def test_syscall_profiling_classification():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("parse_strace", "bench/parse_strace.py")
+    parse_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(parse_module)
+
+    # 1. Test detailed trace log classification:
+    # Contains 2 IPC writes, 2 IPC reads, 1 stdout write (unrelated program output), 1 loader read
+    detailed_lines = [
+        "100   openat(AT_FDCWD, \"/usr/lib/libc.so.6\", O_RDONLY|O_CLOEXEC) = 3\n",
+        "100   read(3, \"\\177ELF\\2\\1\\1...\", 832) = 832\n",
+        "100   close(3) = 0\n",
+        "100   pipe2([3, 4], 0) = 0\n",
+        "100   pipe2([5, 6], 0) = 0\n",
+        "100   clone(child_stack=NULL, flags=CLONE_VM) = 101\n",
+        "100   write(4, \"data\", 64) = 64\n",
+        "101   read(3, \"data\", 64) = 64\n",
+        "101   write(6, \"data\", 64) = 64\n",
+        "100   read(5, \"data\", 64) = 64\n",
+        "100   close(4) = 0\n",
+        "100   wait4(101, [{WIFEXITED(s)}], 0, NULL) = 101\n",
+        "100   write(1, \"pipe,64,1,1,100.0,100.0,...\\n\", 30) = 30\n",
+    ]
+    res_det = parse_module.parse_detailed_log(detailed_lines, "pipe", 64, 1)
+    fields = res_det.split(",", 10)
+    # Fields: mechanism, payload_bytes, exchanges, total, total_per_ex, comm, comm_per_ex, setup, other, classification, details
+    total_calls = int(fields[3])
+    comm_calls = int(fields[5])
+    setup_calls = int(fields[7])
+    other_calls = int(fields[8])
+    classification = fields[9]
+
+    assert total_calls == 13, f"Total calls should be 13, got {total_calls}"
+    assert comm_calls == 4, f"Comm calls should be exactly 4 (2 reads + 2 writes on pipe), got {comm_calls}"
+    assert classification == "exact", f"Detailed trace classification should be 'exact', got {classification}"
+    assert setup_calls == 7, f"Setup calls should be 7 (openat, close*2, pipe2*2, clone, wait4), got {setup_calls}"
+    assert other_calls == 2, f"Other calls should be 2 (loader read, stdout write), got {other_calls}"
+    assert comm_calls + setup_calls + other_calls == total_calls, "Sum of comm+setup+other must equal total"
+
+    # 2. Test summary data log:
+    # Must be labeled as 'estimate' because read/write cannot be separated without descriptors
+    summary_lines = [
+        "% time     seconds  usecs/call     calls    errors syscall\n",
+        "------ ----------- ----------- --------- --------- ----------------\n",
+        " 50.00    0.001000          10         5           read\n",
+        " 50.00    0.001000          10         5           write\n",
+        "------ ----------- ----------- --------- --------- ----------------\n",
+        "100.00    0.002000                    10           total\n",
+    ]
+    res_sum = parse_module.parse_summary_log(summary_lines, "pipe", 64, 1)
+    sum_fields = res_sum.split(",", 10)
+    assert sum_fields[9] == "estimate", f"Summary data classification must be 'estimate', got {sum_fields[9]}"
+
+run_test('System-call profiling classification (communication vs setup vs other/unclassified)', test_syscall_profiling_classification)
 
 print('========================================')
 if all_passed:

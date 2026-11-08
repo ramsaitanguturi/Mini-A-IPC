@@ -112,10 +112,12 @@ Records system-call counts and categorization:
 - `exchanges`: Number of exchanges profiled (100).
 - `total_syscalls`: Total system calls intercepted during the process lifecycle.
 - `total_syscalls_per_exchange`: `total_syscalls / exchanges`.
-- `comm_syscalls`: System calls executed directly in the communication path.
-- `comm_syscalls_per_exchange`: `comm_syscalls / exchanges` (e.g. 4.00).
-- `setup_cleanup_syscalls`: Non-communication system calls (`total - comm`).
-- `relevant_syscall_details`: Breakdown string listing specific system call counts.
+- `comm_syscalls`: System calls executed directly in the communication path (excluding unrelated stdout output and loader reads).
+- `comm_syscalls_per_exchange`: `comm_syscalls / exchanges` (strictly 4.00 for stream/queue mechanisms; 2.00 for shared memory futex).
+- `setup_cleanup_syscalls`: Channel initialization and teardown system calls (`pipe2`, `socket`, `bind`, `openat`, `close`, `unlink`, `clone`, `wait4`, etc.).
+- `other_syscalls`: Unrelated program output (`write` to stdout/stderr), dynamic loader reads, signals, and runtime management.
+- `classification`: Tracing classification confidence (`exact` from detailed tracing or `estimate` from summary mode).
+- `relevant_syscall_details`: Breakdown string listing specific system call counts across comm, setup, and other categories.
 
 ---
 

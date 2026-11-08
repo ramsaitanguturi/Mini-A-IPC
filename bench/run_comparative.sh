@@ -85,22 +85,22 @@ echo "Wrote latency benchmark results to ${OUT_LATENCY}"
 
 # Step 5: System-call measurement experiment
 echo "[5/5] Executing system-call measurement experiment..."
-printf 'mechanism,payload_bytes,exchanges,total_syscalls,total_syscalls_per_exchange,comm_syscalls,comm_syscalls_per_exchange,setup_cleanup_syscalls,relevant_syscall_details\n' > "$OUT_SYSCALL"
+printf 'mechanism,payload_bytes,exchanges,total_syscalls,total_syscalls_per_exchange,comm_syscalls,comm_syscalls_per_exchange,setup_cleanup_syscalls,other_syscalls,classification,relevant_syscall_details\n' > "$OUT_SYSCALL"
 
 if command -v strace >/dev/null 2>&1; then
   SYSCALL_EXCHANGES=100
   echo "  strace detected: profiling system call behavior over ${SYSCALL_EXCHANGES} exchanges..."
   for mode in $MECHANISMS; do
     STRACE_LOG="/tmp/strace_${mode}.log"
-    # Run isolated run with strace
-    strace -f -c -o "$STRACE_LOG" ./mini-aipc --mode "$mode" --size 64 --count "$SYSCALL_EXCHANGES" >/dev/null 2>&1
+    # Run detailed tracing with strace to accurately distinguish IPC communication from unrelated program output
+    strace -f -o "$STRACE_LOG" ./mini-aipc --mode "$mode" --size 64 --count "$SYSCALL_EXCHANGES" --csv >/dev/null 2>&1
     python3 bench/parse_strace.py "$STRACE_LOG" "$mode" 64 "$SYSCALL_EXCHANGES" >> "$OUT_SYSCALL"
     rm -f "$STRACE_LOG"
   done
   echo "Wrote system-call benchmark results to ${OUT_SYSCALL}"
 else
   echo "  strace is not installed; system call profiling skipped. (No fabricated data recorded)."
-  echo "skipped,64,0,0,0.0,0,0.0,0,\"strace not installed in environment\"" >> "$OUT_SYSCALL"
+  echo "skipped,64,0,0,0.00,0,0.00,0,0,none,\"strace not installed in environment\"" >> "$OUT_SYSCALL"
 fi
 
 echo "============================================================"

@@ -21,8 +21,9 @@ This document tracks all identified bugs, edge-case failures, synchronization fl
 | **BUG-11** | Shared Memory | [`src/ipc_shm.c:130-135`](src/ipc_shm.c#L130-L135) | **Low** | Semaphore protocol inversion (writes response before `response_empty` wait) | **Fixed & Verified** |
 | **BUG-12** | Documentation | [`docs/FIFO_EXPLANATION.md:145`](docs/FIFO_EXPLANATION.md#L145) | **Low** | Leaked workstation absolute path (`c:/Users/ramsa/...`) | **Fixed & Verified** |
 | **BUG-13** | Kernel Module | [`kernel/aipc_module.c:183`](kernel/aipc_module.c#L183) | **Critical** | `no_llseek` removed in modern Linux kernels (6.12+), breaking build | **Fixed & Verified** |
-| **BUG-14** | Benchmark Core | [`src/main.c:65-85, 202-230`](src/main.c#L65-L85) | **Medium** | Flawed zero-based percentile indexing, missing conventional median, and incorrect P99/P99.9 ranks | **Fixed & Verified** |
+| **BUG-14** | Benchmark Core | [`src/main.c:65-85, 202-230`](src/main.c#L65-L85) | **Medium** | Flawed zero-based percentile indexing and multiplication overflow risk | **Fixed & Verified** |
 | **BUG-15** | Memory Safety | [`src/main.c:160-175`](src/main.c#L160-L175) | **High** | Unchecked integer overflow on `count * sizeof(uint64_t)` and unhandled `malloc()` failure | **Fixed & Verified** |
+| **BUG-16** | Syscall Profiler | [`bench/parse_strace.py`, `bench/run_comparative.sh`](bench/parse_strace.py) | **Medium** | Unrelated program output (`write(stdout)`) and loader reads incorrectly counted as IPC operations | **Fixed & Verified** |
 
 ---
 
@@ -141,12 +142,12 @@ This verifies:
 - **Fix:** Replaced `.llseek = no_llseek` with `.llseek = noop_llseek` (supported since Linux 2.6.37).
 - **Verification:** Verified compatibility and clean file operations table definition.
 
-### BUG-14: Percentile Calculation Indexing & Small-Sample P99.9 Flaws
+### BUG-14: Percentile Calculation Indexing & Multiplication Overflow
 - **File:** `src/main.c`
 - **Severity:** Medium
-- **Flaw:** P50 was calculated using truncated integer indexing `samples[(size_t)(count * 0.50)]` which ignored the conventional median definition for even sample counts (averaging the two middle elements). P99 and P99.9 suffered from zero-based off-by-one indexing errors (e.g. `(size_t)(count * 0.99)` with `count = 100` selected index 99 instead of 98), and small sample P99.9 handling did not follow consistent nearest-rank statistical rules.
-- **Fix:** Implemented `nearest_rank_index()` using the standard NIST/ISO nearest-rank method: 1-based rank $k = \lceil (p / 100) \times N \rceil$, zero-based index $= k - 1$. Calculated via exact integer ceiling arithmetic to avoid IEEE 754 floating-point inaccuracies. Implemented conventional median for P50 averaging the two middle elements when $N$ is even.
-- **Verification:** Verified in `tests/final_verification_test.py` across sample sizes from 1 to 100,000.
+- **Flaw:** P50 was calculated using truncated integer indexing `samples[(size_t)(count * 0.50)]` which ignored the conventional median definition for even sample counts (averaging the two middle elements). P99 and P99.9 suffered from zero-based off-by-one indexing errors (e.g. `(size_t)(count * 0.99)` with `count = 100` selected index 99 instead of 98), and previous rational multiplication `(count * 99 + 99) / 100` risked integer multiplication overflow for very large counts.
+- **Fix:** Implemented `nearest_rank_index()` using overflow-safe integer arithmetic: $k = \text{count} - \lfloor \text{count} / 100 \rfloor$ for P99 and $k = \text{count} - \lfloor \text{count} / 1000 \rfloor$ for P99.9, returning zero-based index $k - 1$. Eliminates multiplication while mathematically matching the NIST/ISO nearest-rank specification. Preserved conventional median for P50 averaging the two middle elements when $N$ is even.
+- **Verification:** Verified in `tests/final_verification_test.py` across sample sizes $N = 1, 2, 100, 1000, 10000$ and for the maximum valid count $N = \text{SIZE\_MAX} / \text{sizeof(uint64\_t)}$.
 
 ### BUG-15: Unchecked Integer Overflow and Missing Malloc Failure Handling
 - **File:** `src/main.c`
@@ -154,3 +155,14 @@ This verifies:
 - **Flaw:** `samples = malloc(count * sizeof(uint64_t));` was executed without validating `count` against integer overflow (`count > SIZE_MAX / sizeof(uint64_t)`). If `malloc()` returned `NULL`, execution continued without error handling, running the IPC benchmark without sample collection and risking segmentation faults or silent data corruption.
 - **Fix:** Validated `count > SIZE_MAX / sizeof(uint64_t)` before calculating allocation size. Checked `samples == NULL`, printing an informative error message and exiting safely before any IPC channels or resources are initialized.
 - **Verification:** Verified rejection of `count = SIZE_MAX` in `tests/test_cli.sh` and safe exit without orphan IPC resources.
+
+### BUG-16: System-Call Profiling Misclassification of Program Output and Loader Reads
+- **File:** `bench/parse_strace.py`, `bench/run_comparative.sh`
+- **Severity:** Medium
+- **Flaw:** The previous strace summary parser blindly counted all `read` and `write` calls as communication syscalls for stream mechanisms, inadvertently counting `write(1)` (stdout benchmark reporting) and `read(3)` (dynamic loader reading libc) as IPC exchanges (yielding 402 instead of 400 calls for 100 exchanges). Furthermore, it lumped all remaining non-communication calls into setup/cleanup without distinguishing unrelated/other runtime calls.
+- **Fix:** Switched to detailed tracing (`strace -f -o`) in `bench/run_comparative.sh` and upgraded `bench/parse_strace.py` to inspect target file descriptors and arguments, accurately classifying:
+  1. Communication-path syscalls (IPC data transfer / futex synchronization: exactly 4.00 calls/exchange for streams/queues, 2.00 calls/exchange for shared memory).
+  2. Setup and cleanup syscalls (`pipe2`, `socket`, `bind`, `openat`, `close`, `unlink`, `clone`, `wait4`, etc.).
+  3. Other / unclassified syscalls (isolating unrelated program output `write` to stdout/stderr and loader `read`).
+  If summary data (`strace -c`) is supplied, it explicitly marks `classification` as `estimate`.
+- **Verification:** Verified in `tests/final_verification_test.py` and empirical execution via `bench/run_comparative.sh`.

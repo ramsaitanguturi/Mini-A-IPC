@@ -63,25 +63,26 @@ static int compare_uint64(const void *a, const void *b)
 }
 
 /*
- * Calculate zero-based array index for a given percentile using the
- * standard nearest-rank method:
- *   Ordinal rank k = ceil((percentile / 100.0) * count)  (1 <= k <= count)
- *   Zero-based index = k - 1                              (0 <= index <= count - 1)
+ * Calculate zero-based array index for a given percentile using
+ * overflow-safe integer arithmetic.
  *
- * To prevent IEEE 754 floating-point representation inaccuracy
- * (e.g. 99.9 / 100.0 = 0.999000000000000056..., which produces 999.0000000000001
- * when multiplied by 1000, causing ceil() to incorrectly round up to 1000),
- * standard percentiles use exact rational arithmetic:
- *   ceil(A / B) = (A + B - 1) / B
+ * Nearest-rank formula:
+ *   P99:   k = count - count / 100
+ *   P99.9: k = count - count / 1000
+ *
+ * Zero-based index = k - 1 (for count >= 1).
+ *
+ * This avoids multiplication (e.g. count * 99 or count * 999), preventing
+ * integer overflow even for the largest valid exchange counts up to SIZE_MAX.
  */
 static size_t nearest_rank_index(double percentile, size_t count)
 {
     if (count == 0) return 0;
     size_t k;
     if (percentile == 99.0) {
-        k = (count * 99 + 99) / 100;
+        k = count - count / 100;
     } else if (percentile == 99.9) {
-        k = (count * 999 + 999) / 1000;
+        k = count - count / 1000;
     } else {
         double rank = ceil((percentile / 100.0) * (double)count - 1e-9);
         k = (size_t)rank;

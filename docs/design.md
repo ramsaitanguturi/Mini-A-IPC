@@ -160,10 +160,11 @@ After `N` iterations:
     - Even `N`: average of two middle samples: `\frac{\text{samples}[N / 2 - 1] + \text{samples}[N / 2]}{2.0}`.
   - **Nearest-Rank Percentiles (P99, P99.9)**:
     - Standard nearest-rank formula: 1-based rank `k = \lceil \frac{P}{100} \times N \rceil`, zero-based index `\text{index} = k - 1`.
-    - Calculated via exact integer arithmetic `(P_{\text{num}} \times N + P_{\text{den}} - 1) / P_{\text{den}} - 1` to avoid IEEE 754 floating-point rounding errors.
-    - **P99**: Rank `k = \lceil 0.99 \times N \rceil`, index `= k - 1`. For `N = 100`, index is `98` (99th sample).
-    - **P99.9**: Rank `k = \lceil 0.999 \times N \rceil`, index `= k - 1`.
-    - **Small-Sample P99.9 Behavior**: For sample sizes `N < 1000`, `\lceil 0.999 \times N \rceil = N`, so index evaluates to `N - 1` (the maximum observed sample), which is mathematically exact since a 99.9th percentile cannot be separated from the maximum without at least 1,000 observations.
+    - Calculated via overflow-safe integer arithmetic without multiplication:
+      - **P99**: `k = \text{count} - \lfloor \text{count} / 100 \rfloor`, zero-based index `\text{index} = k - 1`. For `N = 100`, index is `98` (99th sample).
+      - **P99.9**: `k = \text{count} - \lfloor \text{count} / 1000 \rfloor`, zero-based index `\text{index} = k - 1`.
+    - Avoiding multiplication (e.g. `count * 99`) guarantees that calculations will not overflow integer limits, even for the maximum possible valid count `SIZE_MAX / sizeof(uint64_t)`.
+    - **Small-Sample P99.9 Behavior**: For sample sizes `N < 1000`, `\lfloor \text{count} / 1000 \rfloor = 0`, so `k = N` and index evaluates to `N - 1` (the maximum observed sample), which is mathematically exact since a 99.9th percentile cannot be separated from the maximum without at least 1,000 observations.
   - **Min**: `\text{samples}[0]`
   - **Max**: `\text{samples}[N - 1]`
 
