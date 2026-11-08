@@ -1,6 +1,7 @@
 import os
 import sys
 import re
+import shutil
 import subprocess
 
 print('========================================')
@@ -22,13 +23,14 @@ def run_test(name, fn):
 
 # 1. Shell scripts syntax check with bash -n
 def test_shell_scripts():
-    bash_path = r'C:\Program Files\Git\bin\bash.exe'
+    bash_path = shutil.which('bash') or r'C:\Program Files\Git\bin\bash.exe'
     scripts = [
         'tests/test_cli.sh',
         'tests/kernel/test_device.sh',
         'tests/kernel/test_load_unload.sh',
         'bench/run_experiments.sh',
         'bench/run_benchmarks.sh',
+        'bench/run_comparative.sh',
         'bench/capture_environment.sh'
     ]
     for s in scripts:
@@ -45,12 +47,16 @@ def test_c_syntax_balance():
         'src/ipc_pipe.c',
         'src/ipc_fifo.c',
         'src/ipc_shm.c',
+        'src/ipc_sysv_mq.c',
+        'src/ipc_posix_mq.c',
+        'src/ipc_uds.c',
         'src/selector.c',
         'src/mixed_benchmark.c',
         'kernel/aipc_module.c',
         'user/aipc_client.c'
     ]
     for path in c_files:
+        assert os.path.exists(path), f'Missing C file {path}'
         with open(path, 'r', encoding='utf-8') as f:
             code = f.read()
         # strip comments and string literals
@@ -181,6 +187,44 @@ def test_algorithms():
 
 run_test('Algorithmic validation: size parsing and adaptive selector logic', test_algorithms)
 
+# 11. System V, POSIX MQ, Unix Domain Socket, and CPU affinity implementation check
+def test_new_ipc_mechanisms():
+    with open('src/ipc_sysv_mq.c', 'r') as f:
+        sysv_code = f.read()
+    assert 'msgget' in sysv_code, 'msgget missing in ipc_sysv_mq.c'
+    assert 'msgsnd' in sysv_code, 'msgsnd missing in ipc_sysv_mq.c'
+    assert 'msgrcv' in sysv_code, 'msgrcv missing in ipc_sysv_mq.c'
+    assert 'msgctl' in sysv_code, 'msgctl missing in ipc_sysv_mq.c'
+    assert 'IPC_RMID' in sysv_code, 'IPC_RMID missing in ipc_sysv_mq.c'
+
+    with open('src/ipc_posix_mq.c', 'r') as f:
+        posix_code = f.read()
+    assert 'mq_open' in posix_code, 'mq_open missing in ipc_posix_mq.c'
+    assert 'mq_send' in posix_code, 'mq_send missing in ipc_posix_mq.c'
+    assert 'mq_receive' in posix_code, 'mq_receive missing in ipc_posix_mq.c'
+    assert 'mq_close' in posix_code, 'mq_close missing in ipc_posix_mq.c'
+    assert 'mq_unlink' in posix_code, 'mq_unlink missing in ipc_posix_mq.c'
+
+    with open('src/ipc_uds.c', 'r') as f:
+        uds_code = f.read()
+    assert 'socket(AF_UNIX, SOCK_STREAM' in uds_code, 'socket(AF_UNIX) missing in ipc_uds.c'
+    assert 'bind(' in uds_code, 'bind missing in ipc_uds.c'
+    assert 'listen(' in uds_code, 'listen missing in ipc_uds.c'
+    assert 'accept(' in uds_code, 'accept missing in ipc_uds.c'
+    assert 'connect(' in uds_code, 'connect missing in ipc_uds.c'
+    assert 'send(' in uds_code, 'send missing in ipc_uds.c'
+    assert 'recv(' in uds_code, 'recv missing in ipc_uds.c'
+    assert 'unlink(' in uds_code, 'unlink missing in ipc_uds.c'
+
+    with open('include/ipc.h', 'r') as f:
+        h_code = f.read()
+    assert 'sched_setaffinity' in h_code, 'sched_setaffinity missing in include/ipc.h'
+    assert 'TRANSPORT_SYSV' in h_code, 'TRANSPORT_SYSV missing in include/ipc.h'
+    assert 'TRANSPORT_POSIX' in h_code, 'TRANSPORT_POSIX missing in include/ipc.h'
+    assert 'TRANSPORT_UDS' in h_code, 'TRANSPORT_UDS missing in include/ipc.h'
+
+run_test('All new IPC mechanisms (System V, POSIX MQ, UDS) and CPU affinity implemented', test_new_ipc_mechanisms)
+
 print('========================================')
 if all_passed:
     print(f'SUCCESS: ALL {tests_run} TESTS PASSED CLEANLY!')
@@ -188,4 +232,3 @@ else:
     print(f'FAILURE: SOME TESTS FAILED out of {tests_run}')
     sys.exit(1)
 print('========================================')
-

@@ -34,7 +34,6 @@ static int sem_wait_retry(sem_t *sem)
     return 0;
 }
 
-
 static int sem_wait_monitor_child(sem_t *sem, pid_t *child, int *child_reaped)
 {
     for (;;) {
@@ -71,8 +70,8 @@ static void reap_child(pid_t child, int terminate)
     while (waitpid(child, &status, 0) < 0 && errno == EINTR) {}
 }
 
-int ipc_shm_run(size_t payload_size, size_t count,
-                uint64_t *elapsed_ns, size_t *errors)
+int ipc_shm_run_opts(size_t payload_size, size_t count, const ipc_bench_opts_t *opts,
+                     uint64_t *elapsed_ns, size_t *errors)
 {
     char name[64] = {0};
     int fd = -1, sem_count = 0, result = -1, status = 0;
@@ -119,10 +118,15 @@ int ipc_shm_run(size_t payload_size, size_t count,
     if (child < 0) goto cleanup;
 
     if (child == 0) {
+        size_t total_exchanges = (opts ? opts->warmup : 0) + count;
         size_t j;
         const char *fault = getenv("AIPC_TEST_CHILD_EXIT");
+
+        if (opts && opts->cpu_consumer >= 0)
+            set_cpu_affinity(opts->cpu_consumer);
+
         if (fault != NULL && strcmp(fault, "shm") == 0) _exit(77);
-        for (j = 0; j < count; ++j) {
+        for (j = 0; j < total_exchanges; ++j) {
             if (sem_wait_retry(&box->request_full) < 0) _exit(4);
             if (box->request_length == 0 ||
                 box->request_length > SHM_MAX_PAYLOAD) _exit(5);
@@ -138,8 +142,31 @@ int ipc_shm_run(size_t payload_size, size_t count,
         _exit(0);
     }
 
+    if (opts && opts->cpu_producer >= 0)
+        set_cpu_affinity(opts->cpu_producer);
+
+    /* Untimed warm-up exchanges */
+    if (opts && opts->warmup > 0) {
+        for (i = 0; i < opts->warmup; ++i) {
+            if (sem_wait_monitor_child(&box->request_empty, &child, &child_reaped) < 0) { ++*errors; goto exchange_done; }
+            memcpy(box->request, expected, payload_size);
+            box->request_length = payload_size;
+            if (sem_post(&box->request_full) < 0) { ++*errors; goto exchange_done; }
+
+            if (sem_wait_monitor_child(&box->response_full, &child, &child_reaped) < 0) { ++*errors; goto exchange_done; }
+            if (box->response_length != payload_size ||
+                memcmp(box->response, expected, payload_size) != 0)
+                ++*errors;
+            if (sem_post(&box->response_empty) < 0) { ++*errors; goto exchange_done; }
+        }
+    }
+
     start = monotonic_ns();
     for (i = 0; i < count; ++i) {
+        uint64_t iter_start = 0;
+        if (opts && opts->samples_rtt_ns)
+            iter_start = monotonic_ns();
+
         if (sem_wait_monitor_child(&box->request_empty, &child, &child_reaped) < 0) { ++*errors; goto exchange_done; }
         memcpy(box->request, expected, payload_size);
         box->request_length = payload_size;
@@ -150,6 +177,11 @@ int ipc_shm_run(size_t payload_size, size_t count,
             memcmp(box->response, expected, payload_size) != 0)
             ++*errors;
         if (sem_post(&box->response_empty) < 0) { ++*errors; goto exchange_done; }
+
+        if (opts && opts->samples_rtt_ns) {
+            uint64_t iter_end = monotonic_ns();
+            opts->samples_rtt_ns[i] = iter_end >= iter_start ? iter_end - iter_start : 0;
+        }
     }
 
 exchange_done:
@@ -196,4 +228,10 @@ cleanup:
         errno = saved_errno;
     }
     return result;
+}
+
+int ipc_shm_run(size_t payload_size, size_t count,
+                uint64_t *elapsed_ns, size_t *errors)
+{
+    return ipc_shm_run_opts(payload_size, count, NULL, elapsed_ns, errors);
 }

@@ -12,9 +12,9 @@ make
 printf 'trial,requested_mode,selected_transport,payload_bytes,exchanges,elapsed_ns,avg_latency_ns,throughput_exchanges_s,validation_errors\n' > "$OUT"
 
 for size in 64 1024 16384; do
-  for mode in pipe fifo shm adaptive; do
-    # The mailbox intentionally rejects payloads larger than 1024 bytes.
-    if [[ "$mode" == "shm" && "$size" -gt 1024 ]]; then continue; fi
+  for mode in pipe fifo sysv posix shm uds adaptive; do
+    # Shared memory and System V queues have bounded small-message buffers
+    if [[ ("$mode" == "shm" || "$mode" == "sysv") && "$size" -gt 1024 ]]; then continue; fi
     for ((trial=1; trial<=TRIALS; trial++)); do
       output="$(./mini-aipc --mode "$mode" --size "$size" --count "$COUNT")"
       selected="$(printf '%s\n' "$output" | awk -F': ' '/Selected transport:/ {print $2}')"

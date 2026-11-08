@@ -36,9 +36,21 @@ OUT="results/environment.txt"
   echo "[Build flags]"
   grep -E '^CFLAGS|^LDFLAGS' Makefile || true
   echo
+  echo "[CPU Affinity Configuration]"
+  echo "CPU_PRODUCER=${CPU_PRODUCER:-0}"
+  echo "CPU_CONSUMER=${CPU_CONSUMER:-1}"
+  if taskset -c "${CPU_PRODUCER:-0}" true 2>/dev/null; then
+    echo "sched_setaffinity / taskset status: SUPPORTED and ACTIVE"
+  else
+    echo "sched_setaffinity / taskset status: NOT SUPPORTED in current environment"
+  fi
+  echo
   echo "[Experiment settings]"
   echo "COUNT=${COUNT:-10000}"
   echo "TRIALS=${TRIALS:-5}"
+  echo "WARMUP=${WARMUP:-500}"
+  echo "Comparative benchmark payload sizes: 64, 128, 256, 512, 1024 bytes"
+  echo "Comparative benchmark mechanisms: pipe, fifo, sysv, posix, shm, uds"
   echo "Calibration payload sizes: 64, 128, 256, 512, 1024 bytes"
   echo "Baseline extra payload size: 16384 bytes"
   echo "Mixed evaluation payload sizes: 64 and 16384 bytes"

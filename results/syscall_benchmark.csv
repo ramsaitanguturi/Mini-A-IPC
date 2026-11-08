@@ -1,0 +1,7 @@
+mechanism,payload_bytes,exchanges,total_syscalls,total_syscalls_per_exchange,comm_syscalls,comm_syscalls_per_exchange,setup_cleanup_syscalls,relevant_syscall_details
+pipe,64,100,453,4.53,402,4.02,51,"comm: read(201)+write(201)=402; setup: openat(2)+close(10)+mmap(8)+clone(1)+wait4(1)+pipe2(2)"
+fifo,64,100,459,4.59,402,4.02,57,"comm: read(201)+write(201)=402; setup: mknodat(2)+openat(6)+close(6)+unlink(4)+mmap(8)+clone(1)+wait4(1)"
+sysv,64,100,446,4.46,400,4.00,46,"comm: msgsnd(200)+msgrcv(200)=400; setup: openat(2)+close(2)+msgget(1)+msgctl(1)+mmap(8)+clone(1)+wait4(1)"
+posix,64,100,456,4.56,400,4.00,56,"comm: mq_timedsend(200)+mq_timedreceive(200)=400; setup: openat(2)+close(6)+mq_open(2)+mq_unlink(4)+mmap(8)+clone(1)+wait4(1)"
+shm,64,100,252,2.52,204,2.04,48,"comm: futex(204)=204; setup: openat(3)+close(3)+unlink(1)+mmap(9)+ftruncate(1)+clone(1)+wait4(1)"
+uds,64,100,456,4.56,400,4.00,56,"comm: sendto(200)+recvfrom(200)=400; setup: socket(2)+bind(1)+listen(1)+connect(1)+accept(1)+openat(2)+close(6)+unlink(2)+mmap(8)+clone(1)+wait4(1)"

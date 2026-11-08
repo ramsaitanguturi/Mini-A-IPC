@@ -1,13 +1,13 @@
 CC := gcc
-CFLAGS := -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Wpedantic -O2 -Iinclude
+CFLAGS := -std=c11 -D_POSIX_C_SOURCE=200809L -D_GNU_SOURCE -Wall -Wextra -Wpedantic -O2 -Iinclude
 LDFLAGS := -pthread -lrt
 TARGET := mini-aipc
 MIXED_TARGET := mini-aipc-mixed
 AIPC_CLIENT := aipc-client
 FIFO_TARGET := bin/ipc_fifo
-SOURCES := src/main.c src/ipc_pipe.c src/ipc_fifo.c src/ipc_shm.c src/selector.c
+SOURCES := src/main.c src/ipc_pipe.c src/ipc_fifo.c src/ipc_shm.c src/ipc_sysv_mq.c src/ipc_posix_mq.c src/ipc_uds.c src/selector.c
 
-.PHONY: all clean test bench environment kernel-module kernel-clean kernel-test kernel-stress kernel-bench
+.PHONY: all clean test bench bench-comparative environment kernel-module kernel-clean kernel-test kernel-stress kernel-bench
 all: $(TARGET) $(MIXED_TARGET) $(AIPC_CLIENT) $(FIFO_TARGET)
 
 $(TARGET): $(SOURCES) include/ipc.h
@@ -39,13 +39,16 @@ kernel-bench:
 	python3 ./bench/benchmark_kernel_mailbox.py
 
 clean:
-	rm -rf $(TARGET) $(MIXED_TARGET) $(AIPC_CLIENT) bin results/benchmark.csv results/calibration.csv results/threshold.txt results/mixed_workload.csv results/environment.txt
+	rm -rf $(TARGET) $(MIXED_TARGET) $(AIPC_CLIENT) bin results/benchmark.csv results/calibration.csv results/threshold.txt results/mixed_workload.csv results/environment.txt results/comparative_benchmark.csv results/syscall_benchmark.csv
 
 test: all
 	bash ./tests/test_cli.sh
 
 bench: all
 	bash ./bench/run_experiments.sh
+
+bench-comparative: all
+	bash ./bench/run_comparative.sh
 
 environment:
 	bash ./bench/capture_environment.sh

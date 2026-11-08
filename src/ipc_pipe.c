@@ -51,8 +51,8 @@ uint64_t monotonic_ns(void)
     return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
 }
 
-int ipc_pipe_run(size_t payload_size, size_t count,
-                 uint64_t *elapsed_ns, size_t *errors)
+int ipc_pipe_run_opts(size_t payload_size, size_t count, const ipc_bench_opts_t *opts,
+                      uint64_t *elapsed_ns, size_t *errors)
 {
     int request_pipe[2] = {-1, -1};
     int response_pipe[2] = {-1, -1};
@@ -92,13 +92,18 @@ int ipc_pipe_run(size_t payload_size, size_t count,
     if (child == 0) {
         unsigned char *child_buffer = malloc(payload_size);
         const char *fault = getenv("AIPC_TEST_CHILD_EXIT");
+        size_t total_exchanges = (opts ? opts->warmup : 0) + count;
         size_t j;
+
+        if (opts && opts->cpu_consumer >= 0)
+            set_cpu_affinity(opts->cpu_consumer);
+
         close(request_pipe[1]);
         close(response_pipe[0]);
 
         if (fault != NULL && strcmp(fault, "pipe") == 0) _exit(77);
         if (!child_buffer) _exit(2);
-        for (j = 0; j < count; ++j) {
+        for (j = 0; j < total_exchanges; ++j) {
             if (read_all(request_pipe[0], child_buffer, payload_size) < 0 ||
                 write_all(response_pipe[1], child_buffer, payload_size) < 0) {
                 free(child_buffer);
@@ -111,12 +116,36 @@ int ipc_pipe_run(size_t payload_size, size_t count,
         _exit(0);
     }
 
+    if (opts && opts->cpu_producer >= 0)
+        set_cpu_affinity(opts->cpu_producer);
+
     close(request_pipe[0]); request_pipe[0] = -1;
     close(response_pipe[1]); response_pipe[1] = -1;
 
     *errors = 0;
+
+    /* Untimed warm-up exchanges */
+    if (opts && opts->warmup > 0) {
+        for (i = 0; i < opts->warmup; ++i) {
+            if (write_all(request_pipe[1], send_buffer, payload_size) < 0 ||
+                read_all(response_pipe[0], receive_buffer, payload_size) < 0) {
+                ++*errors;
+                break;
+            }
+            if (memcmp(send_buffer, receive_buffer, payload_size) != 0) {
+                ++*errors;
+                break;
+            }
+        }
+        if (*errors != 0) goto exchange_done;
+    }
+
     start = monotonic_ns();
     for (i = 0; i < count; ++i) {
+        uint64_t iter_start = 0;
+        if (opts && opts->samples_rtt_ns)
+            iter_start = monotonic_ns();
+
         if (write_all(request_pipe[1], send_buffer, payload_size) < 0 ||
             read_all(response_pipe[0], receive_buffer, payload_size) < 0) {
             ++*errors;
@@ -124,10 +153,16 @@ int ipc_pipe_run(size_t payload_size, size_t count,
         }
         if (memcmp(send_buffer, receive_buffer, payload_size) != 0)
             ++*errors;
+
+        if (opts && opts->samples_rtt_ns) {
+            uint64_t iter_end = monotonic_ns();
+            opts->samples_rtt_ns[i] = iter_end >= iter_start ? iter_end - iter_start : 0;
+        }
     }
     end = monotonic_ns();
     *elapsed_ns = end >= start ? end - start : 0;
 
+exchange_done:
     close(request_pipe[1]); request_pipe[1] = -1;
     close(response_pipe[0]); response_pipe[0] = -1;
     while (waitpid(child, &status, 0) < 0) {
@@ -155,4 +190,10 @@ fail:
         errno = saved_errno;
         return -1;
     }
+}
+
+int ipc_pipe_run(size_t payload_size, size_t count,
+                 uint64_t *elapsed_ns, size_t *errors)
+{
+    return ipc_pipe_run_opts(payload_size, count, NULL, elapsed_ns, errors);
 }

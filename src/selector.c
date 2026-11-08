@@ -7,6 +7,9 @@ const char *transport_name(transport_t transport)
     case TRANSPORT_SHM: return "shm";
     case TRANSPORT_ADAPTIVE: return "adaptive";
     case TRANSPORT_FIFO: return "fifo";
+    case TRANSPORT_SYSV: return "sysv";
+    case TRANSPORT_POSIX: return "posix";
+    case TRANSPORT_UDS: return "uds";
     default: return "unknown";
     }
 }

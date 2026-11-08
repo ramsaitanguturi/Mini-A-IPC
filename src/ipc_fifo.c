@@ -54,8 +54,8 @@ static int read_all(int fd, void *buffer, size_t length)
  * req_fifo:  Parent writes requests, Child reads requests.
  * resp_fifo: Child writes responses, Parent reads responses.
  */
-int ipc_fifo_run(size_t payload_size, size_t count,
-                 uint64_t *elapsed_ns, size_t *errors)
+int ipc_fifo_run_opts(size_t payload_size, size_t count, const ipc_bench_opts_t *opts,
+                      uint64_t *elapsed_ns, size_t *errors)
 {
     char req_fifo[64] = {0};
     char resp_fifo[64] = {0};
@@ -112,7 +112,11 @@ int ipc_fifo_run(size_t payload_size, size_t count,
         int c_resp_fd = -1;
         unsigned char *child_buffer = NULL;
         const char *fault = getenv("AIPC_TEST_CHILD_EXIT");
+        size_t total_exchanges = (opts ? opts->warmup : 0) + count;
         size_t j;
+
+        if (opts && opts->cpu_consumer >= 0)
+            set_cpu_affinity(opts->cpu_consumer);
 
         /* Open req_fifo for reading, then resp_fifo for writing */
         c_req_fd = open(req_fifo, O_RDONLY);
@@ -139,7 +143,7 @@ int ipc_fifo_run(size_t payload_size, size_t count,
         }
 
         /* Echo requests back to parent */
-        for (j = 0; j < count; ++j) {
+        for (j = 0; j < total_exchanges; ++j) {
             if (read_all(c_req_fd, child_buffer, payload_size) < 0 ||
                 write_all(c_resp_fd, child_buffer, payload_size) < 0) {
                 free(child_buffer);
@@ -156,6 +160,9 @@ int ipc_fifo_run(size_t payload_size, size_t count,
     }
 
     /* Parent process: open req_fifo for writing, then resp_fifo for reading */
+    if (opts && opts->cpu_producer >= 0)
+        set_cpu_affinity(opts->cpu_producer);
+
     req_fd = open(req_fifo, O_WRONLY);
     if (req_fd < 0) goto fail;
 
@@ -163,8 +170,29 @@ int ipc_fifo_run(size_t payload_size, size_t count,
     if (resp_fd < 0) goto fail;
 
     *errors = 0;
+
+    /* Untimed warm-up exchanges */
+    if (opts && opts->warmup > 0) {
+        for (i = 0; i < opts->warmup; ++i) {
+            if (write_all(req_fd, send_buffer, payload_size) < 0 ||
+                read_all(resp_fd, receive_buffer, payload_size) < 0) {
+                ++*errors;
+                break;
+            }
+            if (memcmp(send_buffer, receive_buffer, payload_size) != 0) {
+                ++*errors;
+                break;
+            }
+        }
+        if (*errors != 0) goto exchange_done;
+    }
+
     start = monotonic_ns();
     for (i = 0; i < count; ++i) {
+        uint64_t iter_start = 0;
+        if (opts && opts->samples_rtt_ns)
+            iter_start = monotonic_ns();
+
         if (write_all(req_fd, send_buffer, payload_size) < 0 ||
             read_all(resp_fd, receive_buffer, payload_size) < 0) {
             ++*errors;
@@ -172,10 +200,16 @@ int ipc_fifo_run(size_t payload_size, size_t count,
         }
         if (memcmp(send_buffer, receive_buffer, payload_size) != 0)
             ++*errors;
+
+        if (opts && opts->samples_rtt_ns) {
+            uint64_t iter_end = monotonic_ns();
+            opts->samples_rtt_ns[i] = iter_end >= iter_start ? iter_end - iter_start : 0;
+        }
     }
     end = monotonic_ns();
     *elapsed_ns = end >= start ? end - start : 0;
 
+exchange_done:
     close(req_fd); req_fd = -1;
     close(resp_fd); resp_fd = -1;
 
@@ -214,6 +248,12 @@ fail:
         errno = saved_errno;
         return -1;
     }
+}
+
+int ipc_fifo_run(size_t payload_size, size_t count,
+                 uint64_t *elapsed_ns, size_t *errors)
+{
+    return ipc_fifo_run_opts(payload_size, count, NULL, elapsed_ns, errors);
 }
 
 #ifdef IPC_FIFO_STANDALONE
@@ -270,4 +310,3 @@ int main(int argc, char **argv)
     return errors ? 1 : 0;
 }
 #endif
-
