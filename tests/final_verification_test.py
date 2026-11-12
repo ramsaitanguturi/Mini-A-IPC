@@ -407,6 +407,104 @@ def test_real_strace_detailed_parser_validation():
 
 run_test('Detailed trace parser validated against real strace execution output', test_real_strace_detailed_parser_validation)
 
+# 15. Unified benchmark pipeline verification (scripts, CLI, graph engine, and report generation)
+def test_unified_benchmark_pipeline():
+    import tempfile
+    import importlib.util
+
+    # 1. Validate bash orchestrator syntax
+    bash_path = shutil.which('bash') or r'C:\Program Files\Git\bin\bash.exe'
+    res = subprocess.run([bash_path, '-n', 'bench/run_unified_benchmark.sh'], capture_output=True, text=True)
+    assert res.returncode == 0, f"run_unified_benchmark.sh bash syntax error: {res.stderr}"
+
+    # 2. Validate CLI invocation of runner components
+    res_kr = subprocess.run([sys.executable, 'bench/benchmark_kernel_runner.py', '--help'], capture_output=True, text=True)
+    assert res_kr.returncode == 0, f"benchmark_kernel_runner.py --help failed: {res_kr.stderr}"
+
+    res_cc = subprocess.run([sys.executable, 'bench/benchmark_concurrency.py', '--help'], capture_output=True, text=True)
+    assert res_cc.returncode == 0, f"benchmark_concurrency.py --help failed: {res_cc.stderr}"
+
+    res_pr = subprocess.run([sys.executable, 'bench/process_unified_results.py', '--help'], capture_output=True, text=True)
+    assert res_pr.returncode == 0, f"process_unified_results.py --help failed: {res_pr.stderr}"
+
+    # 3. Smoke test data processing and graph generation with synthetic raw datasets
+    with tempfile.TemporaryDirectory(prefix="mini_aipc_unified_test_") as tmpdir:
+        raw_dir = os.path.join(tmpdir, "raw")
+        os.makedirs(raw_dir, exist_ok=True)
+
+        # Synthetic all_results.csv
+        all_csv = os.path.join(raw_dir, "all_results.csv")
+        with open(all_csv, "w", encoding="utf-8") as f:
+            f.write("requested_mode,selected_transport,payload_bytes,trial,count,avg_rtt_us,p50_rtt_us,p90_rtt_us,p95_rtt_us,p99_rtt_us,p999_rtt_us,min_rtt_us,max_rtt_us,stddev_rtt_us,throughput_msg_sec,throughput_mb_sec,elapsed_ns,errors\n")
+            for m in ["pipe", "fifo", "sysv", "posix", "shm", "uds", "adaptive", "kernel"]:
+                for s in [64, 256, 1024, 4096, 16384]:
+                    if m == "shm" and s > 1024: continue
+                    for t in [1, 2]:
+                        f.write(f"{m},{m},{s},{t},1000,2.500,2.400,3.000,3.200,4.000,4.500,1.200,8.000,0.500,400000.0,24.414,2500000,0\n")
+
+        # Synthetic cpu_metrics.csv
+        with open(os.path.join(raw_dir, "cpu_metrics.csv"), "w", encoding="utf-8") as f:
+            f.write("mechanism,payload_bytes,trial,user_time_sec,system_time_sec,cpu_percent\n")
+            for m in ["pipe", "fifo", "sysv", "posix", "shm", "uds", "adaptive", "kernel"]:
+                f.write(f"{m},64,1,0.05,0.12,98%\n")
+
+        # Synthetic memory_metrics.csv
+        with open(os.path.join(raw_dir, "memory_metrics.csv"), "w", encoding="utf-8") as f:
+            f.write("mechanism,payload_bytes,trial,peak_rss_kb\n")
+            for m in ["pipe", "fifo", "sysv", "posix", "shm", "uds", "adaptive", "kernel"]:
+                f.write(f"{m},64,1,3450\n")
+
+        # Synthetic system_metrics.csv
+        with open(os.path.join(raw_dir, "system_metrics.csv"), "w", encoding="utf-8") as f:
+            f.write("mechanism,payload_bytes,trial,voluntary_context_switches,involuntary_context_switches\n")
+            for m in ["pipe", "fifo", "sysv", "posix", "shm", "uds", "adaptive", "kernel"]:
+                f.write(f"{m},64,1,2002,15\n")
+
+        # Synthetic syscall_metrics.csv
+        with open(os.path.join(raw_dir, "syscall_metrics.csv"), "w", encoding="utf-8") as f:
+            f.write("mechanism,payload_bytes,exchanges,total_calls,comm_syscalls,comm_syscalls_per_exchange,setup_syscalls,other_syscalls,classification,relevant_syscall_details\n")
+            for m in ["pipe", "fifo", "sysv", "posix", "shm", "uds"]:
+                f.write(f"{m},64,1000,4020,4000,4.00,10,10,exact,\"read(2000)+write(2000)=4000\"\n")
+
+        # Synthetic concurrency_results.csv
+        with open(os.path.join(raw_dir, "concurrency_results.csv"), "w", encoding="utf-8") as f:
+            f.write("mechanism,producers,consumers,payload_bytes,messages_per_producer,total_messages,elapsed_ms,throughput_msg_sec,throughput_mb_sec,status,notes\n")
+            for p, c in [(1,1), (2,1), (4,1), (1,2), (4,4)]:
+                for m in ["sysv", "posix", "kernel"]:
+                    f.write(f"{m},{p},{c},64,1000,1000,5.0,200000.0,12.2,PASS,OK\n")
+
+        # Run process_unified_results.py on this temporary directory
+        spec = importlib.util.spec_from_file_location("process_unified_results", "bench/process_unified_results.py")
+        proc_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(proc_module)
+        proc_module.process_benchmark_data(tmpdir, tmpdir)
+
+        # Assert all artifacts exist and are non-empty
+        assert os.path.exists(os.path.join(tmpdir, "processed", "aggregated_results.csv")), "Missing aggregated_results.csv"
+        assert os.path.exists(os.path.join(tmpdir, "processed", "statistical_summary.csv")), "Missing statistical_summary.csv"
+        assert os.path.exists(os.path.join(tmpdir, "processed", "benchmark_metadata.json")), "Missing benchmark_metadata.json"
+        assert os.path.exists(os.path.join(tmpdir, "reports", "FINAL_BENCHMARK_REPORT.md")), "Missing FINAL_BENCHMARK_REPORT.md"
+
+        # Check all 13 PNG charts
+        expected_graphs = [
+            "latency_comparison.png", "p50_latency.png", "p95_latency.png", "p99_latency.png",
+            "throughput_comparison.png", "cpu_comparison.png", "memory_comparison.png",
+            "context_switches.png", "syscall_comparison.png", "payload_scalability.png",
+            "concurrency_scalability.png", "adaptive_vs_best.png", "kernel_vs_userspace.png"
+        ]
+        for g in expected_graphs:
+            g_path = os.path.join(tmpdir, "graphs", g)
+            assert os.path.exists(g_path), f"Missing chart {g}"
+            assert os.path.getsize(g_path) > 1000, f"Chart {g} too small ({os.path.getsize(g_path)} bytes)"
+
+        # Check that report has required sections
+        with open(os.path.join(tmpdir, "reports", "FINAL_BENCHMARK_REPORT.md"), "r", encoding="utf-8") as f:
+            rep = f.read()
+        for s_idx in range(1, 25):
+            assert f"## {s_idx}." in rep or f"{s_idx}." in rep, f"Missing section {s_idx} in benchmark report"
+
+run_test('Unified benchmark pipeline (syntax, CLI, stats, 13 PNG graphs, and 24-section report)', test_unified_benchmark_pipeline)
+
 print('========================================')
 if all_passed:
     print(f'SUCCESS: ALL {tests_run} TESTS PASSED CLEANLY!')

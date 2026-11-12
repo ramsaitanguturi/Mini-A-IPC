@@ -7,7 +7,7 @@ AIPC_CLIENT := aipc-client
 FIFO_TARGET := bin/ipc_fifo
 SOURCES := src/main.c src/ipc_pipe.c src/ipc_fifo.c src/ipc_shm.c src/ipc_sysv_mq.c src/ipc_posix_mq.c src/ipc_uds.c src/selector.c
 
-.PHONY: all clean test bench bench-comparative environment kernel-module kernel-clean kernel-test kernel-stress kernel-bench
+.PHONY: all clean test bench bench-comparative bench-unified bench-unified-quick environment kernel-module kernel-clean kernel-test kernel-stress kernel-bench
 all: $(TARGET) $(MIXED_TARGET) $(AIPC_CLIENT) $(FIFO_TARGET)
 
 $(TARGET): $(SOURCES) include/ipc.h
@@ -49,6 +49,12 @@ bench: all
 
 bench-comparative: all
 	bash ./bench/run_comparative.sh
+
+bench-unified: all
+	bash ./bench/run_unified_benchmark.sh
+
+bench-unified-quick: all
+	bash ./bench/run_unified_benchmark.sh --quick
 
 environment:
 	bash ./bench/capture_environment.sh

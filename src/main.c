@@ -17,6 +17,7 @@ static void usage(const char *program)
         "  --cpu-consumer CORE   Pin consumer (child) to CPU core\n"
         "  --trial N             Trial number for benchmark reporting (default: 1)\n"
         "  --csv                 Output result as a CSV line\n"
+        "  --csv-extended        Output full scientific metrics CSV line (P90, P95, stddev, MB/s)\n"
         "Examples:\n"
         "  %s --mode pipe --size 64 --count 10000\n"
         "  %s --mode fifo --size 64 --count 10000\n"
@@ -101,6 +102,7 @@ int main(int argc, char **argv)
     int cpu_consumer = -1;
     int trial = 1;
     int csv_output = 0;
+    int csv_extended = 0;
     uint64_t elapsed_ns = 0;
     transport_t requested, selected;
     ipc_bench_opts_t opts;
@@ -124,6 +126,8 @@ int main(int argc, char **argv)
             if (parse_int(argv[++i], &trial) < 0 || trial < 1) { usage(argv[0]); return 2; }
         } else if (strcmp(argv[i], "--csv") == 0) {
             csv_output = 1;
+        } else if (strcmp(argv[i], "--csv-extended") == 0) {
+            csv_extended = 1;
         } else {
             usage(argv[0]);
             return 2;
@@ -206,9 +210,10 @@ int main(int argc, char **argv)
     }
 
     /* Compute latency statistics across recorded round-trip samples */
-    double avg_rtt_us = 0.0, p50_rtt_us = 0.0, p99_rtt_us = 0.0, p999_rtt_us = 0.0;
-    double min_rtt_us = 0.0, max_rtt_us = 0.0;
+    double avg_rtt_us = 0.0, p50_rtt_us = 0.0, p90_rtt_us = 0.0, p95_rtt_us = 0.0;
+    double p99_rtt_us = 0.0, p999_rtt_us = 0.0, min_rtt_us = 0.0, max_rtt_us = 0.0, stddev_rtt_us = 0.0;
     double throughput = elapsed_ns ? ((double)count * 1e9 / (double)elapsed_ns) : 0.0;
+    double throughput_mb_sec = elapsed_ns ? (((double)count * (double)size) / (1024.0 * 1024.0)) / ((double)elapsed_ns / 1e9) : 0.0;
 
     if (count > 0)
         avg_rtt_us = ((double)elapsed_ns / (double)count) / 1000.0;
@@ -230,6 +235,13 @@ int main(int argc, char **argv)
             p50_rtt_us = ((double)samples[count / 2 - 1] + (double)samples[count / 2]) / 2000.0;
         }
 
+        /* P90 and P95: Standard nearest-rank method */
+        size_t idx_p90 = nearest_rank_index(90.0, count);
+        p90_rtt_us = (double)samples[idx_p90] / 1000.0;
+
+        size_t idx_p95 = nearest_rank_index(95.0, count);
+        p95_rtt_us = (double)samples[idx_p95] / 1000.0;
+
         /*
          * P99 and P99.9: Standard nearest-rank method with zero-based indexing.
          * For small samples (count < 1000), ceil(0.999 * count) == count,
@@ -240,11 +252,32 @@ int main(int argc, char **argv)
 
         size_t idx_p999 = nearest_rank_index(99.9, count);
         p999_rtt_us = (double)samples[idx_p999] / 1000.0;
+
+        /* Sample standard deviation */
+        if (count > 1) {
+            double sum_sq = 0.0;
+            for (size_t s = 0; s < count; ++s) {
+                double sample_us = (double)samples[s] / 1000.0;
+                double diff = sample_us - avg_rtt_us;
+                sum_sq += diff * diff;
+            }
+            stddev_rtt_us = sqrt(sum_sq / (double)(count - 1));
+        }
     }
 
-    if (csv_output) {
+    if (csv_extended) {
         /*
-         * Output CSV row matching comparative_benchmark.csv format:
+         * Comprehensive research metrics CSV format:
+         * requested_mode,selected_transport,payload_bytes,trial,count,avg_rtt_us,p50_rtt_us,p90_rtt_us,p95_rtt_us,p99_rtt_us,p999_rtt_us,min_rtt_us,max_rtt_us,stddev_rtt_us,throughput_msg_sec,throughput_mb_sec,elapsed_ns,errors
+         */
+        printf("%s,%s,%zu,%d,%zu,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.2f,%.3f,%" PRIu64 ",%zu\n",
+               transport_name(requested), transport_name(selected), size, trial, count,
+               avg_rtt_us, p50_rtt_us, p90_rtt_us, p95_rtt_us, p99_rtt_us, p999_rtt_us,
+               min_rtt_us, max_rtt_us, stddev_rtt_us, throughput, throughput_mb_sec,
+               elapsed_ns, errors);
+    } else if (csv_output) {
+        /*
+         * Legacy CSV format matching comparative_benchmark.csv:
          * mechanism,payload_bytes,trial,count,avg_rtt_us,p50_rtt_us,p99_rtt_us,p999_rtt_us,min_rtt_us,max_rtt_us,throughput_msg_sec
          */
         printf("%s,%zu,%d,%zu,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.2f\n",
@@ -255,13 +288,16 @@ int main(int argc, char **argv)
         printf("Elapsed: %" PRIu64 " ns\n", elapsed_ns);
         printf("Average round-trip latency: %.2f ns\n",
                (double)elapsed_ns / (double)count);
-        printf("Throughput: %.2f exchanges/s\n", throughput);
+        printf("Throughput: %.2f exchanges/s (%.2f MB/s)\n", throughput, throughput_mb_sec);
         printf("Validation errors: %zu\n", errors);
         printf("P50 latency: %.2f us\n", p50_rtt_us);
+        printf("P90 latency: %.2f us\n", p90_rtt_us);
+        printf("P95 latency: %.2f us\n", p95_rtt_us);
         printf("P99 latency: %.2f us\n", p99_rtt_us);
         printf("P99.9 latency: %.2f us\n", p999_rtt_us);
         printf("Min latency: %.2f us\n", min_rtt_us);
         printf("Max latency: %.2f us\n", max_rtt_us);
+        printf("Stddev latency: %.2f us\n", stddev_rtt_us);
     }
 
     free(samples);

@@ -1,0 +1,32 @@
+# Compiled binaries
+mini-aipc
+mini-aipc-mixed
+aipc-client
+bin/
+
+# Object files and kernel module artifacts
+*.o
+*.ko
+*.mod
+*.mod.c
+*.mod.o
+*.order
+*.symvers
+.tmp_versions/
+kernel/*.o
+kernel/*.ko
+kernel/*.mod*
+kernel/*.order
+kernel/*.symvers
+kernel/.*.cmd
+kernel/.tmp_versions/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Temporary files
+/tmp/
+*.tmp
+*.log
