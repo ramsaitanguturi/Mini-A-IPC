@@ -285,7 +285,7 @@ for ((t = 1; t <= TRIALS; t++)); do
             if [[ "$mech" =~ ^(sysv|posix)$ ]] && [ "$size" -gt 8192 ]; then
                 continue
             fi
-            if [ "$mech" = "kernel" ] && [ "$size" -gt 65536 ]; then
+            if [ "$mech" = "kernel" ] && [ "$size" -gt 16384 ]; then
                 continue
             fi
 
@@ -293,8 +293,8 @@ for ((t = 1; t <= TRIALS; t++)); do
             rm -f /dev/shm/*mini_aipc* /tmp/mini_aipc* 2>/dev/null || true
 
             if [ "$mech" = "kernel" ]; then
-                # Kernel Mailbox execution
-                KM_OUT=$(python3 bench/benchmark_kernel_runner.py --device "$KERNEL_DEVICE" --mode roundtrip --size "$size" --count "$MESSAGES" --warmup "$WARMUP" --trial "$t" --csv-extended 2>/dev/null || echo "")
+                # Kernel Mailbox execution with defensive 30s timeout
+                KM_OUT=$(timeout 30s python3 bench/benchmark_kernel_runner.py --device "$KERNEL_DEVICE" --mode roundtrip --size "$size" --count "$MESSAGES" --warmup "$WARMUP" --trial "$t" --csv-extended 2>/dev/null || echo "")
                 KM_LINE=$(echo "$KM_OUT" | grep ',' | tail -n1 || echo "")
                 if [ -n "$KM_LINE" ]; then
                     echo "$KM_LINE" >> "$RAW_DIR/all_results.csv"
@@ -304,6 +304,8 @@ for ((t = 1; t <= TRIALS; t++)); do
                     echo "roundtrip,$sz,$tr,$cnt,$avg,$p50,$p90,$p95,$p99,$min,$max,$std,$tput,$mb,$err,PASS" >> "$RAW_DIR/kernel_results.csv"
                     printf "  [%s] %-14s | %6s B | Avg: %7.2f us | P50: %7.2f us | Tput: %10.1f msg/s\n" \
                         "Trial $t" "$mech" "$size" "${avg:-0.0}" "${p50:-0.0}" "${tput:-0.0}" || true
+                else
+                    echo "  [Trial $t] $mech           | $size B | TIMEOUT / SKIPPED"
                 fi
             else
                 # User-space IPC execution

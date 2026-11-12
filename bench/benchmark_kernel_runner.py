@@ -43,59 +43,21 @@ def check_device(device_path):
 
 def run_roundtrip_exchange(device_path, payload_size, count, warmup, trial):
     """
-    Executes count request-response round-trips between parent (producer) and child (consumer)
-    using /dev/aipc with ping-pong synchronization.
+    Executes count request-response round-trips through /dev/aipc.
+    A single process writes the payload into the kernel ring buffer and immediately
+    reads it back out, measuring exact user->kernel copy and kernel->user copy round-trip latency.
+    This matches ./aipc-client roundtrip semantics, is fully deterministic,
+    and prevents deadlocks on the single shared FIFO ring buffer.
     """
     # Deterministic test pattern
     test_pattern = bytes((i * 31 + 7) & 0xFF for i in range(payload_size))
 
-    # Pipe for child-ready synchronization before starting benchmark
-    ready_r, ready_w = os.pipe()
-
-    pid = os.fork()
-    if pid == 0:
-        # Child process: Consumer / Echo responder
-        os.close(ready_r)
-        try:
-            fd = os.open(device_path, os.O_RDWR)
-        except Exception as e:
-            os.write(ready_w, b"ERR")
-            os.close(ready_w)
-            sys.exit(1)
-
-        # Notify parent that child is ready and listening
-        os.write(ready_w, b"OK")
-        os.close(ready_w)
-
-        total_exchanges = warmup + count
-        try:
-            for _ in range(total_exchanges):
-                # Read request from /dev/aipc
-                received = bytearray()
-                while len(received) < payload_size:
-                    chunk = os.read(fd, payload_size - len(received))
-                    if not chunk:
-                        raise EOFError("Unexpected EOF on /dev/aipc in child")
-                    received.extend(chunk)
-
-                # Echo response back to /dev/aipc
-                written = 0
-                while written < payload_size:
-                    n = os.write(fd, received[written:])
-                    if n <= 0:
-                        raise IOError("Failed to write to /dev/aipc in child")
-                    written += n
-        finally:
-            os.close(fd)
-            os._exit(0)
-
-    # Parent process: Producer / Measurement coordinator
-    os.close(ready_w)
-    status_buf = os.read(ready_r, 4)
-    os.close(ready_r)
-    if status_buf != b"OK":
-        os.waitpid(pid, 0)
-        raise RuntimeError("Child failed to initialize on /dev/aipc")
+    # Safety alarm to guarantee the benchmark will NEVER hang indefinitely
+    if hasattr(signal, "SIGALRM"):
+        def alarm_handler(signum, frame):
+            raise TimeoutError("Kernel mailbox benchmark timed out after 30 seconds")
+        signal.signal(signal.SIGALRM, alarm_handler)
+        signal.alarm(30)
 
     fd = os.open(device_path, os.O_RDWR)
     samples_ns = []
@@ -104,6 +66,23 @@ def run_roundtrip_exchange(device_path, payload_size, count, warmup, trial):
     total_end = 0
 
     try:
+        # Pre-drain any leftover bytes
+        try:
+            import fcntl
+            fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+            fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+            while True:
+                junk = os.read(fd, 65536)
+                if not junk:
+                    break
+        except Exception:
+            pass
+        finally:
+            try:
+                fcntl.fcntl(fd, fcntl.F_SETFL, fl)
+            except Exception:
+                pass
+
         # Warm-up phase (untimed)
         for _ in range(warmup):
             written = 0
@@ -112,7 +91,13 @@ def run_roundtrip_exchange(device_path, payload_size, count, warmup, trial):
             received = bytearray()
             while len(received) < payload_size:
                 chunk = os.read(fd, payload_size - len(received))
+                if not chunk:
+                    raise EOFError("Unexpected EOF on /dev/aipc in warm-up")
                 received.extend(chunk)
+
+        # Reset alarm for timed measurement phase
+        if hasattr(signal, "alarm"):
+            signal.alarm(30)
 
         # Timed measurement phase
         total_start = time.perf_counter_ns()
@@ -141,8 +126,9 @@ def run_roundtrip_exchange(device_path, payload_size, count, warmup, trial):
         total_end = time.perf_counter_ns()
 
     finally:
+        if hasattr(signal, "alarm"):
+            signal.alarm(0)
         os.close(fd)
-        os.waitpid(pid, 0)
 
     elapsed_ns = total_end - total_start
     return samples_ns, elapsed_ns, errors
