@@ -32,7 +32,8 @@ typedef enum {
     TRANSPORT_FIFO,
     TRANSPORT_SYSV,
     TRANSPORT_POSIX,
-    TRANSPORT_UDS
+    TRANSPORT_UDS,
+    TRANSPORT_SPSC
 } transport_t;
 
 /* Optional benchmark configuration for warm-up, CPU pinning, and sample collection */
@@ -45,6 +46,19 @@ typedef struct {
 
 const char *transport_name(transport_t transport);
 transport_t select_transport(size_t payload_size, size_t threshold);
+
+/* Telemetry-based adaptive controller state */
+typedef struct {
+    double ewma_latency_shm_ns;
+    double ewma_latency_pipe_ns;
+    size_t threshold_bytes;
+    size_t switch_count;
+    transport_t current_active;
+} adaptive_controller_t;
+
+void adaptive_controller_init(adaptive_controller_t *ctrl, size_t initial_threshold);
+transport_t select_transport_adaptive(adaptive_controller_t *ctrl, size_t payload_size);
+void update_transport_telemetry(adaptive_controller_t *ctrl, transport_t transport, uint64_t rtt_ns);
 
 /* Standard run functions (existing signatures preserved for full backwards compatibility) */
 int ipc_pipe_run(size_t payload_size, size_t count,

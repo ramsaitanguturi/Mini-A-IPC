@@ -1,548 +1,710 @@
-TASK: Implement a Unified, Scientifically Controlled IPC Benchmarking System
+# Mini-A-IPC: Complete Project Review, Benchmark Findings, Issues and Optimization Roadmap
 
-You are working inside my existing Mini-A-IPC repository.
+You are working on my Linux IPC project, **Mini-A-IPC**.
 
-Your task is to implement a complete, reproducible benchmarking framework that evaluates ALL eight components of my IPC project under controlled experimental conditions and automatically generates comparison graphs, raw datasets, and a final research-quality benchmark report.
+Your task is to understand the current implementation, evaluate the benchmark results, identify performance bottlenecks, and systematically improve the project.
 
-This is an implementation and execution task. Do not merely provide suggestions or documentation. Inspect, implement, execute, validate, and report.
+Do not blindly rewrite existing code. First understand the architecture, preserve working functionality, and make controlled, measurable improvements.
+
+The goal is to develop a technically defensible adaptive IPC implementation with demonstrable improvements in latency, throughput, syscall overhead, or mixed-workload performance.
 
 ---
 
-1. FIRST: AUDIT THE EXISTING REPOSITORY
+# 1. Project overview
 
-Before modifying anything, inspect:
+The project currently implements and compares these IPC mechanisms:
 
-- Complete repository structure.
-- Makefile and build configuration.
-- All six IPC implementations under "src/".
-- Adaptive selector implementation under "src/selector.c".
-- Kernel module under "kernel/".
-- Existing benchmark scripts under "bench/".
-- Existing tests under "tests/".
-- Existing benchmark result formats.
-- Existing documentation.
+1. Anonymous Pipes
+2. Named Pipes (FIFO)
+3. System V Message Queues
+4. POSIX Message Queues
+5. POSIX Shared Memory with process-shared semaphores
+6. Unix Domain Sockets
 
-Pay particular attention to:
+It also implements an adaptive IPC selector that chooses between shared memory and pipes based on payload size.
 
-- "bench/run_comparative.sh"
-- "bench/run_benchmarks.sh"
-- "bench/benchmark_kernel_mailbox.py"
-- "bench/parse_strace.py"
-- "bench/capture_environment.sh"
-- "kernel/aipc_module.c"
-- "tests/kernel/"
+Important source files:
 
-Understand the actual implementation and APIs before writing new code.
+- `src/ipc_pipe.c`
+- `src/ipc_fifo.c`
+- `src/ipc_sysv_mq.c`
+- `src/ipc_posix_mq.c`
+- `src/ipc_shm.c`
+- `src/ipc_uds.c`
+- `src/selector.c`
+- `src/main.c`
+- `src/mixed_benchmark.c`
+- `include/ipc.h`
+- `kernel/aipc_module.c`
+- `bench/`
 
-Reuse existing functionality wherever possible.
+The project also includes correctness tests, benchmarking scripts, syscall profiling, and report-generation scripts.
 
-Do not duplicate existing benchmarks unnecessarily.
+---
 
-Do not modify the six IPC implementations merely to make benchmark results look better.
+# 2. What we successfully accomplished today
 
-Do not remove existing tests, benchmark scripts, historical results, or documentation.
+## A. Build and correctness verification
 
-Create a backup before modifying any existing benchmark infrastructure.
+The project compiled successfully.
 
-2. COMPONENTS THAT MUST BE BENCHMARKED
+The verification script completed all 15 checks successfully.
 
-The unified benchmark must evaluate all eight components.
+The checks covered:
 
-ID| Component| Implementation
-1| Anonymous Pipes| src/ipc_pipe.c
-2| Named Pipes / FIFO| src/ipc_fifo.c
-3| System V Message Queue| src/ipc_sysv_mq.c
-4| POSIX Message Queue| src/ipc_posix_mq.c
-5| POSIX Shared Memory| src/ipc_shm.c
-6| Unix Domain Socket| src/ipc_uds.c
-7| Kernel AIPC Module| kernel/aipc_module.c
-8| Adaptive Policy Selector| src/selector.c
+- Script syntax validation.
+- C source structural checks.
+- Kernel module compilation checks.
+- Mixed benchmark validation.
+- FIFO security and argument parsing.
+- Shared-memory synchronization ordering.
+- Kernel test script output-directory handling.
+- Kernel mailbox benchmark timeout handling.
+- Documentation checks.
+- Adaptive selector and payload-size parsing.
+- IPC mechanism validation.
+- CPU affinity.
+- Percentile calculations and memory safety.
+- Syscall profiling classification.
+- Trace parser validation against real strace output.
+- Unified benchmark pipeline.
 
-All eight must appear in the final benchmark summary.
+The unified benchmark pipeline successfully generated statistics, 13 PNG graphs, and a 24-section benchmark report.
 
-The adaptive selector must be evaluated separately as a policy that selects an underlying IPC mechanism. Do not incorrectly treat it as an independent kernel transport.
+The report was initially generated under:
 
-3. CREATE A UNIFIED BENCHMARK RUNNER
+`/tmp/mini_aipc_unified_test_plv49hx5/reports/FINAL_BENCHMARK_REPORT.md`
 
-Create:
+However, that temporary directory was subsequently unavailable. Do not assume the report still exists. If necessary, rerun the pipeline and preserve the generated artifacts in the project's `results/` directory.
 
-"bench/run_unified_benchmark.sh"
+## B. Comparative benchmarking
 
-The user should be able to start the complete experiment using:
+The comparative benchmark script completed successfully.
 
-"./bench/run_unified_benchmark.sh"
-
-Provide configurable parameters through environment variables or command-line arguments.
-
-Default configuration:
-
-- Message count: 10,000
-- Warm-up messages: 500
-- Trials: 7
-- Payload sizes: 64 B, 256 B, 1 KB, 4 KB, 16 KB, 64 KB, 256 KB
-- Producer count: 1
-- Consumer count: 1
-- Sequential benchmark execution
-- Randomized benchmark order between trial blocks
-- CPU affinity where supported
-
-Allow users to override these settings.
-
-Example:
-
-"./bench/run_unified_benchmark.sh --trials 10 --messages 20000"
-
-Validate arguments and reject invalid configurations.
-
-4. EXPERIMENTAL CONTROL AND FAIRNESS
-
-This is the most important requirement.
-
-All implementations must be tested under the same host environment and comparable workloads.
-
-Control the following:
-
-1. Same physical machine.
-2. Same operating system and kernel.
-3. Same CPU affinity.
-4. Same compiler and optimization flags.
-5. Same payload sizes wherever supported.
-6. Same message count.
-7. Same warm-up policy.
-8. Same number of repetitions.
-9. Same producer/consumer configuration.
-10. Same measurement boundaries.
-11. Same background workload policy.
-12. Same data validation requirements.
-
-Run benchmarks sequentially, not simultaneously.
-
-Randomize the implementation execution order between trials to reduce ordering bias.
-
-Perform cleanup between experiments.
-
-Record the environment before starting.
-
-Do not claim that different IPC mechanisms have identical internal semantics.
-
-For example, shared memory and message queues have different data-transfer and synchronization characteristics.
-
-Define a common application-level benchmark contract:
-
-- Producer generates a payload.
-- Payload is transferred using the selected IPC implementation.
-- Consumer receives and validates the payload.
-- Both sides follow the same logical message protocol.
-- Latency and throughput are measured using clearly documented boundaries.
-
-Where a mechanism requires additional synchronization, include it and document the overhead.
-
-For the kernel module, implement or reuse a matched request-response workload if its existing bulk-transfer benchmark is not directly comparable.
-
-If exact equivalence is impossible, classify the results as a separate workload rather than presenting misleading direct comparisons.
-
-5. METRICS TO COLLECT
-
-Collect the following measurements for every supported configuration.
-
-A. Latency
-
-- Average latency.
-- Median latency (P50).
-- P90 latency.
-- P95 latency.
-- P99 latency.
-- Minimum latency.
-- Maximum latency.
-- Standard deviation.
-
-Use monotonic high-resolution clocks.
-
-Clearly document whether latency represents one-way transfer or complete round-trip time.
-
-Do not mix the two.
-
-B. Throughput
-
-Measure:
-
-- Messages per second.
-- Bytes per second.
-- MB/s.
-- Total experiment duration.
-
-Calculate throughput using validated completed messages.
-
-C. CPU utilization
-
-Collect:
-
-- Average CPU utilization.
-- User CPU time.
-- System CPU time.
-- CPU time per message.
-
-D. Memory consumption
-
-Collect:
-
-- Peak RSS.
-- Average RSS where measurable.
-- Memory consumption per process.
-- Relevant kernel memory information where available.
-
-E. Operating system metrics
-
-Where supported, collect:
-
-- Context switches.
-- Voluntary context switches.
-- Involuntary context switches.
-- System call counts.
-- System call categories.
-- Page faults.
-
-Use "perf", "/usr/bin/time", "/proc", or existing tools where appropriate.
-
-Do not allow strace or instrumentation overhead to contaminate the primary latency measurements.
-
-Run syscall profiling as a separate experiment.
-
-If a metric cannot be collected, mark it unavailable rather than inventing a value.
-
-6. ADAPTIVE SELECTOR EVALUATION
-
-The adaptive selector requires its own evaluation.
-
-For every payload size:
-
-1. Record which transport the adaptive selector chooses.
-2. Record its actual measured latency.
-3. Record its actual throughput.
-4. Benchmark all eligible individual transports using the same workload.
-5. Identify the best-performing eligible transport.
-6. Calculate the adaptive selector's performance difference from that transport.
-
-Calculate:
-
-- Selection accuracy.
-- Performance regret.
-- Selection overhead.
-- Latency improvement or degradation.
-- Throughput improvement or degradation.
-
-Do not assume the adaptive selector is optimal.
-
-Do not change its selection thresholds just to improve the benchmark.
-
-Report its actual behaviour.
-
-7. KERNEL MODULE BENCHMARKING
-
-Integrate the existing kernel mailbox benchmark.
-
-Inspect "kernel/aipc_module.c" and its device interface before implementing the test.
-
-Required tests:
-
-- Module compilation.
-- Module loading.
-- Device creation.
-- Write/read functionality.
-- Data integrity.
-- Buffer capacity.
-- Empty-buffer behaviour.
-- Full-buffer behaviour.
-- Blocking operations.
-- Nonblocking operations.
-- Concurrent readers and writers.
-- Poll behaviour, if implemented.
-- Error handling.
-- Module unloading.
-- Repeated load/unload testing.
-
-Benchmark the kernel mailbox using workloads comparable to the user-space mechanisms wherever technically possible.
-
-Measure the same relevant metrics.
-
-Do not silently skip kernel testing if module compilation or loading fails.
-
-Report the exact reason for failure and mark kernel benchmark results BLOCKED or FAILED.
-
-Never report missing kernel measurements as zero.
-
-The benchmark runner must cleanly unload the module if it loaded the module itself.
-
-Do not unload a module that was already loaded by the user before the experiment.
-
-Use safe cleanup traps to handle interruptions.
-
-8. PAYLOAD AND SCALABILITY EXPERIMENTS
-
-Run all eligible implementations across:
+It tested six IPC mechanisms across five payload sizes:
 
 - 64 bytes
+- 128 bytes
 - 256 bytes
-- 1 KB
-- 4 KB
-- 16 KB
-- 64 KB
-- 256 KB
+- 512 bytes
+- 1024 bytes
 
-Also evaluate increasing concurrency:
+Configuration:
 
-- 1 producer / 1 consumer
-- 2 producers / 1 consumer
-- 4 producers / 1 consumer
-- 1 producer / 2 consumers
-- 4 producers / 4 consumers
+- 10,000 exchanges per trial.
+- Five trials per mechanism and payload size.
+- 500 warm-up exchanges.
+- Producer and consumer CPU affinity enabled.
+- Producer pinned to CPU 0.
+- Consumer pinned to CPU 1.
 
-Only run configurations supported by the actual implementation.
+Generated files:
 
-Clearly distinguish unsupported configurations from failures.
+- `results/comparative_benchmark.csv`
+- `results/syscall_benchmark.csv`
+- `results/environment.txt`
 
-For every configuration, verify that the number of sent and received messages matches and that payload contents are correct.
+The benchmark environment was:
 
-9. DATA STORAGE
+- Fedora Linux 45 Workstation.
+- Linux kernel 7.3.3.
+- GCC 16.2.1.
+- Intel Core 7 240H as reported by the environment.
+- Four visible CPUs.
+- KVM virtualization.
 
-Create a dedicated output directory:
+Important: All performance claims must disclose that these results were collected inside a virtual machine. Do not present them as bare-metal performance measurements.
 
-"results/unified/"
+## C. Syscall profiling succeeded
 
-Use this structure:
+We installed the missing dependencies and successfully ran syscall profiling using strace.
 
-results/unified/
-raw/
-all_results.csv
-latency.csv
-throughput.csv
-cpu_metrics.csv
-memory_metrics.csv
-system_metrics.csv
-adaptive_results.csv
-kernel_results.csv
+The profiling test used:
 
-processed/
-    aggregated_results.csv
-    statistical_summary.csv
-    benchmark_metadata.json
+- 64-byte payloads.
+- 100 exchanges.
+- All six IPC mechanisms.
 
-graphs/
-    latency_comparison.png
-    p50_latency.png
-    p95_latency.png
-    p99_latency.png
-    throughput_comparison.png
-    cpu_comparison.png
-    memory_comparison.png
-    context_switches.png
-    syscall_comparison.png
-    payload_scalability.png
-    concurrency_scalability.png
-    adaptive_vs_best.png
-    kernel_vs_userspace.png
+Results:
 
-reports/
-    FINAL_BENCHMARK_REPORT.md
+| Mechanism | Total syscalls | Communication syscalls | Communication calls/exchange |
+|---|---:|---:|---:|
+| PIPE | 463 | 400 | 4.00 |
+| FIFO | 469 | 400 | 4.00 |
+| System V MQ | 456 | 400 | 4.00 |
+| POSIX MQ | 466 | 400 | 4.00 |
+| SHM | 268 | 210 | 2.10 |
+| UDS | 466 | 400 | 4.00 |
 
-environment.txt
+**Important finding: SHM used 47.5% fewer classified communication syscalls than the conventional mechanisms in this test.**
 
-Preserve every raw trial.
+However, SHM did not eliminate kernel transitions. Its synchronization still generated futex calls.
 
-Include timestamps, trial numbers, implementation names, payload sizes, message counts, workload types, and environment identifiers.
+Do not claim that SHM is syscall-free.
 
-Use consistent CSV column names and units.
+Also, this is one profiling sample at one payload size. Additional profiling is necessary before making broad claims.
 
-Do not overwrite previous experiment results.
+---
 
-Create a unique experiment ID for every run.
+# 3. Comparative latency findings
 
-10. STATISTICAL ANALYSIS
+The following values are the mean RTT across five trials, in microseconds.
 
-Use Python for data processing and graph generation.
+| Payload | PIPE | FIFO | POSIX MQ | SHM | System V MQ | UDS |
+|---:|---:|---:|---:|---:|---:|---:|
+| 64 B | 119.089 | 116.497 | 113.085 | 118.789 | 116.140 | 110.761 |
+| 128 B | 109.978 | 116.170 | 119.297 | 118.063 | 115.105 | 138.576 |
+| 256 B | 121.859 | 122.901 | 113.891 | 108.721 | 113.920 | 108.637 |
+| 512 B | 113.407 | 130.167 | 123.961 | 110.546 | 119.680 | 108.057 |
+| 1024 B | 122.504 | 119.125 | 125.658 | 133.381 | 124.803 | 110.360 |
 
-Use appropriate libraries such as:
+## Findings
 
-- pandas
-- numpy
-- matplotlib
-- scipy, if needed
+### 64 bytes
 
-Calculate:
+Fastest: UDS at 110.761 µs.
 
-- Mean.
-- Median.
+SHM: 118.789 µs.
+
+SHM is not the fastest.
+
+### 128 bytes
+
+Fastest: PIPE at 109.978 µs.
+
+SHM: 118.063 µs.
+
+SHM is not the fastest.
+
+### 256 bytes
+
+Fastest: UDS at 108.637 µs.
+
+SHM: 108.721 µs.
+
+The difference is only 0.084 µs, approximately 0.08%.
+
+Treat these mechanisms as effectively tied until further statistical analysis establishes otherwise.
+
+### 512 bytes
+
+Fastest: UDS at 108.057 µs.
+
+SHM: 110.546 µs.
+
+SHM is approximately 2.3% slower.
+
+### 1024 bytes
+
+Fastest: UDS at 110.360 µs.
+
+SHM: 133.381 µs.
+
+SHM is approximately 20.9% slower.
+
+## Overall conclusion
+
+SHM currently does not win any of the five payload-size comparisons.
+
+However, it is competitive at 256 bytes and reasonably close at 512 bytes.
+
+The 1024-byte result requires investigation.
+
+**Do not claim that the current SHM implementation improves latency.**
+
+The demonstrated advantage so far is reduced communication syscall overhead, not consistently lower RTT.
+
+Investigate why syscall reduction is not translating into latency improvement.
+
+---
+
+# 4. Important problems discovered in the current implementation
+
+## Problem A: Semaphore monitoring overhead
+
+Inspect `src/ipc_shm.c`.
+
+The function:
+
+`sem_wait_monitor_child()`
+
+uses:
+
+- `clock_gettime(CLOCK_REALTIME)`
+- `sem_timedwait()`
+- A 100 ms timeout.
+- `waitpid(..., WNOHANG)` when the timeout expires.
+
+The parent calls this function twice per exchange:
+
+1. Waiting for `request_empty`.
+2. Waiting for `response_full`.
+
+For 10,000 exchanges, that means approximately 20,000 calls to the monitoring wrapper and its associated clock-read/deadline logic, excluding retries and other operations.
+
+This is part of the timed benchmark loop.
+
+The child uses `sem_wait_retry()`, which simply waits on a semaphore and retries on EINTR.
+
+### Required investigation
+
+Determine how much overhead the parent-side child-monitoring mechanism contributes.
+
+Implement a controlled benchmark variant that uses ordinary `sem_wait_retry()` during normal timed execution.
+
+Keep the robust child-monitoring implementation available for failure-handling tests.
+
+Do not permanently remove child-failure handling.
+
+Use an external timeout during the experimental benchmark, for example:
+
+`timeout 30s ./mini-aipc --mode shm --size 64 --count 10000`
+
+Make sure the normal and experimental versions are tested under identical conditions.
+
+Compare:
+
+- Average RTT.
+- Median RTT.
+- P95 and P99 RTT.
+- Throughput.
+- Validation errors.
+- Child crash behavior.
+
+Do not assume every `sem_timedwait()` call necessarily produces a kernel syscall. Measure the actual overhead.
+
+## Problem B: Four process-shared semaphores
+
+The current mailbox structure is:
+
+```c
+typedef struct {
+    sem_t request_empty;
+    sem_t request_full;
+    sem_t response_empty;
+    sem_t response_full;
+    size_t request_length;
+    size_t response_length;
+    unsigned char request[SHM_MAX_PAYLOAD];
+    unsigned char response[SHM_MAX_PAYLOAD];
+} shared_mailbox_t;
+```
+
+The parent and child coordinate through four process-shared semaphores.
+
+The current request-response protocol is correct in principle, but synchronization overhead may be affecting performance.
+
+Investigate:
+
+- Semaphore wake-up overhead.
+- Futex usage.
+- Context switching.
+- Cache-line contention.
+- Producer/consumer synchronization.
+- Memory-copy overhead.
+- Whether all four semaphores are necessary.
+
+Do not remove synchronization primitives without proving that correctness and memory ordering are preserved.
+
+## Problem C: Cache-line contention
+
+The current shared mailbox places synchronization objects close together.
+
+Investigate whether producer and consumer frequently modify data sharing the same cache line.
+
+Experiment with cache-line-separated synchronization data.
+
+A possible experimental layout is:
+
+```c
+#define CACHE_LINE 64
+
+typedef struct {
+    _Alignas(CACHE_LINE) sem_t request_empty;
+    sem_t response_full;
+
+    _Alignas(CACHE_LINE) sem_t request_full;
+    sem_t response_empty;
+
+    size_t request_length;
+    size_t response_length;
+
+    unsigned char request[SHM_MAX_PAYLOAD];
+    unsigned char response[SHM_MAX_PAYLOAD];
+} shared_mailbox_t;
+```
+
+This is only a starting experiment.
+
+Verify actual field offsets, alignment, structure size, and cache-line placement.
+
+Do not assume that adding `_Alignas(64)` automatically eliminates false sharing.
+
+Measure the effect before accepting this change.
+
+## Problem D: Current SHM implementation uses POSIX semaphores
+
+The source uses:
+
+- `sem_init()`
+- `sem_wait()`
+- `sem_timedwait()`
+- `sem_post()`
+- `sem_destroy()`
+
+The syscall profile recorded futex activity.
+
+Explain how POSIX semaphores can use futex operations internally on Linux.
+
+Do not introduce explicit futex system calls without a strong reason.
+
+First investigate whether the existing semaphore implementation is the actual bottleneck.
+
+---
+
+# 5. Current adaptive selector problem
+
+Inspect `src/selector.c` and `include/ipc.h`.
+
+Current definitions:
+
+```c
+#define SHM_MAX_PAYLOAD 1024U
+#define DEFAULT_THRESHOLD 1024U
+```
+
+Current selector:
+
+```c
+transport_t select_transport(size_t payload_size, size_t threshold)
+{
+    if (payload_size <= threshold && payload_size <= SHM_MAX_PAYLOAD)
+        return TRANSPORT_SHM;
+
+    return TRANSPORT_PIPE;
+}
+```
+
+Current behavior:
+
+| Payload | Selected mechanism |
+|---:|---|
+| 64 B | SHM |
+| 128 B | SHM |
+| 256 B | SHM |
+| 512 B | SHM |
+| 1024 B | SHM |
+| Above 1024 B | PIPE |
+
+This is a fixed size-based selector.
+
+It does not use telemetry, measured performance, workload history, or dynamic adaptation.
+
+The source comment explicitly acknowledges that it is not the paper's full adaptive telemetry/hysteresis controller.
+
+### Required improvement
+
+Do not immediately change the default threshold.
+
+First optimize SHM and repeat the measurements.
+
+Then investigate a more defensible adaptive policy.
+
+Potential improvements:
+
+1. Calibrate the crossover point using measured performance.
+2. Use separate thresholds for different workload conditions if supported by evidence.
+3. Add telemetry for latency and throughput.
+4. Investigate an EWMA-based performance estimator.
+5. Consider hysteresis to prevent rapid switching between mechanisms.
+6. Ensure selection overhead does not exceed the benefit gained.
+7. Retain a simple fallback policy.
+
+Do not claim the selector is dynamically adaptive unless it actually measures and responds to performance.
+
+---
+
+# 6. Mixed benchmark findings
+
+Inspect `src/mixed_benchmark.c`.
+
+Current workload:
+
+```c
+#define SMALL_SIZE 64U
+#define LARGE_SIZE 16384U
+```
+
+The workload consists of:
+
+- 80% 64-byte messages.
+- 20% 16-KB messages.
+- Deterministic Fisher-Yates shuffle.
+- Same sequence for both policies.
+
+Current policies:
+
+- PIPE policy: uses pipes for all messages.
+- Adaptive policy: uses SHM for messages at or below the threshold and pipes otherwise.
+
+The SHM mailbox is limited to 1024 bytes.
+
+Therefore:
+
+- 64-byte messages use SHM under the adaptive policy.
+- 16-KB messages use pipes.
+- PIPE policy uses pipes for both.
+
+This is a useful experiment because both policies receive the same workload sequence.
+
+### Required investigation
+
+1. Run the mixed benchmark repeatedly.
+2. Compare elapsed time and throughput.
+3. Verify identical message sequences and validation.
+4. Add an explicit warm-up phase if appropriate.
+5. Ensure both policies receive equivalent warm-up treatment.
+6. Record per-trial results instead of relying on one run.
+7. Report the exact workload distribution.
+8. Investigate whether the adaptive policy actually outperforms the all-PIPE baseline.
+
+Do not claim a mixed-workload improvement until the measurements demonstrate it.
+
+Also inspect the mixed benchmark's cleanup and error-handling paths before modifying its synchronization.
+
+---
+
+# 7. Proposed major optimization: SPSC shared-memory ring buffer
+
+After investigating the existing semaphore implementation, consider developing an experimental shared-memory ring-buffer transport.
+
+Use a single-producer/single-consumer design.
+
+Potential design:
+
+- Fixed-size slots.
+- Producer and consumer indices.
+- Cache-line-separated indices.
+- Atomic sequence counters.
+- Appropriate acquire/release memory ordering.
+- Bounded ring capacity.
+- Correct handling of full and empty states.
+- Payload validation.
+- Safe process-shared memory initialization and cleanup.
+
+The goal is to reduce synchronization overhead compared with the current four-semaphore mailbox.
+
+However:
+
+- Do not implement this before measuring the current implementation.
+- Do not assume atomics automatically outperform semaphores.
+- Do not introduce busy spinning without measuring CPU consumption.
+- Consider a spin-then-park strategy only if justified by results.
+- Ensure the implementation works across separate processes, not just threads.
+- Validate that the chosen atomic operations are lock-free and suitable for the target platform.
+- Preserve correctness under process termination and abnormal exits.
+
+Treat this as a separate experimental transport until it passes all correctness tests.
+
+---
+
+# 8. Kernel module distinction
+
+The project also contains:
+
+`kernel/aipc_module.c`
+
+and a kernel Makefile.
+
+The existing user-space comparative benchmark tests the user-space IPC implementations.
+
+It does not establish that the custom kernel module provides a performance improvement.
+
+Keep these two evaluation paths separate.
+
+For the kernel module:
+
+1. Verify it builds against the currently running kernel.
+2. Verify it can be loaded safely.
+3. Verify its communication interface.
+4. Test concurrent access.
+5. Test invalid inputs.
+6. Test process termination and cleanup.
+7. Benchmark the actual module interface.
+8. Compare its results with an appropriate baseline.
+
+Do not claim kernel-module performance based only on user-space SHM measurements or structural compilation checks.
+
+---
+
+# 9. Benchmarking requirements for every optimization
+
+Every proposed performance improvement must be evaluated using controlled experiments.
+
+Keep the following consistent:
+
+- Same hardware or VM.
+- Same CPU affinity.
+- Same payload sizes.
+- Same number of exchanges.
+- Same warm-up count.
+- Same compiler flags.
+- Same workload sequence.
+- Same measurement method.
+
+Run multiple trials.
+
+Record:
+
+- Average RTT.
+- Median RTT.
+- P90 RTT.
+- P95 RTT.
+- P99 RTT.
+- P99.9 RTT.
 - Standard deviation.
-- P50.
-- P90.
-- P95.
-- P99.
-- Confidence intervals where appropriate.
+- Minimum and maximum RTT.
+- Throughput.
+- Communication syscalls per exchange.
+- CPU utilization if available.
+- Context switches if available.
+- Validation errors.
 
-Use paired comparisons when experimental configurations are matched.
+Use appropriate statistical comparisons.
 
-Clearly state the statistical method and sample size.
+Do not call a 0.08% difference a meaningful optimization without sufficient evidence.
 
-Do not claim statistical significance without an appropriate statistical test.
+Preserve raw CSV files and generated reports.
 
-Distinguish observed measurements from calculated estimates.
+Never overwrite the original baseline results.
 
-11. GRAPH GENERATION
+Create separate result files for each experimental version.
 
-Generate clear, publication-quality graphs.
+Suggested naming:
 
-Requirements:
+- `baseline_comparative.csv`
+- `sem_wait_optimization.csv`
+- `cacheline_alignment.csv`
+- `spsc_ring_buffer.csv`
+- `adaptive_policy.csv`
+- `mixed_workload.csv`
 
-- Consistent units.
-- Readable axis labels.
-- Descriptive titles.
-- Legends.
-- Appropriate scales.
-- Error bars or confidence intervals where appropriate.
-- No misleading truncated axes.
-- Consistent mechanism naming.
-- High-resolution PNG output.
-- PDF output for report inclusion where useful.
+Use a clear experiment log documenting:
 
-Generate graphs comparing all eligible mechanisms.
+- What changed.
+- Why it changed.
+- Which files were modified.
+- Build status.
+- Test results.
+- Performance results.
+- Whether the change was accepted or rejected.
 
-For payload scalability, use payload size on the X-axis.
+---
 
-For latency, use milliseconds or microseconds consistently.
+# 10. Required development order
 
-For throughput, use messages/second and MB/s.
+Follow this order.
 
-Do not combine incompatible workload measurements into a single misleading chart.
+## Phase 1: Understand and preserve the baseline
 
-12. FINAL BENCHMARK REPORT
+- Inspect the complete repository.
+- Understand existing build scripts and test scripts.
+- Preserve existing benchmark CSVs.
+- Record the baseline results.
+- Run the correctness tests.
+- Verify current behavior.
 
-Automatically generate:
+Do not modify anything yet.
 
-"results/unified/reports/FINAL_BENCHMARK_REPORT.md"
+## Phase 2: Investigate semaphore-monitoring overhead
 
-Include:
+- Create a controlled experimental version of the SHM timed path.
+- Compare ordinary semaphore waits with monitored waits.
+- Preserve failure-handling behavior.
+- Run correctness and crash tests.
+- Compare latency distributions.
 
-1. Executive summary.
-2. Project architecture.
-3. All eight components.
-4. Experimental environment.
-5. Hardware and software configuration.
-6. Benchmark methodology.
-7. Workload definitions.
-8. Measurement methodology.
-9. Raw experiment configuration.
-10. Latency comparison.
-11. Throughput comparison.
-12. CPU comparison.
-13. Memory comparison.
-14. Context-switch comparison.
-15. System-call comparison.
-16. Payload scalability.
-17. Concurrency scalability.
-18. Adaptive selector evaluation.
-19. Kernel mailbox evaluation.
-20. Statistical analysis.
-21. Limitations.
-22. Failed or unsupported experiments.
-23. Reproducibility instructions.
-24. Conclusions.
+## Phase 3: Investigate cache-line layout
 
-Embed or reference the generated graphs.
+- Inspect structure offsets and alignment.
+- Experiment with separating synchronization data.
+- Measure performance.
+- Keep the change only if it provides repeatable benefits.
 
-Do not fabricate conclusions or performance values.
+## Phase 4: Investigate synchronization redesign
 
-If the kernel module cannot be tested, explicitly state that the overall comparison is incomplete.
+- Evaluate whether all four semaphores are necessary.
+- Investigate an SPSC ring-buffer implementation.
+- Use correct process-shared synchronization.
+- Benchmark against the original SHM implementation.
 
-13. AUTOMATION AND SAFETY
+## Phase 5: Improve adaptive selection
 
-The unified runner must:
+- Determine actual crossover points from measured results.
+- Evaluate thresholds across multiple workloads.
+- Consider telemetry and hysteresis.
+- Compare adaptive selection against PIPE-only and other fixed policies.
 
-- Check required dependencies.
-- Check compiler availability.
-- Check kernel headers.
-- Check kernel module permissions.
-- Check whether the module is already loaded.
-- Check disk space.
-- Validate all generated data.
-- Detect failed experiments.
-- Record error messages.
-- Preserve partial results after interruption.
-- Clean temporary IPC resources.
-- Avoid deleting unrelated system resources.
-- Restore the original module state.
-- Generate a final PASS / FAIL / BLOCKED summary.
+## Phase 6: Improve mixed-workload benchmarking
 
-Do not run the entire benchmark with sudo.
+- Repeat trials.
+- Add consistent warm-up.
+- Record complete results.
+- Evaluate the 80% small / 20% large workload.
+- Verify whether adaptive selection actually improves performance.
 
-Use elevated permissions only for kernel operations that require them.
+## Phase 7: Final validation and reporting
 
-Do not disable security protections.
+- Run the complete correctness suite.
+- Run all benchmark suites.
+- Generate graphs.
+- Generate a final technical report.
+- Document limitations.
+- Clearly distinguish user-space IPC from kernel-module testing.
+- Disclose virtualization in performance results.
 
-Do not modify the user's system kernel configuration automatically.
+---
 
-14. IMPLEMENTATION QUALITY
+# 11. Strict instructions
 
-Follow these rules:
+1. Do not rewrite the entire project.
+2. Do not remove existing error handling to improve benchmark numbers.
+3. Do not sacrifice correctness for performance.
+4. Do not change multiple performance variables simultaneously.
+5. Do not fabricate benchmark results.
+6. Do not claim an optimization worked without measurements.
+7. Preserve existing CLI behavior unless a change is necessary.
+8. Preserve CSV compatibility where possible.
+9. Keep code understandable and reasonably simple.
+10. Avoid unnecessary abstractions.
+11. Use appropriate algorithms and synchronization primitives where they are justified.
+12. Explain every significant modification.
+13. Build and test after each phase.
+14. Maintain a working baseline so every optimization can be compared against it.
 
-- Preserve existing project architecture.
-- Reuse existing benchmark functions.
-- Avoid unnecessary dependencies.
-- Keep scripts modular.
-- Add meaningful error handling.
-- Use deterministic experiment configuration.
-- Document every new script.
-- Add automated tests for the benchmark pipeline.
-- Keep existing functional tests passing.
-- Never fabricate benchmark results.
-- Never silently skip an implementation.
+If a proposed change is unsafe or unsupported by measurements, explain why instead of implementing it.
 
-15. EXECUTION AND FINAL VALIDATION
+---
 
-After implementation:
+# 12. Expected final deliverables
 
-1. Run a clean project build.
-2. Run the complete existing regression suite.
-3. Run a small smoke benchmark for all eight components.
-4. Validate CSV generation.
-5. Validate statistical calculations.
-6. Validate graph generation.
-7. Validate report generation.
-8. Run the full benchmark if the environment supports it.
-9. Verify kernel module cleanup.
-10. Verify that all historical results remain intact.
+At the end of the work, provide:
 
-If the environment does not support kernel module compilation or loading, finish all possible user-space experiments and clearly document the exact remaining kernel requirements.
+1. A description of the existing architecture.
+2. A list of identified bottlenecks.
+3. A list of source files modified.
+4. The exact optimizations implemented.
+5. Correctness test results.
+6. Before-and-after latency comparisons.
+7. Before-and-after syscall comparisons.
+8. Mixed-workload performance comparisons.
+9. Adaptive selector evaluation.
+10. Kernel-module testing status.
+11. Graphs and benchmark CSV files.
+12. A technical report explaining what improved, what did not improve, and why.
 
-Do not claim full benchmark completion until all eight components have valid experimental results.
+The most important objective is not to make SHM win every benchmark.
 
-16. FINAL RESPONSE REQUIRED
+The objective is to build a correct and measurable adaptive IPC system that chooses an appropriate transport for the workload and demonstrates its advantages honestly.
 
-When finished, provide:
-
-- Files created.
-- Files modified.
-- Existing functionality reused.
-- Build results.
-- Regression test results.
-- Benchmark results for each of the eight components.
-- Kernel testing status.
-- Number of trials completed.
-- Number of payload configurations completed.
-- Generated graph locations.
-- Generated report location.
-- Any failed or blocked experiments.
-- Exact command to reproduce the complete experiment.
-
-Most importantly, distinguish between:
-
-PASS = Experiment successfully executed and validated.
-
-FAIL = Experiment executed but produced an error or incorrect result.
-
-BLOCKED = Experiment could not execute because of an environment or dependency limitation.
-
-PARTIAL = Some configurations succeeded but the component's full benchmark matrix did not complete.
-
-Do not mark the project fully benchmarked unless every required component has actual, validated measurements.
-
-FINAL OBJECTIVE: One command should orchestrate the complete IPC experimental evaluation and produce reproducible datasets, comparison graphs, statistical analysis, and a complete final benchmark report without requiring manual execution of individual benchmark scripts.
+**Start with repository inspection and baseline preservation. Do not start modifying code until you have understood the current implementation and identified the exact experiment you intend to run.**

@@ -14,16 +14,34 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#ifndef CACHE_LINE_SIZE
+#define CACHE_LINE_SIZE 64
+#endif
+
 typedef struct {
-    sem_t request_empty;
+    /* Cache line 0: Request synchronization (Consumer posts request_empty, Producer waits) */
+    _Alignas(CACHE_LINE_SIZE) sem_t request_empty;
     sem_t request_full;
-    sem_t response_empty;
+
+    /* Cache line 1: Response synchronization (Producer posts response_empty, Consumer waits) */
+    _Alignas(CACHE_LINE_SIZE) sem_t response_empty;
     sem_t response_full;
-    size_t request_length;
-    size_t response_length;
+
+    /* Cache line 2+: Producer-written payload */
+    _Alignas(CACHE_LINE_SIZE) size_t request_length;
     unsigned char request[SHM_MAX_PAYLOAD];
+
+    /* Cache line N+: Consumer-written payload */
+    _Alignas(CACHE_LINE_SIZE) size_t response_length;
     unsigned char response[SHM_MAX_PAYLOAD];
 } shared_mailbox_t;
+
+static volatile sig_atomic_t g_child_died = 0;
+static void sigchld_handler(int sig)
+{
+    (void)sig;
+    g_child_died = 1;
+}
 
 static int sem_wait_retry(sem_t *sem)
 {
@@ -62,6 +80,30 @@ static int sem_wait_monitor_child(sem_t *sem, pid_t *child, int *child_reaped)
     }
 }
 
+static int sem_wait_parent(sem_t *sem, pid_t *child, int *child_reaped, int use_monitor)
+{
+    if (use_monitor) {
+        return sem_wait_monitor_child(sem, child, child_reaped);
+    }
+    while (sem_wait(sem) < 0) {
+        if (errno == EINTR) {
+            if (g_child_died || (*child > 0)) {
+                int status;
+                pid_t w = waitpid(*child, &status, WNOHANG);
+                if (w == *child) {
+                    *child = -1;
+                    *child_reaped = 1;
+                    errno = ECHILD;
+                    return -1;
+                }
+            }
+            continue;
+        }
+        return -1;
+    }
+    return 0;
+}
+
 static void reap_child(pid_t child, int terminate)
 {
     int status;
@@ -81,6 +123,13 @@ int ipc_shm_run_opts(size_t payload_size, size_t count, const ipc_bench_opts_t *
     size_t i;
     uint64_t start = 0, end = 0;
     int child_reaped = 0;
+    int use_monitor = 0;
+    struct sigaction sa, old_sa;
+    int sa_installed = 0;
+
+    if (getenv("AIPC_TEST_CHILD_EXIT") != NULL || getenv("AIPC_SHM_MONITOR") != NULL) {
+        use_monitor = 1;
+    }
 
     if (!payload_size || payload_size > SHM_MAX_PAYLOAD || !count ||
         !elapsed_ns || !errors) {
@@ -90,6 +139,16 @@ int ipc_shm_run_opts(size_t payload_size, size_t count, const ipc_bench_opts_t *
 
     *elapsed_ns = 0;
     *errors = 0;
+    g_child_died = 0;
+
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = sigchld_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    if (sigaction(SIGCHLD, &sa, &old_sa) == 0) {
+        sa_installed = 1;
+    }
+
     snprintf(name, sizeof(name), "/mini_aipc_%ld", (long)getpid());
 
     fd = shm_open(name, O_CREAT | O_EXCL | O_RDWR, 0600);
@@ -148,12 +207,12 @@ int ipc_shm_run_opts(size_t payload_size, size_t count, const ipc_bench_opts_t *
     /* Untimed warm-up exchanges */
     if (opts && opts->warmup > 0) {
         for (i = 0; i < opts->warmup; ++i) {
-            if (sem_wait_monitor_child(&box->request_empty, &child, &child_reaped) < 0) { ++*errors; goto exchange_done; }
+            if (sem_wait_parent(&box->request_empty, &child, &child_reaped, use_monitor) < 0) { ++*errors; goto exchange_done; }
             memcpy(box->request, expected, payload_size);
             box->request_length = payload_size;
             if (sem_post(&box->request_full) < 0) { ++*errors; goto exchange_done; }
 
-            if (sem_wait_monitor_child(&box->response_full, &child, &child_reaped) < 0) { ++*errors; goto exchange_done; }
+            if (sem_wait_parent(&box->response_full, &child, &child_reaped, use_monitor) < 0) { ++*errors; goto exchange_done; }
             if (box->response_length != payload_size ||
                 memcmp(box->response, expected, payload_size) != 0)
                 ++*errors;
@@ -167,12 +226,12 @@ int ipc_shm_run_opts(size_t payload_size, size_t count, const ipc_bench_opts_t *
         if (opts && opts->samples_rtt_ns)
             iter_start = monotonic_ns();
 
-        if (sem_wait_monitor_child(&box->request_empty, &child, &child_reaped) < 0) { ++*errors; goto exchange_done; }
+        if (sem_wait_parent(&box->request_empty, &child, &child_reaped, use_monitor) < 0) { ++*errors; goto exchange_done; }
         memcpy(box->request, expected, payload_size);
         box->request_length = payload_size;
         if (sem_post(&box->request_full) < 0) { ++*errors; goto exchange_done; }
 
-        if (sem_wait_monitor_child(&box->response_full, &child, &child_reaped) < 0) { ++*errors; goto exchange_done; }
+        if (sem_wait_parent(&box->response_full, &child, &child_reaped, use_monitor) < 0) { ++*errors; goto exchange_done; }
         if (box->response_length != payload_size ||
             memcmp(box->response, expected, payload_size) != 0)
             ++*errors;
@@ -224,6 +283,7 @@ cleanup:
         }
         if (fd >= 0) close(fd);
         if (name[0] != '\0') shm_unlink(name);
+        if (sa_installed) sigaction(SIGCHLD, &old_sa, NULL);
         free(expected);
         errno = saved_errno;
     }

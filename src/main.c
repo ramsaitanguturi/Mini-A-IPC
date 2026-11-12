@@ -1,4 +1,5 @@
 #include "ipc.h"
+#include "spsc_ring.h"
 
 #include <errno.h>
 #include <inttypes.h>
@@ -142,6 +143,7 @@ int main(int argc, char **argv)
     else if (strcmp(mode, "sysv") == 0) requested = TRANSPORT_SYSV;
     else if (strcmp(mode, "posix") == 0) requested = TRANSPORT_POSIX;
     else if (strcmp(mode, "uds") == 0) requested = TRANSPORT_UDS;
+    else if (strcmp(mode, "spsc") == 0) requested = TRANSPORT_SPSC;
     else if (strcmp(mode, "adaptive") == 0) requested = TRANSPORT_ADAPTIVE;
     else { usage(argv[0]); return 2; }
 
@@ -200,6 +202,8 @@ int main(int argc, char **argv)
         rc = ipc_posix_run_opts(size, count, &opts, &elapsed_ns, &errors);
     else if (selected == TRANSPORT_UDS)
         rc = ipc_uds_run_opts(size, count, &opts, &elapsed_ns, &errors);
+    else if (selected == TRANSPORT_SPSC)
+        rc = ipc_spsc_run_opts(size, count, &opts, &elapsed_ns, &errors);
     else
         rc = ipc_pipe_run_opts(size, count, &opts, &elapsed_ns, &errors);
 

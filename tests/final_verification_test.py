@@ -52,6 +52,7 @@ def test_c_syntax_balance():
         'src/ipc_uds.c',
         'src/selector.c',
         'src/mixed_benchmark.c',
+        'src/ipc_spsc_ring.c',
         'kernel/aipc_module.c',
         'user/aipc_client.c'
     ]

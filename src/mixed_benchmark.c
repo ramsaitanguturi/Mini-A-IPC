@@ -18,11 +18,21 @@
 #define SMALL_SIZE 64U
 #define LARGE_SIZE 16384U
 
+#ifndef CACHE_LINE_SIZE
+#define CACHE_LINE_SIZE 64
+#endif
+
 typedef struct {
-    sem_t empty_req, full_req, empty_resp, full_resp;
-    size_t request_length;
-    size_t response_length;
+    _Alignas(CACHE_LINE_SIZE) sem_t empty_req;
+    sem_t full_req;
+
+    _Alignas(CACHE_LINE_SIZE) sem_t empty_resp;
+    sem_t full_resp;
+
+    _Alignas(CACHE_LINE_SIZE) size_t request_length;
     unsigned char request[SHM_MAX_PAYLOAD];
+
+    _Alignas(CACHE_LINE_SIZE) size_t response_length;
     unsigned char response[SHM_MAX_PAYLOAD];
 } mailbox_t;
 
@@ -80,6 +90,30 @@ static int wait_sem_monitor(sem_t *s, pid_t *child, int *child_reaped)
             if (w < 0 && errno != EINTR) return -1;
         }
     }
+}
+
+static int wait_sem_parent(sem_t *s, pid_t *child, int *child_reaped, int use_monitor)
+{
+    if (use_monitor) {
+        return wait_sem_monitor(s, child, child_reaped);
+    }
+    while (sem_wait(s) < 0) {
+        if (errno == EINTR) {
+            if (*child > 0) {
+                int st;
+                pid_t w = waitpid(*child, &st, WNOHANG);
+                if (w == *child) {
+                    *child = -1;
+                    *child_reaped = 1;
+                    errno = ECHILD;
+                    return -1;
+                }
+            }
+            continue;
+        }
+        return -1;
+    }
+    return 0;
 }
 
 static void fill_payload(unsigned char *p, size_t n, size_t seq)
@@ -191,11 +225,12 @@ sems = 4;
         size_t n = sizes[i];
         fill_payload(buffer, n, i);
         if (strcmp(policy, "adaptive") == 0 && n <= threshold && n <= SHM_MAX_PAYLOAD) {
-            if (wait_sem_monitor(&box->empty_req, &child, &child_reaped) < 0) { ++*errors; break; }
+            int use_monitor = (getenv("AIPC_TEST_MIXED_CHILD_EXIT") != NULL);
+            if (wait_sem_parent(&box->empty_req, &child, &child_reaped, use_monitor) < 0) { ++*errors; break; }
             memcpy(box->request, buffer, n); box->request_length = n;
             if (getenv("AIPC_TEST_CORRUPT_SHM_REQUEST") != NULL && n > 0)
                 box->request[0] ^= 0xffU;
-            if (sem_post(&box->full_req) < 0 || wait_sem_monitor(&box->full_resp, &child, &child_reaped) < 0) { ++*errors; break; }
+            if (sem_post(&box->full_req) < 0 || wait_sem_parent(&box->full_resp, &child, &child_reaped, use_monitor) < 0) { ++*errors; break; }
             if (box->response_length != n || memcmp(box->response, buffer, n) != 0) ++*errors;
             if (sem_post(&box->empty_resp) < 0) { ++*errors; break; }
         } else {
