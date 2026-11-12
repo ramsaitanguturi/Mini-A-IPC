@@ -214,3 +214,4 @@ All raw, processed, and experimental datasets are preserved:
    - **SPSC Ring Buffer Under Virtualization:** While the lock-free SPSC ring buffer achieved zero system calls, running under virtualized environments (KVM on Intel Core 7 240H) can produce tail latency jitter if the guest OS vCPU is preempted during an active spin. For virtualized hosts, futex-backed semaphores remain more cooperative than aggressive busy-spinning.
 3. **VM Disclosure:**
    - All performance measurements were collected inside a KVM virtualized Fedora 45 guest. Virtual CPU scheduling introduces preemption jitter not present on bare metal.
+

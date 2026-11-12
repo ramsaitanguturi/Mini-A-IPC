@@ -104,18 +104,20 @@ for size in 64 128 256 512 1024; do
         # 1. Monitored Wait variant
         rm -f /dev/shm/*mini_aipc* /tmp/mini_aipc* 2>/dev/null || true
         OUT_MON=$(env AIPC_SHM_MONITOR=1 ./mini-aipc --mode shm --size "$size" --count "$COUNT" --warmup "$WARMUP" --trial "$t" $AFFINITY --csv-extended 2>/dev/null || echo "")
-        if [ -n "$OUT_MON" ]; then
-            IFS=',' read -r _ _ sz tr cnt avg p50 p90 p95 p99 p999 min max std tput mb el err <<< "$OUT_MON"
+        CSV_MON=$(echo "$OUT_MON" | grep ',' | tail -n1 || echo "")
+        if [ -n "$CSV_MON" ]; then
+            IFS=',' read -r _ _ sz tr cnt avg p50 p90 p95 p99 p999 min max std tput mb el err <<< "$CSV_MON"
             echo "monitored_wait,$sz,$tr,$cnt,$avg,$p50,$p90,$p95,$p99,$min,$max,$std,$tput" >> "$SEM_CSV"
         fi
 
         # 2. Optimized Fast Wait variant
         rm -f /dev/shm/*mini_aipc* /tmp/mini_aipc* 2>/dev/null || true
         OUT_FAST=$(./mini-aipc --mode shm --size "$size" --count "$COUNT" --warmup "$WARMUP" --trial "$t" $AFFINITY --csv-extended 2>/dev/null || echo "")
-        if [ -n "$OUT_FAST" ]; then
-            IFS=',' read -r _ _ sz tr cnt avg p50 p90 p95 p99 p999 min max std tput mb el err <<< "$OUT_FAST"
+        CSV_FAST=$(echo "$OUT_FAST" | grep ',' | tail -n1 || echo "")
+        if [ -n "$CSV_FAST" ]; then
+            IFS=',' read -r _ _ sz tr cnt avg p50 p90 p95 p99 p999 min max std tput mb el err <<< "$CSV_FAST"
             echo "optimized_fast_wait,$sz,$tr,$cnt,$avg,$p50,$p90,$p95,$p99,$min,$max,$std,$tput" >> "$SEM_CSV"
-            printf "  [Phase 2] Size: %4s B | Monitored: %7.2f us vs Fast: %7.2f us\n" "$size" "$avg" "$p50"
+            printf "  [Phase 2] Size: %4s B | Monitored: %7.2f us vs Fast: %7.2f us\n" "$size" "${avg:-0.0}" "${p50:-0.0}" || true
         fi
     done
 done
@@ -132,10 +134,11 @@ for size in 64 256 1024; do
     for ((t=1; t<=TRIALS; t++)); do
         rm -f /dev/shm/*mini_aipc* /tmp/mini_aipc* 2>/dev/null || true
         OUT=$(./mini-aipc --mode shm --size "$size" --count "$COUNT" --warmup "$WARMUP" --trial "$t" $AFFINITY --csv-extended 2>/dev/null || echo "")
-        if [ -n "$OUT" ]; then
-            IFS=',' read -r _ _ sz tr cnt avg p50 p90 p95 p99 p999 min max std tput mb el err <<< "$OUT"
+        CSV_LINE=$(echo "$OUT" | grep ',' | tail -n1 || echo "")
+        if [ -n "$CSV_LINE" ]; then
+            IFS=',' read -r _ _ sz tr cnt avg p50 p90 p95 p99 p999 min max std tput mb el err <<< "$CSV_LINE"
             echo "cacheline_aligned_shm,$sz,$tr,$cnt,$avg,$p50,$p90,$p95,$p99,$min,$max,$std,$tput" >> "$CACHE_CSV"
-            printf "  [Phase 3] Cache-Aligned SHM Size: %4s B | Avg: %7.2f us | P50: %7.2f us\n" "$size" "$avg" "$p50"
+            printf "  [Phase 3] Cache-Aligned SHM Size: %4s B | Avg: %7.2f us | P50: %7.2f us\n" "$size" "${avg:-0.0}" "${p50:-0.0}" || true
         fi
     done
 done
@@ -153,18 +156,20 @@ for size in 64 256 1024; do
         # 1. SPSC Ring Buffer
         rm -f /dev/shm/*mini_aipc* /tmp/mini_aipc* 2>/dev/null || true
         OUT_SPSC=$(./mini-aipc --mode spsc --size "$size" --count "$COUNT" --warmup "$WARMUP" --trial "$t" $AFFINITY --csv-extended 2>/dev/null || echo "")
-        if [ -n "$OUT_SPSC" ]; then
-            IFS=',' read -r _ _ sz tr cnt avg p50 p90 p95 p99 p999 min max std tput mb el err <<< "$OUT_SPSC"
+        CSV_SPSC=$(echo "$OUT_SPSC" | grep ',' | tail -n1 || echo "")
+        if [ -n "$CSV_SPSC" ]; then
+            IFS=',' read -r _ _ sz tr cnt avg p50 p90 p95 p99 p999 min max std tput mb el err <<< "$CSV_SPSC"
             echo "spsc_ring,$sz,$tr,$cnt,$avg,$p50,$p90,$p95,$p99,$min,$max,$std,$tput" >> "$SPSC_CSV"
         fi
 
         # 2. Semaphore SHM Baseline
         rm -f /dev/shm/*mini_aipc* /tmp/mini_aipc* 2>/dev/null || true
         OUT_SHM=$(./mini-aipc --mode shm --size "$size" --count "$COUNT" --warmup "$WARMUP" --trial "$t" $AFFINITY --csv-extended 2>/dev/null || echo "")
-        if [ -n "$OUT_SHM" ]; then
-            IFS=',' read -r _ _ sz tr cnt avg p50 p90 p95 p99 p999 min max std tput mb el err <<< "$OUT_SHM"
+        CSV_SHM=$(echo "$OUT_SHM" | grep ',' | tail -n1 || echo "")
+        if [ -n "$CSV_SHM" ]; then
+            IFS=',' read -r _ _ sz tr cnt avg p50 p90 p95 p99 p999 min max std tput mb el err <<< "$CSV_SHM"
             echo "semaphore_shm,$sz,$tr,$cnt,$avg,$p50,$p90,$p95,$p99,$min,$max,$std,$tput" >> "$SPSC_CSV"
-            printf "  [Phase 4] Size: %4s B | SPSC Ring: %7.2f us vs Semaphore SHM: %7.2f us\n" "$size" "$avg" "$p50"
+            printf "  [Phase 4] Size: %4s B | SPSC Ring: %7.2f us vs Semaphore SHM: %7.2f us\n" "$size" "${avg:-0.0}" "${p50:-0.0}" || true
         fi
     done
 done
@@ -182,18 +187,20 @@ for size in 64 256 1024 4096 16384; do
         # 1. Adaptive Policy
         rm -f /dev/shm/*mini_aipc* /tmp/mini_aipc* 2>/dev/null || true
         OUT_ADAPT=$(./mini-aipc --mode adaptive --size "$size" --count "$COUNT" --warmup "$WARMUP" --trial "$t" $AFFINITY --csv-extended 2>/dev/null || echo "")
-        if [ -n "$OUT_ADAPT" ]; then
-            IFS=',' read -r req sel sz tr cnt avg p50 _ _ _ _ _ _ _ tput _ _ _ <<< "$OUT_ADAPT"
+        CSV_ADAPT=$(echo "$OUT_ADAPT" | grep ',' | tail -n1 || echo "")
+        if [ -n "$CSV_ADAPT" ]; then
+            IFS=',' read -r req sel sz tr cnt avg p50 _ _ _ _ _ _ _ tput _ _ _ <<< "$CSV_ADAPT"
             echo "adaptive,$sz,$tr,$cnt,$avg,$p50,$tput,$sel" >> "$ADAPT_CSV"
         fi
 
         # 2. Pipe Policy
         rm -f /dev/shm/*mini_aipc* /tmp/mini_aipc* 2>/dev/null || true
         OUT_PIPE=$(./mini-aipc --mode pipe --size "$size" --count "$COUNT" --warmup "$WARMUP" --trial "$t" $AFFINITY --csv-extended 2>/dev/null || echo "")
-        if [ -n "$OUT_PIPE" ]; then
-            IFS=',' read -r req sel sz tr cnt avg p50 _ _ _ _ _ _ _ tput _ _ _ <<< "$OUT_PIPE"
+        CSV_PIPE=$(echo "$OUT_PIPE" | grep ',' | tail -n1 || echo "")
+        if [ -n "$CSV_PIPE" ]; then
+            IFS=',' read -r req sel sz tr cnt avg p50 _ _ _ _ _ _ _ tput _ _ _ <<< "$CSV_PIPE"
             echo "pipe_fixed,$sz,$tr,$cnt,$avg,$p50,$tput,pipe" >> "$ADAPT_CSV"
-            printf "  [Phase 5] Size: %5s B | Adaptive (-> %s): %7.2f us vs Pipe: %7.2f us\n" "$size" "$sel" "$avg" "$p50"
+            printf "  [Phase 5] Size: %5s B | Adaptive (-> %s): %7.2f us vs Pipe: %7.2f us\n" "$size" "$sel" "${avg:-0.0}" "${p50:-0.0}" || true
         fi
     done
 done
@@ -239,3 +246,4 @@ echo "  4. $OUTPUT_DIR/spsc_ring_buffer.csv"
 echo "  5. $OUTPUT_DIR/adaptive_policy.csv"
 echo "  6. $OUTPUT_DIR/mixed_workload.csv"
 echo "=============================================================================="
+

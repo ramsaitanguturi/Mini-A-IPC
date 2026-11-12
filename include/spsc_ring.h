@@ -42,3 +42,4 @@ int ipc_spsc_run_opts(size_t payload_size, size_t count, const ipc_bench_opts_t 
                       uint64_t *elapsed_ns, size_t *errors);
 
 #endif /* SPSC_RING_H */
+

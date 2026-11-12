@@ -295,14 +295,15 @@ for ((t = 1; t <= TRIALS; t++)); do
             if [ "$mech" = "kernel" ]; then
                 # Kernel Mailbox execution
                 KM_OUT=$(python3 bench/benchmark_kernel_runner.py --device "$KERNEL_DEVICE" --mode roundtrip --size "$size" --count "$MESSAGES" --warmup "$WARMUP" --trial "$t" --csv-extended 2>/dev/null || echo "")
-                if [ -n "$KM_OUT" ]; then
-                    echo "$KM_OUT" >> "$RAW_DIR/all_results.csv"
-                    IFS=',' read -r req sel sz tr cnt avg p50 p90 p95 p99 p999 min max std tput mb el err <<< "$KM_OUT"
+                KM_LINE=$(echo "$KM_OUT" | grep ',' | tail -n1 || echo "")
+                if [ -n "$KM_LINE" ]; then
+                    echo "$KM_LINE" >> "$RAW_DIR/all_results.csv"
+                    IFS=',' read -r req sel sz tr cnt avg p50 p90 p95 p99 p999 min max std tput mb el err <<< "$KM_LINE"
                     echo "$req,$sz,$tr,$cnt,$avg,$p50,$p90,$p95,$p99,$p999,$min,$max,$std" >> "$RAW_DIR/latency.csv"
                     echo "$req,$sz,$tr,$cnt,$tput,$mb,$el,$err" >> "$RAW_DIR/throughput.csv"
                     echo "roundtrip,$sz,$tr,$cnt,$avg,$p50,$p90,$p95,$p99,$min,$max,$std,$tput,$mb,$err,PASS" >> "$RAW_DIR/kernel_results.csv"
                     printf "  [%s] %-14s | %6s B | Avg: %7.2f us | P50: %7.2f us | Tput: %10.1f msg/s\n" \
-                        "Trial $t" "$mech" "$size" "$avg" "$p50" "$tput"
+                        "Trial $t" "$mech" "$size" "${avg:-0.0}" "${p50:-0.0}" "${tput:-0.0}" || true
                 fi
             else
                 # User-space IPC execution
@@ -313,9 +314,10 @@ for ((t = 1; t <= TRIALS; t++)); do
                     OUT=$(./mini-aipc --mode "$mech" --size "$size" --count "$MESSAGES" --warmup "$WARMUP" --trial "$t" $AFFINITY_ARGS --csv-extended 2>/dev/null || echo "")
                 fi
 
-                if [ -n "$OUT" ]; then
-                    echo "$OUT" >> "$RAW_DIR/all_results.csv"
-                    IFS=',' read -r req sel sz tr cnt avg p50 p90 p95 p99 p999 min max std tput mb el err <<< "$OUT"
+                CSV_LINE=$(echo "$OUT" | grep ',' | tail -n1 || echo "")
+                if [ -n "$CSV_LINE" ]; then
+                    echo "$CSV_LINE" >> "$RAW_DIR/all_results.csv"
+                    IFS=',' read -r req sel sz tr cnt avg p50 p90 p95 p99 p999 min max std tput mb el err <<< "$CSV_LINE"
                     echo "$req,$sz,$tr,$cnt,$avg,$p50,$p90,$p95,$p99,$p999,$min,$max,$std" >> "$RAW_DIR/latency.csv"
                     echo "$req,$sz,$tr,$cnt,$tput,$mb,$el,$err" >> "$RAW_DIR/throughput.csv"
 
@@ -330,7 +332,7 @@ for ((t = 1; t <= TRIALS; t++)); do
                     fi
 
                     printf "  [%s] %-14s | %6s B | Avg: %7.2f us | P50: %7.2f us | Tput: %10.1f msg/s\n" \
-                        "Trial $t" "$mech" "$size" "$avg" "$p50" "$tput"
+                        "Trial $t" "$mech" "$size" "${avg:-0.0}" "${p50:-0.0}" "${tput:-0.0}" || true
                 else
                     echo "  [Trial $t] $mech | $size B | FAILED" >&2
                 fi

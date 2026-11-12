@@ -106,3 +106,4 @@ This document records every optimization phase evaluated under the Mini A-IPC pr
   - All-PIPE policy routes all messages through kernel pipe buffers.
   - Adaptive policy delivers higher aggregate throughput and reduced cumulative CPU time for the 80/20 distribution.
 - **Decision:** **ACCEPTED**. Conclusively validates the core thesis of the Mini A-IPC architecture.
+

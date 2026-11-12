@@ -129,6 +129,7 @@ int main(int argc, char **argv)
             csv_output = 1;
         } else if (strcmp(argv[i], "--csv-extended") == 0) {
             csv_extended = 1;
+            csv_output = 1;
         } else {
             usage(argv[0]);
             return 2;
@@ -186,7 +187,7 @@ int main(int argc, char **argv)
     opts.cpu_consumer = cpu_consumer;
     opts.samples_rtt_ns = samples;
 
-    if (!csv_output) {
+    if (!csv_output && !csv_extended) {
         printf("Requested mode: %s\n", transport_name(requested));
         printf("Selected transport: %s\n", transport_name(selected));
         printf("Payload: %zu bytes | Exchanges: %zu\n", size, count);

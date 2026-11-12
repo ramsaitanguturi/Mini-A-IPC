@@ -246,3 +246,4 @@ int ipc_spsc_run(size_t payload_size, size_t count, uint64_t *elapsed_ns, size_t
 {
     return ipc_spsc_run_opts(payload_size, count, NULL, elapsed_ns, errors);
 }
+
