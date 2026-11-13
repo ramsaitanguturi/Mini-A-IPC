@@ -58,3 +58,4 @@ To eliminate previous dummy implementations that reported 0.00 throughput, Mini-
    - Provides strict priority ordering, but incurs slightly higher per-message latency due to POSIX notification checks and descriptor state management.
 3. **Kernel Mailbox (`/dev/aipc`):**
    - In M:N concurrency, raw byte-stream throughput scales linearly with consumer threads up to the memory bus and kernel mutex saturation limit.
+

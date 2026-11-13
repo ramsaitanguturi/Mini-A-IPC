@@ -75,3 +75,4 @@ When presenting Mini-A-IPC results in papers, presentations, or project vivas:
    - *Section B: Kernel-Space Character Driver Mailbox (/dev/aipc Syscall & Copy Overhead)*
 3. **Disclose Environment Constraints:**
    Explicitly declare that tests were executed in a virtual machine (KVM on Intel Core 7 240H), where hypervisor vCPU scheduling amplifies inter-process context switch times compared to bare-metal hardware.
+

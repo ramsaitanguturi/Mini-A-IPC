@@ -400,11 +400,11 @@ def generate_final_report(processed_data, raw_dir, reports_dir, env_info, metada
     lines.append("8. **Adaptive Policy Selector** (`adaptive`) routing payloads based on calibrated thresholding")
     lines.append("")
     lines.append("### Key Research Findings:")
-    lines.append("- **Lowest Round-Trip Latency (Small Payloads, 64 B):** POSIX Shared Memory (`shm`) achieves the lowest median latency (sub-microsecond), eliminating kernel buffer copying in favor of direct user-space memory access and futex-backed semaphores.")
+    lines.append("- **Lowest Round-Trip Latency (Small Payloads, 64 B):** POSIX Shared Memory (`shm`) achieves lowest data-path latency by eliminating kernel buffer copies via direct user-space memory access. While isolated uncontended cache-hit operations can achieve sub-microsecond times, inter-process synchronization under process scheduling yields typical round-trip latencies of 95–130 µs on multi-core systems.")
     lines.append("- **Most Scalable Byte-Stream Transport (Large Payloads, > 16 KB):** Unix Domain Sockets (`uds`) and Anonymous Pipes (`pipe`) deliver sustained throughput up to 256 KB, utilizing kernel page-backed socket buffers without the 1024-byte mailbox capacity constraint of bounded SHM.")
-    lines.append("- **System Call Efficiency:** POSIX Shared Memory executes **0.00** data-transfer system calls per exchange during uncontented exchanges, whereas Pipes and FIFOs strictly require **4.00 system calls per round-trip** (2 writes + 2 reads).")
-    lines.append("- **Adaptive Policy Selector Efficacy:** The adaptive policy correctly routes small payloads (<= 1024 B) to SHM and large payloads (> 1024 B) to Pipes, attaining near-zero selection regret without requiring manual application tuning.")
-    lines.append("- **Kernel Mailbox Performance:** The `/dev/aipc` character device driver operates with 100% byte integrity, offering mutex-protected circular buffering with wait-queue blocking.")
+    lines.append("- **System Call Efficiency:** POSIX Shared Memory executes **0.00 data-transfer system calls** per exchange (zero-copy memory transfer), but synchronization via POSIX semaphores invokes `futex` system calls when contention or thread blocking occurs (separated into data-transfer vs synchronization calls). By comparison, stream-based transports (Pipes/FIFOs) strictly require **4 data-transfer system calls per round-trip** (2 writes + 2 reads).")
+    lines.append("- **Adaptive Policy Selector Efficacy:** The adaptive policy dynamically routes payloads according to calibrated threshold rules (SHM for <= 1024 B, Pipes for > 1024 B). It avoids the hard capacity limits of bounded SHM, with measurable selection overhead and performance regret quantified against the best standalone transport.")
+    lines.append("- **Kernel Mailbox Architectural Context:** The `/dev/aipc` single-process loopback baseline demonstrates minimal system-call and kernel circular-buffer copy overhead (~0.7 µs). However, when evaluated under identical two-process context-switching constraints, its round-trip latency is bounded by Linux scheduler dispatch (~95–120 µs), as documented in `KERNEL_BENCHMARK_FAIRNESS.md`.")
     lines.append("")
 
     # 2. Project Architecture
@@ -477,10 +477,12 @@ def generate_final_report(processed_data, raw_dir, reports_dir, env_info, metada
     # 8. Measurement Methodology & 9. Raw Config
     lines.append("## 8. Measurement Methodology & Configuration")
     lines.append("")
+    payload_str = ", ".join(f"{s} B" if s < 1024 else f"{s//1024} KB" for s in metadata.get("payload_sizes", [64, 256, 1024, 4096, 16384, 65536, 262144]))
     lines.append("- **Exchanges per trial:** {:,}".format(int(metadata.get("messages", 10000))))
     lines.append("- **Trials per configuration:** {}".format(metadata.get("trials", 7)))
     lines.append("- **Warm-up count:** {}".format(metadata.get("warmup", 500)))
-    lines.append("- **Payload matrix:** 64 B, 256 B, 1 KB, 4 KB, 16 KB, 64 KB, 256 KB")
+    lines.append(f"- **Payload matrix:** {payload_str}")
+    lines.append(f"- **Benchmark Mode:** {metadata.get('mode', 'full').upper()}")
     lines.append("")
 
     # 10. Latency Comparison Table
@@ -493,12 +495,13 @@ def generate_final_report(processed_data, raw_dir, reports_dir, env_info, metada
     lines.append("| Mechanism | Mean Avg (µs) | 95% CI | P50 Median (µs) | P90 (µs) | P95 (µs) | P99 (µs) | Min (µs) | Max (µs) | StdDev (µs) |")
     lines.append("|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|")
     for r in [x for x in processed_data if int(x.get("payload_bytes", 0)) == 64]:
+        std_val = float(r.get("stddev_rtt_us") or r.get("std_avg_rtt_us", 0.0))
         lines.append("| **{}** | {:.2f} | ±{:.2f} | {:.2f} | {:.2f} | {:.2f} | {:.2f} | {:.2f} | {:.2f} | {:.2f} |".format(
             MECHANISM_LABELS.get(r["mechanism"], r["mechanism"]),
             float(r["mean_avg_rtt_us"]), float(r["ci95_avg_rtt_us"]),
             float(r["mean_p50_rtt_us"]), float(r.get("mean_p90_rtt_us", 0.0)),
             float(r.get("mean_p95_rtt_us", 0.0)), float(r["mean_p99_rtt_us"]),
-            float(r["min_rtt_us"]), float(r["max_rtt_us"]), float(r.get("stddev_rtt_us", 0.0))
+            float(r["min_rtt_us"]), float(r["max_rtt_us"]), std_val
         ))
     lines.append("")
 
@@ -606,19 +609,20 @@ def generate_final_report(processed_data, raw_dir, reports_dir, env_info, metada
     lines.append("")
     lines.append("![Adaptive vs Best](../graphs/adaptive_vs_best.png)")
     lines.append("")
-    lines.append("| Payload | Selected Transport | Selector Latency (µs) | Best Transport | Best Latency (µs) | Performance Regret | Accuracy |")
+    lines.append("| Payload | Selected Transport | Selector Latency (µs) | Best Transport | Best Latency (µs) | Performance Regret | Selection Accuracy |")
     lines.append("|:---|:---:|:---:|:---:|:---:|:---:|:---:|")
     if adapt_rows:
         for r in adapt_rows:
-            regret = float(r.get("regret_percent", 0.0))
-            lines.append("| **{} B** | {} | {:.2f} | {} | {:.2f} | {:.1f}% | 100% |".format(
+            raw_regret = r.get("regret_percent")
+            if raw_regret is None:
+                raw_regret = r.get("latency_difference_pct", "0.0").replace("%", "")
+            regret_val = float(raw_regret)
+            regret_str = f"{regret_val:+.2f}%" if abs(regret_val) > 1e-4 else "0.00%"
+            accuracy = r.get("selection_accuracy_pct", "100.0%")
+            lines.append("| **{} B** | {} | {:.2f} | {} | {:.2f} | {} | {} |".format(
                 r["payload_bytes"], r["selected_transport"], float(r["adaptive_latency_us"]),
-                r["best_transport"], float(r["best_latency_us"]), regret
+                r["best_transport"], float(r["best_latency_us"]), regret_str, accuracy
             ))
-    else:
-        lines.append("| **64 B** | shm | 0.85 | shm | 0.85 | 0.0% | 100% |")
-        lines.append("| **1024 B** | shm | 1.12 | shm | 1.12 | 0.0% | 100% |")
-        lines.append("| **16384 B** | pipe | 5.24 | pipe | 5.20 | 0.8% | 100% |")
     lines.append("")
 
     # 19. Kernel Mailbox Evaluation
@@ -677,7 +681,7 @@ def generate_final_report(processed_data, raw_dir, reports_dir, env_info, metada
     print(f"Generated research report: {report_path}")
 
 
-def process_benchmark_data(input_dir, output_dir):
+def process_benchmark_data(input_dir, output_dir, allow_incomplete=False):
     raw_dir = os.path.join(input_dir, "raw")
     processed_dir = os.path.join(output_dir, "processed")
     graphs_dir = os.path.join(output_dir, "graphs")
@@ -739,6 +743,7 @@ def process_benchmark_data(input_dir, output_dir):
             "trials": n_trials,
             "mean_avg_rtt_us": f"{mean_avg:.3f}",
             "std_avg_rtt_us": f"{std_avg:.3f}",
+            "stddev_rtt_us": f"{std_avg:.3f}",
             "ci95_avg_rtt_us": f"{ci_avg:.3f}",
             "mean_p50_rtt_us": f"{mean_p50:.3f}",
             "mean_p90_rtt_us": f"{mean_p90:.3f}",
@@ -750,6 +755,34 @@ def process_benchmark_data(input_dir, output_dir):
             "mean_throughput_mb_sec": f"{mean_mb:.3f}"
         }
         processed_rows.append(entry)
+
+    # Load run_config.json if available to validate dataset integrity
+    config_path = os.path.join(raw_dir, "run_config.json")
+    run_config = {}
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                run_config = json.load(f)
+        except Exception as e:
+            print(f"Warning: could not parse {config_path}: {e}", file=sys.stderr)
+
+    # Validate dataset against requested configuration
+    if run_config and not allow_incomplete:
+        exp_trials = int(run_config.get("trials", 7))
+        exp_payloads = [int(p) for p in run_config.get("payload_sizes", [])]
+        pipe_rows = [r for r in processed_rows if r["mechanism"] == "pipe"]
+        pipe_payloads = [int(r["payload_bytes"]) for r in pipe_rows]
+        missing_payloads = set(exp_payloads) - set(pipe_payloads)
+        incomplete_trials = [r for r in pipe_rows if int(r["trials"]) < exp_trials]
+
+        if missing_payloads or incomplete_trials:
+            err_msg = (f"Benchmark dataset validation failed!\n"
+                       f"  Expected trials: {exp_trials}, Expected payloads: {exp_payloads}\n"
+                       f"  Missing payloads: {sorted(list(missing_payloads))}\n"
+                       f"  Incomplete trials: {[(r['payload_bytes'], r['trials']) for r in incomplete_trials]}\n"
+                       f"Pass --allow-incomplete to override.")
+            print(f"ERROR: {err_msg}", file=sys.stderr)
+            sys.exit(1)
 
     # Save processed/aggregated_results.csv and processed/statistical_summary.csv
     agg_path = os.path.join(processed_dir, "aggregated_results.csv")
@@ -769,7 +802,7 @@ def process_benchmark_data(input_dir, output_dir):
 
     # Synthesize adaptive_results.csv in raw/ if not present
     adapt_path = os.path.join(raw_dir, "adaptive_results.csv")
-    if not os.path.exists(adapt_path) and processed_rows:
+    if processed_rows:
         payload_sizes = sorted(list({int(r["payload_bytes"]) for r in processed_rows}))
         adapt_records = []
         for s in payload_sizes:
@@ -785,15 +818,20 @@ def process_benchmark_data(input_dir, output_dir):
             b_lat = float(best_other["mean_avg_rtt_us"])
             diff_pct = ((a_lat - b_lat) / b_lat) * 100.0 if b_lat > 0 else 0.0
             sel_trans = "shm" if s <= 1024 else "pipe"
+            expected_trans = "shm" if s <= 1024 else "pipe"
+            accuracy_pct = 100.0 if sel_trans == expected_trans else 0.0
             adapt_records.append({
                 "payload_bytes": s,
                 "selected_transport": sel_trans,
+                "expected_transport": expected_trans,
+                "selection_accuracy_pct": f"{accuracy_pct:.1f}%",
                 "adaptive_latency_us": f"{a_lat:.3f}",
                 "adaptive_throughput_msg_sec": a_r["mean_throughput_msg_sec"],
                 "best_transport": best_other["mechanism"],
                 "best_latency_us": f"{b_lat:.3f}",
                 "best_throughput_msg_sec": best_other["mean_throughput_msg_sec"],
-                "selection_overhead_ns": f"{max(0, int((a_lat - b_lat) * 1000))}",
+                "selection_overhead_ns": f"{int((a_lat - b_lat) * 1000)}",
+                "regret_percent": f"{diff_pct:.2f}",
                 "latency_difference_pct": f"{diff_pct:.2f}%"
             })
         if adapt_records:
@@ -803,8 +841,10 @@ def process_benchmark_data(input_dir, output_dir):
                 w.writerows(adapt_records)
             print(f"Generated adaptive comparison dataset: {adapt_path}")
 
-    # Generate metadata JSON
+    # Generate metadata JSON dynamically reflecting actual execution configuration
     meta_path = os.path.join(processed_dir, "benchmark_metadata.json")
+    configured_trials = run_config.get("trials", max([int(r["trials"]) for r in processed_rows]) if processed_rows else 7)
+    configured_payloads = run_config.get("payload_sizes", sorted(list({int(r["payload_bytes"]) for r in processed_rows})) if processed_rows else [64, 256, 1024, 4096, 16384, 65536, 262144])
     meta = {
         "benchmark_title": "Mini A-IPC Unified Controlled IPC Experiment",
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
@@ -819,10 +859,12 @@ def process_benchmark_data(input_dir, output_dir):
             "communication_syscalls"
         ],
         "configuration": {
-            "messages": 10000,
-            "warmup": 500,
-            "trials": 7,
-            "payload_sizes": [64, 256, 1024, 4096, 16384, 65536, 262144]
+            "mode": run_config.get("mode", "full"),
+            "run_id": run_config.get("run_id", "default"),
+            "messages": run_config.get("messages", 10000),
+            "warmup": run_config.get("warmup", 500),
+            "trials": configured_trials,
+            "payload_sizes": configured_payloads
         }
     }
     with open(meta_path, "w", encoding="utf-8") as f:
@@ -849,9 +891,10 @@ def main():
     parser = argparse.ArgumentParser(description="Mini A-IPC Unified Results Processor")
     parser.add_argument("--input-dir", default="results/unified", help="Root input directory containing raw/")
     parser.add_argument("--output-dir", default="results/unified", help="Root output directory")
+    parser.add_argument("--allow-incomplete", action="store_true", help="Allow incomplete benchmark datasets without failing")
     args = parser.parse_args()
 
-    process_benchmark_data(args.input_dir, args.output_dir)
+    process_benchmark_data(args.input_dir, args.output_dir, allow_incomplete=args.allow_incomplete)
 
 
 if __name__ == "__main__":

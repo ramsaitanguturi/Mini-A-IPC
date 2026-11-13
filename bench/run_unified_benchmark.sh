@@ -32,7 +32,7 @@ MESSAGES=10000
 WARMUP=500
 TRIALS=7
 PAYLOADS="64 256 1024 4096 16384 65536 262144"
-OUTPUT_DIR="results/unified"
+OUTPUT_DIR=""
 SKIP_KERNEL=0
 QUICK=0
 KERNEL_DEVICE="/dev/aipc"
@@ -116,12 +116,37 @@ if [[ "$MESSAGES" -lt 1 || "$WARMUP" -lt 0 || "$TRIALS" -lt 1 ]]; then
     exit 2
 fi
 
+# Output directory isolation: separate quick vs full benchmarks to prevent contamination
+if [ -z "$OUTPUT_DIR" ]; then
+    if [ "$QUICK" -eq 1 ]; then
+        OUTPUT_DIR="results/unified_quick"
+    else
+        OUTPUT_DIR="results/unified"
+    fi
+fi
+
 RAW_DIR="$OUTPUT_DIR/raw"
 PROCESSED_DIR="$OUTPUT_DIR/processed"
 GRAPHS_DIR="$OUTPUT_DIR/graphs"
 REPORTS_DIR="$OUTPUT_DIR/reports"
 
+# Ensure clean isolation: remove stale outputs from any prior incomplete runs
+rm -rf "$RAW_DIR" "$PROCESSED_DIR" "$GRAPHS_DIR" "$REPORTS_DIR"
 mkdir -p "$RAW_DIR" "$PROCESSED_DIR" "$GRAPHS_DIR" "$REPORTS_DIR"
+
+# Generate run ID and save run configuration for post-processing validation
+RUN_ID="run_$(date +%Y%m%d_%H%M%S)_$$"
+cat <<EOF > "$RAW_DIR/run_config.json"
+{
+  "run_id": "$RUN_ID",
+  "mode": "$([ "$QUICK" -eq 1 ] && echo "quick" || echo "full")",
+  "trials": $TRIALS,
+  "messages": $MESSAGES,
+  "warmup": $WARMUP,
+  "payload_sizes": [$(echo $PAYLOADS | sed 's/ /,/g')],
+  "output_dir": "$OUTPUT_DIR"
+}
+EOF
 
 # Safe cleanup trap
 cleanup() {

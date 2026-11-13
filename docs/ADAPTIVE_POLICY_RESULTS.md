@@ -53,3 +53,4 @@ The mixed benchmark (`src/mixed_benchmark.c`) evaluates workloads with an 80/20 
    Acknowledge that on modern Linux kernels, anonymous pipe IPC is heavily optimized via circular memory page rings (`pipe_buffer`). For small messages under low contention, pipes and shared memory have comparable latency due to scheduler domination.
 2. **Highlight the Memory and Syscall Advantage:**
    The true benefit of adaptive shared memory is not raw latency in a virtual machine, but **system call elimination** and **CPU cache locality** under memory-intensive workloads.
+

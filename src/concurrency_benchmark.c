@@ -399,12 +399,9 @@ static int run_kernel_concurrency(const char *device_path, int num_producers,
   }
   __atomic_store_n(&shm->abort_flag, 1, __ATOMIC_RELAXED);
 
-  /* Wake up any sleeping consumers by writing 1 byte or closing */
-  int wake_fd = open(device_path, O_WRONLY | O_NONBLOCK);
-  if (wake_fd >= 0) {
-    char dummy = 0;
-    write(wake_fd, &dummy, 1);
-    close(wake_fd);
+  /* Send SIGTERM to unblock any consumers sleeping in kernel wait queues */
+  for (i = 0; i < num_consumers; i++) {
+    kill(cons_pids[i], SIGTERM);
   }
 
   for (i = 0; i < num_consumers; i++) {

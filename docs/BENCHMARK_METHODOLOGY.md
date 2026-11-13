@@ -60,3 +60,4 @@ All comparative benchmarks were collected in the following target execution envi
    - This produces a **context-switch latency floor of ~95 to 120 microseconds** on this virtualized environment.
 2. **Trial-to-Trial Jitter:**
    - Background tasks on the host operating system can cause transient vCPU pauses, explaining occasional trial spikes (such as Trial 2 and Trial 6) where all synchronizing mechanisms showed elevated latencies.
+
