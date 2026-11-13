@@ -1,0 +1,8 @@
+payload_bytes,selected_transport,expected_transport,selection_accuracy_pct,adaptive_latency_us,adaptive_throughput_msg_sec,best_transport,best_latency_us,best_throughput_msg_sec,selection_overhead_ns,regret_percent,latency_difference_pct
+64,shm,shm,100.0%,439.659,3375.25,shm,286.871,5623.61,152788,53.26,53.26%
+256,shm,shm,100.0%,353.125,3800.97,shm,320.346,4925.93,32779,10.23,10.23%
+1024,shm,shm,100.0%,307.925,4265.73,pipe,278.756,5566.25,29169,10.46,10.46%
+4096,pipe,pipe,100.0%,372.067,5029.98,pipe,301.700,5068.72,70367,23.32,23.32%
+16384,pipe,pipe,100.0%,535.237,2777.26,pipe,472.786,3278.05,62450,13.21,13.21%
+65536,pipe,pipe,100.0%,882.297,1922.27,pipe,505.928,3860.60,376369,74.39,74.39%
+262144,pipe,pipe,100.0%,3178.520,480.16,uds,2590.284,671.34,588235,22.71,22.71%

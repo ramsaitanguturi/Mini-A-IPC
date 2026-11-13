@@ -1,0 +1,41 @@
+mechanism,producers,consumers,payload_bytes,messages_per_producer,total_messages,elapsed_ms,throughput_msg_sec,throughput_mb_sec,status,notes
+pipe,1,1,64,1000,1000,28.489132,35101.1,2.142,PASS,Standard 1P:1C baseline
+fifo,1,1,64,1000,1000,282.950141,3534.19,0.216,PASS,Standard 1P:1C baseline
+sysv,1,1,64,1000,1000,742.926335,1346.03,0.082,PASS,Standard 1P:1C baseline
+posix,1,1,64,1000,1000,388.958633,2570.97,0.157,PASS,Standard 1P:1C baseline
+shm,1,1,64,1000,1000,500.136243,1999.46,0.122,PASS,Standard 1P:1C baseline
+uds,1,1,64,1000,1000,447.610949,2234.08,0.136,PASS,Standard 1P:1C baseline
+adaptive,1,1,64,1000,1000,38.276877,26125.43,1.595,PASS,Standard 1P:1C baseline
+kernel,1,1,64,1000,1000,7.68866,130061.68,7.938,PASS,Standard 1P:1C baseline
+pipe,2,1,64,1000,2000,0.0,0.0,0.0,UNSUPPORTED_BY_DESIGN,SPSC point-to-point transport does not support multi-producer/consumer concurrency without custom framing/multiplexing
+fifo,2,1,64,1000,2000,0.0,0.0,0.0,UNSUPPORTED_BY_DESIGN,SPSC point-to-point transport does not support multi-producer/consumer concurrency without custom framing/multiplexing
+sysv,2,1,64,1000,2000,12.914,154867.49,9.452,PASS,OK
+posix,2,1,64,1000,2000,59.008,33893.87,2.069,PASS,OK
+shm,2,1,64,1000,2000,0.0,0.0,0.0,UNSUPPORTED_BY_DESIGN,SPSC point-to-point transport does not support multi-producer/consumer concurrency without custom framing/multiplexing
+uds,2,1,64,1000,2000,0.0,0.0,0.0,UNSUPPORTED_BY_DESIGN,SPSC point-to-point transport does not support multi-producer/consumer concurrency without custom framing/multiplexing
+adaptive,2,1,64,1000,2000,0.0,0.0,0.0,UNSUPPORTED_BY_DESIGN,SPSC point-to-point transport does not support multi-producer/consumer concurrency without custom framing/multiplexing
+kernel,2,1,64,1000,2000,12.068,165731.24,10.115,PASS,OK
+pipe,4,1,64,1000,4000,0.0,0.0,0.0,UNSUPPORTED_BY_DESIGN,SPSC point-to-point transport does not support multi-producer/consumer concurrency without custom framing/multiplexing
+fifo,4,1,64,1000,4000,0.0,0.0,0.0,UNSUPPORTED_BY_DESIGN,SPSC point-to-point transport does not support multi-producer/consumer concurrency without custom framing/multiplexing
+sysv,4,1,64,1000,4000,26.701,149806.6,9.143,PASS,OK
+posix,4,1,64,1000,4000,166.051,24088.93,1.47,PASS,OK
+shm,4,1,64,1000,4000,0.0,0.0,0.0,UNSUPPORTED_BY_DESIGN,SPSC point-to-point transport does not support multi-producer/consumer concurrency without custom framing/multiplexing
+uds,4,1,64,1000,4000,0.0,0.0,0.0,UNSUPPORTED_BY_DESIGN,SPSC point-to-point transport does not support multi-producer/consumer concurrency without custom framing/multiplexing
+adaptive,4,1,64,1000,4000,0.0,0.0,0.0,UNSUPPORTED_BY_DESIGN,SPSC point-to-point transport does not support multi-producer/consumer concurrency without custom framing/multiplexing
+kernel,4,1,64,1000,4000,45.074,88743.76,5.416,PASS,OK
+pipe,1,2,64,1000,1000,0.0,0.0,0.0,UNSUPPORTED_BY_DESIGN,SPSC point-to-point transport does not support multi-producer/consumer concurrency without custom framing/multiplexing
+fifo,1,2,64,1000,1000,0.0,0.0,0.0,UNSUPPORTED_BY_DESIGN,SPSC point-to-point transport does not support multi-producer/consumer concurrency without custom framing/multiplexing
+sysv,1,2,64,1000,1000,24.822,40286.3,2.459,PASS,OK
+posix,1,2,64,1000,1000,66.581,15019.29,0.917,PASS,OK
+shm,1,2,64,1000,1000,0.0,0.0,0.0,UNSUPPORTED_BY_DESIGN,SPSC point-to-point transport does not support multi-producer/consumer concurrency without custom framing/multiplexing
+uds,1,2,64,1000,1000,0.0,0.0,0.0,UNSUPPORTED_BY_DESIGN,SPSC point-to-point transport does not support multi-producer/consumer concurrency without custom framing/multiplexing
+adaptive,1,2,64,1000,1000,0.0,0.0,0.0,UNSUPPORTED_BY_DESIGN,SPSC point-to-point transport does not support multi-producer/consumer concurrency without custom framing/multiplexing
+kernel,1,2,64,1000,1000,3.694,270680.83,16.521,PASS,OK
+pipe,4,4,64,1000,4000,0.0,0.0,0.0,UNSUPPORTED_BY_DESIGN,SPSC point-to-point transport does not support multi-producer/consumer concurrency without custom framing/multiplexing
+fifo,4,4,64,1000,4000,0.0,0.0,0.0,UNSUPPORTED_BY_DESIGN,SPSC point-to-point transport does not support multi-producer/consumer concurrency without custom framing/multiplexing
+sysv,4,4,64,1000,4000,35.039,114159.07,6.968,PASS,OK
+posix,4,4,64,1000,4000,67.807,58991.2,3.601,PASS,OK
+shm,4,4,64,1000,4000,0.0,0.0,0.0,UNSUPPORTED_BY_DESIGN,SPSC point-to-point transport does not support multi-producer/consumer concurrency without custom framing/multiplexing
+uds,4,4,64,1000,4000,0.0,0.0,0.0,UNSUPPORTED_BY_DESIGN,SPSC point-to-point transport does not support multi-producer/consumer concurrency without custom framing/multiplexing
+adaptive,4,4,64,1000,4000,0.0,0.0,0.0,UNSUPPORTED_BY_DESIGN,SPSC point-to-point transport does not support multi-producer/consumer concurrency without custom framing/multiplexing
+kernel,4,4,64,1000,4000,43.787,91350.66,5.576,PASS,OK

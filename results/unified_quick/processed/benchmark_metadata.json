@@ -1,0 +1,45 @@
+{
+  "benchmark_title": "Mini A-IPC Unified Controlled IPC Experiment",
+  "timestamp": "2026-11-13 16:04:17 UTC",
+  "components_evaluated": [
+    "pipe",
+    "fifo",
+    "sysv",
+    "posix",
+    "shm",
+    "uds",
+    "adaptive",
+    "kernel"
+  ],
+  "metrics_collected": [
+    "avg_rtt_us",
+    "p50_rtt_us",
+    "p90_rtt_us",
+    "p95_rtt_us",
+    "p99_rtt_us",
+    "min_rtt_us",
+    "max_rtt_us",
+    "stddev_rtt_us",
+    "throughput_msg_sec",
+    "throughput_mb_sec",
+    "cpu_user_time",
+    "cpu_system_time",
+    "cpu_percent",
+    "peak_rss_kb",
+    "voluntary_context_switches",
+    "involuntary_context_switches",
+    "communication_syscalls"
+  ],
+  "configuration": {
+    "mode": "quick",
+    "run_id": "run_20261113_213410_10747",
+    "messages": 1000,
+    "warmup": 100,
+    "trials": 2,
+    "payload_sizes": [
+      64,
+      1024,
+      16384
+    ]
+  }
+}
