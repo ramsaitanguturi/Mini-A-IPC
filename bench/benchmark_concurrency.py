@@ -280,7 +280,8 @@ def main():
         for m in all_mechs:
             res = run_concurrency_benchmark(p, c, args.payload, args.messages, m, args.device)
             results.append(res)
-            print(f"[{res['status']:<21}] Mech: {m:<14} | Topology: {p}P:{c}C | Tput: {res['throughput_msg_sec']:>10.2f} msg/s")
+            extra = f" ({res['notes']})" if res["status"] in ("FAILED", "BLOCKED") else ""
+            print(f"[{res['status']:<21}] Mech: {m:<14} | Topology: {p}P:{c}C | Tput: {res['throughput_msg_sec']:>10.2f} msg/s{extra}")
 
     with open(args.output, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
