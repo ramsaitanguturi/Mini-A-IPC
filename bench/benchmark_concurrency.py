@@ -164,6 +164,12 @@ def run_concurrency_benchmark(producers, consumers, payload_size, messages_per_p
 
     # For MPMC mechanisms (sysv, posix, kernel), execute real multi-process concurrency
     conc_bin = "./mini-aipc-concurrency"
+    if not os.path.exists(conc_bin):
+        # Auto-compile if not present
+        subprocess.run(["gcc", "-O2", "-std=c11", "-D_POSIX_C_SOURCE=200809L", "-D_GNU_SOURCE",
+                        "src/concurrency_benchmark.c", "-o", conc_bin, "-pthread", "-lrt", "-lm"],
+                       capture_output=True)
+
     if os.path.exists(conc_bin):
         cmd = [
             conc_bin,
