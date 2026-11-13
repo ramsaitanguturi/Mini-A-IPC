@@ -1,710 +1,928 @@
-# Mini-A-IPC: Complete Project Review, Benchmark Findings, Issues and Optimization Roadmap
+# Mini-A-IPC: Benchmark Audit, Bug Fixes, and Performance Validation
 
-You are working on my Linux IPC project, **Mini-A-IPC**.
+You are working on my existing Linux IPC project, **Mini-A-IPC**.
 
-Your task is to understand the current implementation, evaluate the benchmark results, identify performance bottlenecks, and systematically improve the project.
+Your task is to thoroughly investigate and fix the remaining correctness, benchmarking, measurement-fairness, and performance issues identified in the latest full benchmark run.
 
-Do not blindly rewrite existing code. First understand the architecture, preserve working functionality, and make controlled, measurable improvements.
+Work directly with the existing repository. Preserve its architecture and working implementations wherever possible. Do not rewrite the entire project or introduce unnecessary complexity.
 
-The goal is to develop a technically defensible adaptive IPC implementation with demonstrable improvements in latency, throughput, syscall overhead, or mixed-workload performance.
+## 1. Project context
 
----
+Mini-A-IPC currently supports:
 
-# 1. Project overview
+- Anonymous Pipes
+- Named Pipes (FIFO)
+- System V Message Queues
+- POSIX Message Queues
+- POSIX Shared Memory
+- Unix Domain Sockets
+- Adaptive IPC transport selection
+- Experimental kernel mailbox (`/dev/aipc`)
 
-The project currently implements and compares these IPC mechanisms:
+The project includes:
 
-1. Anonymous Pipes
-2. Named Pipes (FIFO)
-3. System V Message Queues
-4. POSIX Message Queues
-5. POSIX Shared Memory with process-shared semaphores
-6. Unix Domain Sockets
-
-It also implements an adaptive IPC selector that chooses between shared memory and pipes based on payload size.
-
-Important source files:
-
-- `src/ipc_pipe.c`
-- `src/ipc_fifo.c`
-- `src/ipc_sysv_mq.c`
-- `src/ipc_posix_mq.c`
-- `src/ipc_shm.c`
-- `src/ipc_uds.c`
-- `src/selector.c`
-- `src/main.c`
-- `src/mixed_benchmark.c`
-- `include/ipc.h`
-- `kernel/aipc_module.c`
+- `src/`
+- `include/`
+- `kernel/`
 - `bench/`
+- `tests/`
+- `docs/`
+- `results/`
 
-The project also includes correctness tests, benchmarking scripts, syscall profiling, and report-generation scripts.
+Important benchmark commands:
 
----
+```bash
+make test
+python tests/final_verification_test.py
+make bench-optimizations
+make bench-unified-quick
+make bench-unified
+```
 
-# 2. What we successfully accomplished today
+The latest full benchmark completed successfully with:
 
-## A. Build and correctness verification
+- 7 trials per configuration
+- 10,000 messages per trial
+- 500 warmup messages
+- Payload sizes: 64, 256, 1024, 4096, 16384, 65536, 262144 bytes
+- Producer pinned to CPU 0
+- Consumer pinned to CPU 1
+- Kernel mailbox module loaded and unloaded successfully
 
-The project compiled successfully.
+Output directory:
 
-The verification script completed all 15 checks successfully.
+```text
+results/unified/
+```
 
-The checks covered:
+## 2. Critical issue: concurrency scalability benchmark
 
-- Script syntax validation.
-- C source structural checks.
-- Kernel module compilation checks.
-- Mixed benchmark validation.
-- FIFO security and argument parsing.
-- Shared-memory synchronization ordering.
-- Kernel test script output-directory handling.
-- Kernel mailbox benchmark timeout handling.
-- Documentation checks.
-- Adaptive selector and payload-size parsing.
-- IPC mechanism validation.
-- CPU affinity.
-- Percentile calculations and memory safety.
-- Syscall profiling classification.
-- Trace parser validation against real strace output.
-- Unified benchmark pipeline.
+The latest benchmark reported:
 
-The unified benchmark pipeline successfully generated statistics, 13 PNG graphs, and a 24-section benchmark report.
+```text
+1P:1C: Nonzero throughput
+2P:1C: 0.00 throughput
+4P:1C: 0.00 throughput
+1P:2C: 0.00 throughput
+4P:4C: 0.00 throughput
+```
 
-The report was initially generated under:
+This occurred even for mechanisms labelled `SUPPORTED`, including:
 
-`/tmp/mini_aipc_unified_test_plv49hx5/reports/FINAL_BENCHMARK_REPORT.md`
+- System V Message Queues
+- POSIX Message Queues
+- Kernel mailbox
 
-However, that temporary directory was subsequently unavailable. Do not assume the report still exists. If necessary, rerun the pipeline and preserve the generated artifacts in the project's `results/` directory.
+Investigate the complete concurrency benchmarking pipeline.
 
-## B. Comparative benchmarking
+Inspect:
 
-The comparative benchmark script completed successfully.
+- `bench/` concurrency scripts
+- Process creation and child management
+- Producer/consumer synchronization
+- IPC resource creation and cleanup
+- Command-line argument construction
+- Exit codes and signals
+- Output parsing
+- CSV generation
+- Timeout handling
+- How supported and unsupported topologies are classified
 
-It tested six IPC mechanisms across five payload sizes:
+Determine the actual reason for zero throughput.
 
-- 64 bytes
-- 128 bytes
-- 256 bytes
-- 512 bytes
-- 1024 bytes
+### Required corrections
 
+1. Ensure every topology labelled `SUPPORTED` is genuinely executed.
+2. Correctly launch the required number of producers and consumers.
+3. Ensure each process participates in the intended IPC workload.
+4. Prevent premature cleanup while another process is still using an IPC resource.
+5. Ensure messages are neither silently dropped nor counted multiple times.
+6. Handle child failures and timeouts correctly.
+7. Record actual completed messages and elapsed time.
+8. Calculate throughput using:
+
+   `throughput = successfully_completed_messages / elapsed_seconds`
+
+9. Unsupported topologies must be explicitly marked unsupported, not represented as successful measurements with zero throughput.
+10. Failed or incomplete measurements must be marked `FAILED`, with a useful error reason.
+
+Do not simply replace zero values with another number or suppress failures.
+
+### Concurrency correctness tests
+
+Add tests that verify:
+
+- The expected number of processes actually starts.
+- Every supported topology completes a known number of messages.
+- No messages are lost or duplicated.
+- Payload integrity is preserved.
+- Processes exit successfully.
+- IPC resources are cleaned up.
+- Timeouts and child failures are detected.
+- Unsupported topologies are reported honestly.
+
+Use deterministic test workloads before running large benchmarks.
+
+## 3. Critical issue: kernel mailbox benchmark fairness
+
+The kernel mailbox reports exceptionally low latency:
+
+Approximately 0.66–2.59 microseconds for smaller payloads in the latest trials, compared with roughly 100–250 microseconds for many userspace mechanisms.
+
+This is promising, but it has not yet been established that the kernel and userspace implementations measure equivalent operations.
+
+Inspect:
+
+- `kernel/aipc_module.c`
+- Kernel mailbox userspace client
+- `src/` implementations
+- Kernel benchmark scripts
+- Timing boundaries
+- Synchronization
+- Data copying
+- Payload validation
+- Request/response semantics
+
+### Perform a measurement-equivalence audit
+
+For every IPC mechanism, document:
+
+1. What constitutes one exchange?
+2. Is the measurement a one-way transfer or a complete round trip?
+3. Does it include producer and consumer synchronization?
+4. Does it include system calls?
+5. Does it include user-to-kernel copying?
+6. Does it include kernel-to-user copying?
+7. Does it include response generation?
+8. Does it include payload validation?
+9. Does it include process wakeups and scheduling?
+10. Does it include initialization or cleanup?
+
+Compare equivalent operations only.
+
+If the kernel mailbox uses a different measurement boundary, correct the benchmark so that the comparison is fair.
+
+Do not artificially add arbitrary delays to the kernel implementation.
+
+If the kernel mailbox is fundamentally measuring a different operation, report it separately instead of presenting an invalid direct comparison.
+
+### Required deliverable
+
+Create a document:
+
+```text
+docs/KERNEL_BENCHMARK_FAIRNESS.md
+```
+
+Include:
+
+- Current measurement methodology
+- Identified differences
+- Corrections made
+- Remaining limitations
+- Whether direct comparison is scientifically valid
+
+## 4. Critical issue: adaptive transport selection
+
+The adaptive implementation currently performs inconsistently and frequently loses to pipes.
+
+Examples from Trial 2:
+
+| Payload | Adaptive latency | Pipe latency |
+|---|---:|---:|
+| 64 B | 324.41 us | 112.32 us |
+| 256 B | 245.40 us | 111.60 us |
+| 1 KB | 200.09 us | 107.31 us |
+| 16 KB | 210.52 us | 125.05 us |
+
+Previous investigation found that `src/selector.c` uses a simple threshold-based policy:
+
+- Small payloads select shared memory.
+- Large payloads select pipes.
+
+However, previous optimization output showed adaptive routing selecting pipes for every tested payload.
+
+Investigate this discrepancy.
+
+Inspect:
+
+- `src/selector.c`
+- `src/mixed_benchmark.c`
+- Adaptive CLI implementation
+- Threshold arguments
+- Default configuration
+- Build dependencies
+- Benchmark scripts
+- Actual runtime transport selection
+
+### Required corrections
+
+1. Verify that the executable is built from the latest source.
+2. Verify that the threshold passed by the benchmark is actually applied.
+3. Verify that the selector returns the expected mechanism.
+4. Add explicit transport-selection logging in diagnostic mode.
+5. Ensure the adaptive implementation does not initialize unused transports unnecessarily.
+6. Avoid unnecessary allocations and IPC setup for each message.
+7. Avoid repeating expensive selector operations when the decision can safely be reused.
+8. Measure selector overhead separately from transport overhead.
+9. Test boundary conditions around the threshold.
+10. Ensure large payloads never exceed SHM capacity.
+
+Do not assume SHM is always faster for small messages.
+
+Use measured results to choose a threshold. If pipes outperform SHM under the tested environment, the policy should reflect that.
+
+### Adaptive policy requirements
+
+Create a reproducible comparison of:
+
+- Always PIPE
+- Always SHM where supported
+- Fixed threshold policy
+- Improved adaptive policy
+
+Use identical workloads and message counts.
+
+The adaptive implementation must not claim superiority unless it demonstrates it statistically.
+
+If adaptive routing cannot beat the best fixed mechanism, report that honestly.
+
+## 5. Shared-memory synchronization investigation
+
+The current shared-memory implementation uses process-shared semaphores and a request/response mailbox.
+
+Previous optimization experiments showed:
+
+- Faster semaphore waiting appeared to reduce latency by approximately 13–19%.
+- Cache-line alignment produced inconsistent results.
+- The experimental SPSC ring buffer was slower than the existing semaphore implementation.
+
+Investigate the implementation rather than blindly applying optimizations.
+
+Inspect:
+
+- `src/ipc_shm.c`
+- Shared-memory structures
+- Semaphore initialization
+- Semaphore wait functions
+- Producer/consumer synchronization
+- Memory ordering
+- Cache-line placement
+- Child-process monitoring
+- Cleanup and failure handling
+
+### Required work
+
+1. Identify unnecessary semaphore waits and wakeups.
+2. Identify polling or timeout overhead.
+3. Identify possible false sharing.
+4. Verify memory ordering and synchronization correctness.
+5. Verify that fast waiting does not remove important child-death detection.
+6. Preserve correct cleanup and error handling.
+7. Compare the current implementation with the optimized implementation.
+8. Retain only optimizations that demonstrate a reproducible benefit.
+
+Do not remove safety checks simply to improve benchmark numbers.
+
+Do not introduce busy-waiting without measuring CPU consumption and considering scheduling behavior.
+
+Do not replace the existing implementation with the ring buffer unless it demonstrates a genuine improvement.
+
+## 6. Benchmark instability investigation
+
+The latest benchmark showed substantial variation between trials.
+
+Some examples:
+
+- Trial 1 userspace latencies were often around 100–150 microseconds.
+- Trial 3 showed many values around 200–400 microseconds.
+- Trial 6 again showed large latency increases.
+- Several mechanisms displayed substantial variation even at identical payload sizes.
+
+Investigate possible causes:
+
+- CPU frequency scaling
+- Thermal throttling
+- VM scheduling and host contention
+- CPU affinity
+- Context switches
+- Interrupts
+- Background processes
+- Benchmark execution order
+- Memory allocation
+- Page faults
+- Cache state
+- CPU migration
+- Process startup and warmup
+
+### Improvements
+
+1. Preserve randomized benchmark ordering.
+2. Record the actual CPU affinity of every benchmark process.
+3. Record system load and relevant CPU frequency information where available.
+4. Record whether the environment is virtualized.
+5. Record failures and incomplete trials.
+6. Use consistent warmup procedures.
+7. Avoid running unrelated workloads during measurements.
+8. Report median, mean, standard deviation and percentile values.
+9. Report outliers rather than silently discarding them.
+10. Keep raw measurements available for independent analysis.
+
+Do not modify system CPU frequency settings automatically.
+
+The benchmark should report environmental limitations rather than hiding them.
+
+## 7. Statistical analysis
+
+Audit:
+
+```text
+bench/
+results/unified/processed/
+```
+
+Ensure the statistical processing is mathematically correct.
+
+Verify:
+
+- Mean
+- Median
+- Standard deviation
+- P50
+- P90
+- P95
+- P99
+- Throughput
+- Trial aggregation
+- Outlier handling
+- Missing measurement handling
+
+Ensure averages are calculated from the correct raw observations.
+
+Do not average already averaged values incorrectly when raw samples are available.
+
+Do not treat failed measurements as zero-latency or zero-throughput successes.
+
+Add confidence intervals where appropriate.
+
+For mechanism comparisons, use paired comparisons when the experimental design supports them.
+
+Avoid making performance claims from a single unusually good trial.
+
+## 8. Testing and regression protection
+
+After implementing fixes, run:
+
+```bash
+make clean
+make
+make test
+python tests/final_verification_test.py
+make bench-optimizations
+make bench-unified-quick
+```
+
+Only run the complete benchmark after the quick benchmark and correctness tests pass:
+
+```bash
+make bench-unified
+```
+
+Ensure that:
+
+- Existing IPC mechanisms still work.
+- Payload validation still works.
+- Invalid arguments are rejected.
+- Child failures are handled.
+- IPC resources are cleaned up.
+- Kernel module loads and unloads safely.
+- No stale processes or IPC resources remain.
+- Benchmark CSV files are valid.
+- Graphs and reports are generated correctly.
+
+If a test fails, investigate and fix the underlying issue.
+
+Do not disable or weaken existing tests to make the suite pass.
+
+## 9. Documentation
+
+Update the relevant documentation and generate:
+
+```text
+docs/BENCHMARK_METHODOLOGY.md
+docs/KERNEL_BENCHMARK_FAIRNESS.md
+docs/CONCURRENCY_RESULTS.md
+docs/ADAPTIVE_POLICY_RESULTS.md
+```
+
+The documentation must distinguish:
+
+- Verified results
+- Experimental results
+- Unsupported configurations
+- Failed experiments
+- Unresolved limitations
+
+Do not claim that an optimization improves performance unless the measurements support that claim.
+
+## 10. Final report
+
+At completion, provide a clear report with:
+
+### A. Bugs discovered
+
+List every confirmed bug, its root cause and its impact.
+
+### B. Changes made
+
+List the files modified and explain the changes.
+
+### C. Tests
+
+Show which tests passed and which failed.
+
+### D. Performance comparison
+
+Provide before-and-after comparisons for:
+
+- PIPE
+- SHM
+- Adaptive
+- Kernel mailbox
+- Concurrency scalability
+
+Use actual measurements, not estimates.
+
+### E. Remaining limitations
+
+Explicitly list anything that could not be fixed or validated.
+
+### F. Final verdict
+
+Answer these questions:
+
+1. Does concurrency benchmarking now work?
+2. Is the kernel mailbox comparison scientifically fair?
+3. Does adaptive routing outperform the best fixed mechanism?
+4. Does SHM provide a measurable advantage?
+5. Are benchmark results reproducible?
+6. Which IPC mechanism performs best for each payload range?
+7. Which performance claims are safe to make in an academic project presentation?
+
+## 11. Strict implementation rules
+
+- First inspect the existing code and reproduce each issue.
+- Do not rewrite functioning components unnecessarily.
+- Do not fabricate measurements.
+- Do not hardcode benchmark outputs.
+- Do not suppress failed tests.
+- Do not label unsupported or failed measurements as PASS.
+- Do not optimize solely for benchmark scores at the expense of correctness.
+- Keep the implementation understandable for a B.Tech operating-systems project.
+- Preserve existing command-line interfaces unless a change is necessary.
+- Use simple, maintainable C code.
+- Keep raw benchmark data.
+- Explain non-obvious changes.
+- Do not stop after writing a plan. Implement, test and validate the fixes.
+
+**Priority order:**
+
+1. Concurrency benchmark correctness.
+2. Kernel mailbox measurement fairness.
+3. Adaptive selector correctness and performance.
+4. Shared-memory synchronization.
+5. Benchmark stability and statistical correctness.
+6. Documentation and final validation.
+
+Begin by inspecting the repository and the latest generated benchmark files. Produce a short investigation plan, then implement the fixes systematically.
+
+
+Resukts :
+[Mini-A-IPC] Running cleanup routines...
+[Mini-A-IPC] Safely unloading kernel module aipc_module (loaded by benchmark)...
+ayush@fedora:~/Mini-A-IPC$ make bench-unified
+bash ./bench/run_unified_benchmark.sh
+==============================================================================
+          Mini A-IPC: Unified Scientifically Controlled Benchmark             
+==============================================================================
 Configuration:
-
-- 10,000 exchanges per trial.
-- Five trials per mechanism and payload size.
-- 500 warm-up exchanges.
-- Producer and consumer CPU affinity enabled.
-- Producer pinned to CPU 0.
-- Consumer pinned to CPU 1.
-
-Generated files:
-
-- `results/comparative_benchmark.csv`
-- `results/syscall_benchmark.csv`
-- `results/environment.txt`
-
-The benchmark environment was:
-
-- Fedora Linux 45 Workstation.
-- Linux kernel 7.3.3.
-- GCC 16.2.1.
-- Intel Core 7 240H as reported by the environment.
-- Four visible CPUs.
-- KVM virtualization.
-
-Important: All performance claims must disclose that these results were collected inside a virtual machine. Do not present them as bare-metal performance measurements.
-
-## C. Syscall profiling succeeded
-
-We installed the missing dependencies and successfully ran syscall profiling using strace.
-
-The profiling test used:
-
-- 64-byte payloads.
-- 100 exchanges.
-- All six IPC mechanisms.
-
-Results:
-
-| Mechanism | Total syscalls | Communication syscalls | Communication calls/exchange |
-|---|---:|---:|---:|
-| PIPE | 463 | 400 | 4.00 |
-| FIFO | 469 | 400 | 4.00 |
-| System V MQ | 456 | 400 | 4.00 |
-| POSIX MQ | 466 | 400 | 4.00 |
-| SHM | 268 | 210 | 2.10 |
-| UDS | 466 | 400 | 4.00 |
-
-**Important finding: SHM used 47.5% fewer classified communication syscalls than the conventional mechanisms in this test.**
-
-However, SHM did not eliminate kernel transitions. Its synchronization still generated futex calls.
-
-Do not claim that SHM is syscall-free.
-
-Also, this is one profiling sample at one payload size. Additional profiling is necessary before making broad claims.
-
----
-
-# 3. Comparative latency findings
-
-The following values are the mean RTT across five trials, in microseconds.
-
-| Payload | PIPE | FIFO | POSIX MQ | SHM | System V MQ | UDS |
-|---:|---:|---:|---:|---:|---:|---:|
-| 64 B | 119.089 | 116.497 | 113.085 | 118.789 | 116.140 | 110.761 |
-| 128 B | 109.978 | 116.170 | 119.297 | 118.063 | 115.105 | 138.576 |
-| 256 B | 121.859 | 122.901 | 113.891 | 108.721 | 113.920 | 108.637 |
-| 512 B | 113.407 | 130.167 | 123.961 | 110.546 | 119.680 | 108.057 |
-| 1024 B | 122.504 | 119.125 | 125.658 | 133.381 | 124.803 | 110.360 |
-
-## Findings
-
-### 64 bytes
-
-Fastest: UDS at 110.761 µs.
-
-SHM: 118.789 µs.
-
-SHM is not the fastest.
-
-### 128 bytes
-
-Fastest: PIPE at 109.978 µs.
-
-SHM: 118.063 µs.
-
-SHM is not the fastest.
-
-### 256 bytes
-
-Fastest: UDS at 108.637 µs.
-
-SHM: 108.721 µs.
-
-The difference is only 0.084 µs, approximately 0.08%.
-
-Treat these mechanisms as effectively tied until further statistical analysis establishes otherwise.
-
-### 512 bytes
-
-Fastest: UDS at 108.057 µs.
-
-SHM: 110.546 µs.
-
-SHM is approximately 2.3% slower.
-
-### 1024 bytes
-
-Fastest: UDS at 110.360 µs.
-
-SHM: 133.381 µs.
-
-SHM is approximately 20.9% slower.
-
-## Overall conclusion
-
-SHM currently does not win any of the five payload-size comparisons.
-
-However, it is competitive at 256 bytes and reasonably close at 512 bytes.
-
-The 1024-byte result requires investigation.
-
-**Do not claim that the current SHM implementation improves latency.**
-
-The demonstrated advantage so far is reduced communication syscall overhead, not consistently lower RTT.
-
-Investigate why syscall reduction is not translating into latency improvement.
-
----
-
-# 4. Important problems discovered in the current implementation
-
-## Problem A: Semaphore monitoring overhead
-
-Inspect `src/ipc_shm.c`.
-
-The function:
-
-`sem_wait_monitor_child()`
-
-uses:
-
-- `clock_gettime(CLOCK_REALTIME)`
-- `sem_timedwait()`
-- A 100 ms timeout.
-- `waitpid(..., WNOHANG)` when the timeout expires.
-
-The parent calls this function twice per exchange:
-
-1. Waiting for `request_empty`.
-2. Waiting for `response_full`.
-
-For 10,000 exchanges, that means approximately 20,000 calls to the monitoring wrapper and its associated clock-read/deadline logic, excluding retries and other operations.
-
-This is part of the timed benchmark loop.
-
-The child uses `sem_wait_retry()`, which simply waits on a semaphore and retries on EINTR.
-
-### Required investigation
-
-Determine how much overhead the parent-side child-monitoring mechanism contributes.
-
-Implement a controlled benchmark variant that uses ordinary `sem_wait_retry()` during normal timed execution.
-
-Keep the robust child-monitoring implementation available for failure-handling tests.
-
-Do not permanently remove child-failure handling.
-
-Use an external timeout during the experimental benchmark, for example:
-
-`timeout 30s ./mini-aipc --mode shm --size 64 --count 10000`
-
-Make sure the normal and experimental versions are tested under identical conditions.
-
-Compare:
-
-- Average RTT.
-- Median RTT.
-- P95 and P99 RTT.
-- Throughput.
-- Validation errors.
-- Child crash behavior.
-
-Do not assume every `sem_timedwait()` call necessarily produces a kernel syscall. Measure the actual overhead.
-
-## Problem B: Four process-shared semaphores
-
-The current mailbox structure is:
-
-```c
-typedef struct {
-    sem_t request_empty;
-    sem_t request_full;
-    sem_t response_empty;
-    sem_t response_full;
-    size_t request_length;
-    size_t response_length;
-    unsigned char request[SHM_MAX_PAYLOAD];
-    unsigned char response[SHM_MAX_PAYLOAD];
-} shared_mailbox_t;
-```
-
-The parent and child coordinate through four process-shared semaphores.
-
-The current request-response protocol is correct in principle, but synchronization overhead may be affecting performance.
-
-Investigate:
-
-- Semaphore wake-up overhead.
-- Futex usage.
-- Context switching.
-- Cache-line contention.
-- Producer/consumer synchronization.
-- Memory-copy overhead.
-- Whether all four semaphores are necessary.
-
-Do not remove synchronization primitives without proving that correctness and memory ordering are preserved.
-
-## Problem C: Cache-line contention
-
-The current shared mailbox places synchronization objects close together.
-
-Investigate whether producer and consumer frequently modify data sharing the same cache line.
-
-Experiment with cache-line-separated synchronization data.
-
-A possible experimental layout is:
-
-```c
-#define CACHE_LINE 64
-
-typedef struct {
-    _Alignas(CACHE_LINE) sem_t request_empty;
-    sem_t response_full;
-
-    _Alignas(CACHE_LINE) sem_t request_full;
-    sem_t response_empty;
-
-    size_t request_length;
-    size_t response_length;
-
-    unsigned char request[SHM_MAX_PAYLOAD];
-    unsigned char response[SHM_MAX_PAYLOAD];
-} shared_mailbox_t;
-```
-
-This is only a starting experiment.
-
-Verify actual field offsets, alignment, structure size, and cache-line placement.
-
-Do not assume that adding `_Alignas(64)` automatically eliminates false sharing.
-
-Measure the effect before accepting this change.
-
-## Problem D: Current SHM implementation uses POSIX semaphores
-
-The source uses:
-
-- `sem_init()`
-- `sem_wait()`
-- `sem_timedwait()`
-- `sem_post()`
-- `sem_destroy()`
-
-The syscall profile recorded futex activity.
-
-Explain how POSIX semaphores can use futex operations internally on Linux.
-
-Do not introduce explicit futex system calls without a strong reason.
-
-First investigate whether the existing semaphore implementation is the actual bottleneck.
-
----
-
-# 5. Current adaptive selector problem
-
-Inspect `src/selector.c` and `include/ipc.h`.
-
-Current definitions:
-
-```c
-#define SHM_MAX_PAYLOAD 1024U
-#define DEFAULT_THRESHOLD 1024U
-```
-
-Current selector:
-
-```c
-transport_t select_transport(size_t payload_size, size_t threshold)
-{
-    if (payload_size <= threshold && payload_size <= SHM_MAX_PAYLOAD)
-        return TRANSPORT_SHM;
-
-    return TRANSPORT_PIPE;
-}
-```
-
-Current behavior:
-
-| Payload | Selected mechanism |
-|---:|---|
-| 64 B | SHM |
-| 128 B | SHM |
-| 256 B | SHM |
-| 512 B | SHM |
-| 1024 B | SHM |
-| Above 1024 B | PIPE |
-
-This is a fixed size-based selector.
-
-It does not use telemetry, measured performance, workload history, or dynamic adaptation.
-
-The source comment explicitly acknowledges that it is not the paper's full adaptive telemetry/hysteresis controller.
-
-### Required improvement
-
-Do not immediately change the default threshold.
-
-First optimize SHM and repeat the measurements.
-
-Then investigate a more defensible adaptive policy.
-
-Potential improvements:
-
-1. Calibrate the crossover point using measured performance.
-2. Use separate thresholds for different workload conditions if supported by evidence.
-3. Add telemetry for latency and throughput.
-4. Investigate an EWMA-based performance estimator.
-5. Consider hysteresis to prevent rapid switching between mechanisms.
-6. Ensure selection overhead does not exceed the benefit gained.
-7. Retain a simple fallback policy.
-
-Do not claim the selector is dynamically adaptive unless it actually measures and responds to performance.
-
----
-
-# 6. Mixed benchmark findings
-
-Inspect `src/mixed_benchmark.c`.
-
-Current workload:
-
-```c
-#define SMALL_SIZE 64U
-#define LARGE_SIZE 16384U
-```
-
-The workload consists of:
-
-- 80% 64-byte messages.
-- 20% 16-KB messages.
-- Deterministic Fisher-Yates shuffle.
-- Same sequence for both policies.
-
-Current policies:
-
-- PIPE policy: uses pipes for all messages.
-- Adaptive policy: uses SHM for messages at or below the threshold and pipes otherwise.
-
-The SHM mailbox is limited to 1024 bytes.
-
-Therefore:
-
-- 64-byte messages use SHM under the adaptive policy.
-- 16-KB messages use pipes.
-- PIPE policy uses pipes for both.
-
-This is a useful experiment because both policies receive the same workload sequence.
-
-### Required investigation
-
-1. Run the mixed benchmark repeatedly.
-2. Compare elapsed time and throughput.
-3. Verify identical message sequences and validation.
-4. Add an explicit warm-up phase if appropriate.
-5. Ensure both policies receive equivalent warm-up treatment.
-6. Record per-trial results instead of relying on one run.
-7. Report the exact workload distribution.
-8. Investigate whether the adaptive policy actually outperforms the all-PIPE baseline.
-
-Do not claim a mixed-workload improvement until the measurements demonstrate it.
-
-Also inspect the mixed benchmark's cleanup and error-handling paths before modifying its synchronization.
-
----
-
-# 7. Proposed major optimization: SPSC shared-memory ring buffer
-
-After investigating the existing semaphore implementation, consider developing an experimental shared-memory ring-buffer transport.
-
-Use a single-producer/single-consumer design.
-
-Potential design:
-
-- Fixed-size slots.
-- Producer and consumer indices.
-- Cache-line-separated indices.
-- Atomic sequence counters.
-- Appropriate acquire/release memory ordering.
-- Bounded ring capacity.
-- Correct handling of full and empty states.
-- Payload validation.
-- Safe process-shared memory initialization and cleanup.
-
-The goal is to reduce synchronization overhead compared with the current four-semaphore mailbox.
-
-However:
-
-- Do not implement this before measuring the current implementation.
-- Do not assume atomics automatically outperform semaphores.
-- Do not introduce busy spinning without measuring CPU consumption.
-- Consider a spin-then-park strategy only if justified by results.
-- Ensure the implementation works across separate processes, not just threads.
-- Validate that the chosen atomic operations are lock-free and suitable for the target platform.
-- Preserve correctness under process termination and abnormal exits.
-
-Treat this as a separate experimental transport until it passes all correctness tests.
-
----
-
-# 8. Kernel module distinction
-
-The project also contains:
-
-`kernel/aipc_module.c`
-
-and a kernel Makefile.
-
-The existing user-space comparative benchmark tests the user-space IPC implementations.
-
-It does not establish that the custom kernel module provides a performance improvement.
-
-Keep these two evaluation paths separate.
-
-For the kernel module:
-
-1. Verify it builds against the currently running kernel.
-2. Verify it can be loaded safely.
-3. Verify its communication interface.
-4. Test concurrent access.
-5. Test invalid inputs.
-6. Test process termination and cleanup.
-7. Benchmark the actual module interface.
-8. Compare its results with an appropriate baseline.
-
-Do not claim kernel-module performance based only on user-space SHM measurements or structural compilation checks.
-
----
-
-# 9. Benchmarking requirements for every optimization
-
-Every proposed performance improvement must be evaluated using controlled experiments.
-
-Keep the following consistent:
-
-- Same hardware or VM.
-- Same CPU affinity.
-- Same payload sizes.
-- Same number of exchanges.
-- Same warm-up count.
-- Same compiler flags.
-- Same workload sequence.
-- Same measurement method.
-
-Run multiple trials.
-
-Record:
-
-- Average RTT.
-- Median RTT.
-- P90 RTT.
-- P95 RTT.
-- P99 RTT.
-- P99.9 RTT.
-- Standard deviation.
-- Minimum and maximum RTT.
-- Throughput.
-- Communication syscalls per exchange.
-- CPU utilization if available.
-- Context switches if available.
-- Validation errors.
-
-Use appropriate statistical comparisons.
-
-Do not call a 0.08% difference a meaningful optimization without sufficient evidence.
-
-Preserve raw CSV files and generated reports.
-
-Never overwrite the original baseline results.
-
-Create separate result files for each experimental version.
-
-Suggested naming:
-
-- `baseline_comparative.csv`
-- `sem_wait_optimization.csv`
-- `cacheline_alignment.csv`
-- `spsc_ring_buffer.csv`
-- `adaptive_policy.csv`
-- `mixed_workload.csv`
-
-Use a clear experiment log documenting:
-
-- What changed.
-- Why it changed.
-- Which files were modified.
-- Build status.
-- Test results.
-- Performance results.
-- Whether the change was accepted or rejected.
-
----
-
-# 10. Required development order
-
-Follow this order.
-
-## Phase 1: Understand and preserve the baseline
-
-- Inspect the complete repository.
-- Understand existing build scripts and test scripts.
-- Preserve existing benchmark CSVs.
-- Record the baseline results.
-- Run the correctness tests.
-- Verify current behavior.
-
-Do not modify anything yet.
-
-## Phase 2: Investigate semaphore-monitoring overhead
-
-- Create a controlled experimental version of the SHM timed path.
-- Compare ordinary semaphore waits with monitored waits.
-- Preserve failure-handling behavior.
-- Run correctness and crash tests.
-- Compare latency distributions.
-
-## Phase 3: Investigate cache-line layout
-
-- Inspect structure offsets and alignment.
-- Experiment with separating synchronization data.
-- Measure performance.
-- Keep the change only if it provides repeatable benefits.
-
-## Phase 4: Investigate synchronization redesign
-
-- Evaluate whether all four semaphores are necessary.
-- Investigate an SPSC ring-buffer implementation.
-- Use correct process-shared synchronization.
-- Benchmark against the original SHM implementation.
-
-## Phase 5: Improve adaptive selection
-
-- Determine actual crossover points from measured results.
-- Evaluate thresholds across multiple workloads.
-- Consider telemetry and hysteresis.
-- Compare adaptive selection against PIPE-only and other fixed policies.
-
-## Phase 6: Improve mixed-workload benchmarking
-
-- Repeat trials.
-- Add consistent warm-up.
-- Record complete results.
-- Evaluate the 80% small / 20% large workload.
-- Verify whether adaptive selection actually improves performance.
-
-## Phase 7: Final validation and reporting
-
-- Run the complete correctness suite.
-- Run all benchmark suites.
-- Generate graphs.
-- Generate a final technical report.
-- Document limitations.
-- Clearly distinguish user-space IPC from kernel-module testing.
-- Disclose virtualization in performance results.
-
----
-
-# 11. Strict instructions
-
-1. Do not rewrite the entire project.
-2. Do not remove existing error handling to improve benchmark numbers.
-3. Do not sacrifice correctness for performance.
-4. Do not change multiple performance variables simultaneously.
-5. Do not fabricate benchmark results.
-6. Do not claim an optimization worked without measurements.
-7. Preserve existing CLI behavior unless a change is necessary.
-8. Preserve CSV compatibility where possible.
-9. Keep code understandable and reasonably simple.
-10. Avoid unnecessary abstractions.
-11. Use appropriate algorithms and synchronization primitives where they are justified.
-12. Explain every significant modification.
-13. Build and test after each phase.
-14. Maintain a working baseline so every optimization can be compared against it.
-
-If a proposed change is unsafe or unsupported by measurements, explain why instead of implementing it.
-
----
-
-# 12. Expected final deliverables
-
-At the end of the work, provide:
-
-1. A description of the existing architecture.
-2. A list of identified bottlenecks.
-3. A list of source files modified.
-4. The exact optimizations implemented.
-5. Correctness test results.
-6. Before-and-after latency comparisons.
-7. Before-and-after syscall comparisons.
-8. Mixed-workload performance comparisons.
-9. Adaptive selector evaluation.
-10. Kernel-module testing status.
-11. Graphs and benchmark CSV files.
-12. A technical report explaining what improved, what did not improve, and why.
-
-The most important objective is not to make SHM win every benchmark.
-
-The objective is to build a correct and measurable adaptive IPC system that chooses an appropriate transport for the workload and demonstrates its advantages honestly.
-
-**Start with repository inspection and baseline preservation. Do not start modifying code until you have understood the current implementation and identified the exact experiment you intend to run.**
+  - Trials per configuration: 7
+  - Messages per trial:       10000 (warmup: 500)
+  - Payload sizes:            64 256 1024 4096 16384 65536 262144
+  - Output directory:         results/unified
+  - Quick smoke mode:         NO
+  - Skip kernel mailbox:      NO
+==============================================================================
+
+[Step 1/7] Inspecting system environment and dependencies...
+Captured environment details into results/unified/environment.txt
+CPU Affinity enabled: Producer pinned to core 0, Consumer pinned to core 1.
+
+[Step 2/7] Checking Kernel Mailbox module status...
+[Mini-A-IPC] Loading kernel module kernel/aipc_module.ko via sudo...
+Kernel Mailbox Status: READY (Module successfully loaded by unified benchmark)
+
+[Step 3/7] Executing scientifically controlled trial runs across components...
+
+--- Trial 1 of 7 ---
+  [Trial 1] adaptive       |     64 B | Avg:  112.53 us | P50:  101.28 us | Tput:     8886.9 msg/s
+  [Trial 1] adaptive       |    256 B | Avg:  116.73 us | P50:  102.63 us | Tput:     8566.5 msg/s
+  [Trial 1] adaptive       |   1024 B | Avg:  114.26 us | P50:  101.82 us | Tput:     8751.8 msg/s
+  [Trial 1] adaptive       |   4096 B | Avg:  224.35 us | P50:  186.54 us | Tput:     4457.4 msg/s
+  [Trial 1] adaptive       |  16384 B | Avg:  206.92 us | P50:  162.26 us | Tput:     4832.8 msg/s
+  [Trial 1] adaptive       |  65536 B | Avg:  197.23 us | P50:  142.07 us | Tput:     5070.2 msg/s
+  [Trial 1] adaptive       | 262144 B | Avg: 1224.02 us | P50:  997.66 us | Tput:      817.0 msg/s
+  [Trial 1] pipe           |     64 B | Avg:  170.18 us | P50:  118.57 us | Tput:     5876.0 msg/s
+  [Trial 1] pipe           |    256 B | Avg:  148.66 us | P50:  103.59 us | Tput:     6726.5 msg/s
+  [Trial 1] pipe           |   1024 B | Avg:  111.08 us | P50:   95.78 us | Tput:     9002.2 msg/s
+  [Trial 1] pipe           |   4096 B | Avg:  112.42 us | P50:   99.65 us | Tput:     8895.3 msg/s
+  [Trial 1] pipe           |  16384 B | Avg:  119.21 us | P50:  104.11 us | Tput:     8388.2 msg/s
+  [Trial 1] pipe           |  65536 B | Avg:  131.72 us | P50:  116.37 us | Tput:     7591.9 msg/s
+  [Trial 1] pipe           | 262144 B | Avg: 1010.79 us | P50:  849.40 us | Tput:      989.3 msg/s
+  [Trial 1] shm            |     64 B | Avg:  123.45 us | P50:  100.54 us | Tput:     8100.2 msg/s
+  [Trial 1] shm            |    256 B | Avg:  110.35 us | P50:   98.40 us | Tput:     9062.3 msg/s
+  [Trial 1] shm            |   1024 B | Avg:  112.61 us | P50:   95.86 us | Tput:     8879.8 msg/s
+  [Trial 1] sysv           |     64 B | Avg:  154.69 us | P50:  103.83 us | Tput:     6464.4 msg/s
+  [Trial 1] sysv           |    256 B | Avg:  211.97 us | P50:  110.32 us | Tput:     4717.7 msg/s
+  [Trial 1] sysv           |   1024 B | Avg:  201.87 us | P50:  110.99 us | Tput:     4953.7 msg/s
+  [Trial 1] sysv           |   4096 B | Avg:  216.39 us | P50:  109.35 us | Tput:     4621.2 msg/s
+  [Trial 1] fifo           |     64 B | Avg:  200.39 us | P50:  107.26 us | Tput:     4990.2 msg/s
+  [Trial 1] fifo           |    256 B | Avg:  150.32 us | P50:  101.16 us | Tput:     6652.6 msg/s
+  [Trial 1] fifo           |   1024 B | Avg:  244.20 us | P50:  107.29 us | Tput:     4095.0 msg/s
+  [Trial 1] fifo           |   4096 B | Avg:  195.74 us | P50:  105.84 us | Tput:     5108.9 msg/s
+  [Trial 1] fifo           |  16384 B | Avg:  210.55 us | P50:  111.16 us | Tput:     4749.4 msg/s
+  [Trial 1] fifo           |  65536 B | Avg:  244.92 us | P50:  128.99 us | Tput:     4083.0 msg/s
+  [Trial 1] fifo           | 262144 B | Avg: 1203.04 us | P50:  888.56 us | Tput:      831.2 msg/s
+  [Trial 1] posix          |     64 B | Avg:  139.79 us | P50:  101.39 us | Tput:     7153.4 msg/s
+  [Trial 1] posix          |    256 B | Avg:  164.24 us | P50:  100.85 us | Tput:     6088.8 msg/s
+  [Trial 1] posix          |   1024 B | Avg:  134.32 us | P50:  101.10 us | Tput:     7444.7 msg/s
+  [Trial 1] posix          |   4096 B | Avg:  136.28 us | P50:  102.76 us | Tput:     7338.0 msg/s
+  [Trial 1] uds            |     64 B | Avg:  110.46 us | P50:   97.44 us | Tput:     9053.5 msg/s
+  [Trial 1] uds            |    256 B | Avg:  108.46 us | P50:   94.95 us | Tput:     9219.9 msg/s
+  [Trial 1] uds            |   1024 B | Avg:  124.21 us | P50:   98.47 us | Tput:     8050.8 msg/s
+  [Trial 1] uds            |   4096 B | Avg:  133.82 us | P50:  100.82 us | Tput:     7472.8 msg/s
+  [Trial 1] uds            |  16384 B | Avg:  115.68 us | P50:  100.92 us | Tput:     8644.3 msg/s
+  [Trial 1] uds            |  65536 B | Avg:  121.62 us | P50:  103.98 us | Tput:     8222.3 msg/s
+  [Trial 1] uds            | 262144 B | Avg:  421.20 us | P50:  345.67 us | Tput:     2374.2 msg/s
+  [Trial 1] kernel         |     64 B | Avg:    0.69 us | P50:    0.65 us | Tput:  1264668.1 msg/s
+  [Trial 1] kernel         |    256 B | Avg:    0.84 us | P50:    0.67 us | Tput:  1052859.4 msg/s
+  [Trial 1] kernel         |   1024 B | Avg:    0.96 us | P50:    0.83 us | Tput:   916159.2 msg/s
+  [Trial 1] kernel         |   4096 B | Avg:    1.13 us | P50:    1.08 us | Tput:   786183.6 msg/s
+  [Trial 1] kernel         |  16384 B | Avg:    2.37 us | P50:    2.19 us | Tput:   362430.6 msg/s
+
+--- Trial 2 of 7 ---
+  [Trial 2] pipe           |     64 B | Avg:  112.32 us | P50:  100.74 us | Tput:     8903.5 msg/s
+  [Trial 2] pipe           |    256 B | Avg:  111.60 us | P50:  100.23 us | Tput:     8960.3 msg/s
+  [Trial 2] pipe           |   1024 B | Avg:  107.31 us | P50:   95.38 us | Tput:     9318.9 msg/s
+  [Trial 2] pipe           |   4096 B | Avg:  112.78 us | P50:   98.36 us | Tput:     8867.2 msg/s
+  [Trial 2] pipe           |  16384 B | Avg:  125.05 us | P50:  103.60 us | Tput:     7996.6 msg/s
+  [Trial 2] pipe           |  65536 B | Avg:  129.93 us | P50:  115.41 us | Tput:     7696.6 msg/s
+  [Trial 2] pipe           | 262144 B | Avg:  954.39 us | P50:  836.31 us | Tput:     1047.8 msg/s
+  [Trial 2] uds            |     64 B | Avg:  137.09 us | P50:   99.48 us | Tput:     7294.7 msg/s
+  [Trial 2] uds            |    256 B | Avg:  115.95 us | P50:   96.74 us | Tput:     8624.2 msg/s
+  [Trial 2] uds            |   1024 B | Avg:  108.23 us | P50:   97.76 us | Tput:     9239.6 msg/s
+  [Trial 2] uds            |   4096 B | Avg:  115.82 us | P50:   98.97 us | Tput:     8634.1 msg/s
+  [Trial 2] uds            |  16384 B | Avg:  108.36 us | P50:   99.50 us | Tput:     9228.5 msg/s
+  [Trial 2] uds            |  65536 B | Avg:  117.21 us | P50:  101.77 us | Tput:     8531.3 msg/s
+  [Trial 2] uds            | 262144 B | Avg:  563.87 us | P50:  382.00 us | Tput:     1773.4 msg/s
+  [Trial 2] adaptive       |     64 B | Avg:  324.41 us | P50:  316.62 us | Tput:     3082.5 msg/s
+  [Trial 2] adaptive       |    256 B | Avg:  245.40 us | P50:  220.10 us | Tput:     4074.9 msg/s
+  [Trial 2] adaptive       |   1024 B | Avg:  200.09 us | P50:  152.86 us | Tput:     4997.9 msg/s
+  [Trial 2] adaptive       |   4096 B | Avg:  209.26 us | P50:  151.12 us | Tput:     4778.6 msg/s
+  [Trial 2] adaptive       |  16384 B | Avg:  210.52 us | P50:  162.55 us | Tput:     4750.1 msg/s
+  [Trial 2] adaptive       |  65536 B | Avg:  207.03 us | P50:  152.49 us | Tput:     4830.2 msg/s
+  [Trial 2] adaptive       | 262144 B | Avg: 1505.36 us | P50: 1203.86 us | Tput:      664.3 msg/s
+  [Trial 2] fifo           |     64 B | Avg:  190.90 us | P50:  135.14 us | Tput:     5238.2 msg/s
+  [Trial 2] fifo           |    256 B | Avg:  201.88 us | P50:  148.32 us | Tput:     4953.5 msg/s
+  [Trial 2] fifo           |   1024 B | Avg:  244.13 us | P50:  206.83 us | Tput:     4096.1 msg/s
+  [Trial 2] fifo           |   4096 B | Avg:  208.71 us | P50:  153.32 us | Tput:     4791.4 msg/s
+  [Trial 2] fifo           |  16384 B | Avg:  194.41 us | P50:  141.98 us | Tput:     5143.6 msg/s
+  [Trial 2] fifo           |  65536 B | Avg:  221.34 us | P50:  161.25 us | Tput:     4518.0 msg/s
+  [Trial 2] fifo           | 262144 B | Avg: 1534.66 us | P50: 1169.15 us | Tput:      651.6 msg/s
+  [Trial 2] sysv           |     64 B | Avg:  124.58 us | P50:  106.26 us | Tput:     8027.1 msg/s
+  [Trial 2] sysv           |    256 B | Avg:  122.06 us | P50:  104.80 us | Tput:     8192.8 msg/s
+  [Trial 2] sysv           |   1024 B | Avg:  202.59 us | P50:  153.75 us | Tput:     4936.0 msg/s
+  [Trial 2] sysv           |   4096 B | Avg:  206.64 us | P50:  159.12 us | Tput:     4839.3 msg/s
+  [Trial 2] posix          |     64 B | Avg:  204.01 us | P50:  161.71 us | Tput:     4901.8 msg/s
+  [Trial 2] posix          |    256 B | Avg:  292.92 us | P50:  275.19 us | Tput:     3413.9 msg/s
+  [Trial 2] posix          |   1024 B | Avg:  241.89 us | P50:  245.60 us | Tput:     4134.0 msg/s
+  [Trial 2] posix          |   4096 B | Avg:  131.83 us | P50:  109.96 us | Tput:     7585.3 msg/s
+  [Trial 2] shm            |     64 B | Avg:  245.57 us | P50:  236.74 us | Tput:     4072.1 msg/s
+  [Trial 2] shm            |    256 B | Avg:  312.13 us | P50:  303.76 us | Tput:     3203.8 msg/s
+  [Trial 2] shm            |   1024 B | Avg:  181.68 us | P50:  130.94 us | Tput:     5504.2 msg/s
+  [Trial 2] kernel         |     64 B | Avg:    1.82 us | P50:    0.85 us | Tput:   478614.4 msg/s
+  [Trial 2] kernel         |    256 B | Avg:    2.43 us | P50:    0.77 us | Tput:   364235.7 msg/s
+  [Trial 2] kernel         |   1024 B | Avg:    1.38 us | P50:    1.02 us | Tput:   639491.1 msg/s
+  [Trial 2] kernel         |   4096 B | Avg:    3.28 us | P50:    3.17 us | Tput:   271906.9 msg/s
+  [Trial 2] kernel         |  16384 B | Avg:    8.26 us | P50:    7.90 us | Tput:   106721.7 msg/s
+
+--- Trial 3 of 7 ---
+  [Trial 3] sysv           |     64 B | Avg:  195.95 us | P50:  146.20 us | Tput:     5103.3 msg/s
+  [Trial 3] sysv           |    256 B | Avg:  329.41 us | P50:  313.56 us | Tput:     3035.7 msg/s
+  [Trial 3] sysv           |   1024 B | Avg:  406.65 us | P50:  377.07 us | Tput:     2459.1 msg/s
+  [Trial 3] sysv           |   4096 B | Avg:  257.58 us | P50:  232.83 us | Tput:     3882.4 msg/s
+  [Trial 3] pipe           |     64 B | Avg:  228.43 us | P50:  170.52 us | Tput:     4377.6 msg/s
+  [Trial 3] pipe           |    256 B | Avg:  217.68 us | P50:  169.77 us | Tput:     4594.0 msg/s
+  [Trial 3] pipe           |   1024 B | Avg:  229.07 us | P50:  167.11 us | Tput:     4365.6 msg/s
+  [Trial 3] pipe           |   4096 B | Avg:  231.16 us | P50:  176.93 us | Tput:     4326.0 msg/s
+  [Trial 3] pipe           |  16384 B | Avg:  229.61 us | P50:  172.62 us | Tput:     4355.2 msg/s
+  [Trial 3] pipe           |  65536 B | Avg:  179.68 us | P50:  120.82 us | Tput:     5565.4 msg/s
+  [Trial 3] pipe           | 262144 B | Avg: 1475.13 us | P50: 1120.24 us | Tput:      677.9 msg/s
+  [Trial 3] posix          |     64 B | Avg:  113.26 us | P50:  101.97 us | Tput:     8829.6 msg/s
+  [Trial 3] posix          |    256 B | Avg:  128.68 us | P50:  104.84 us | Tput:     7771.4 msg/s
+  [Trial 3] posix          |   1024 B | Avg:  116.94 us | P50:  103.54 us | Tput:     8551.1 msg/s
+  [Trial 3] posix          |   4096 B | Avg:  118.24 us | P50:  105.02 us | Tput:     8457.1 msg/s
+  [Trial 3] uds            |     64 B | Avg:  130.51 us | P50:  102.58 us | Tput:     7662.5 msg/s
+  [Trial 3] uds            |    256 B | Avg:  118.35 us | P50:  100.50 us | Tput:     8449.8 msg/s
+  [Trial 3] uds            |   1024 B | Avg:  117.73 us | P50:  102.06 us | Tput:     8494.0 msg/s
+  [Trial 3] uds            |   4096 B | Avg:  121.36 us | P50:  103.04 us | Tput:     8240.1 msg/s
+  [Trial 3] uds            |  16384 B | Avg:  129.55 us | P50:  104.40 us | Tput:     7719.1 msg/s
+  [Trial 3] uds            |  65536 B | Avg:  137.79 us | P50:  111.07 us | Tput:     7257.2 msg/s
+  [Trial 3] uds            | 262144 B | Avg:  625.03 us | P50:  473.11 us | Tput:     1599.9 msg/s
+  [Trial 3] adaptive       |     64 B | Avg:  178.53 us | P50:  128.63 us | Tput:     5601.4 msg/s
+  [Trial 3] adaptive       |    256 B | Avg:  195.56 us | P50:  144.10 us | Tput:     5113.5 msg/s
+  [Trial 3] adaptive       |   1024 B | Avg:  182.47 us | P50:  129.34 us | Tput:     5480.2 msg/s
+  [Trial 3] adaptive       |   4096 B | Avg:  193.04 us | P50:  142.82 us | Tput:     5180.2 msg/s
+  [Trial 3] adaptive       |  16384 B | Avg:  232.40 us | P50:  193.31 us | Tput:     4303.0 msg/s
+  [Trial 3] adaptive       |  65536 B | Avg:  249.43 us | P50:  188.05 us | Tput:     4009.1 msg/s
+  [Trial 3] adaptive       | 262144 B | Avg: 1485.38 us | P50: 1176.92 us | Tput:      673.2 msg/s
+  [Trial 3] fifo           |     64 B | Avg:  122.99 us | P50:  107.71 us | Tput:     8130.5 msg/s
+  [Trial 3] fifo           |    256 B | Avg:  165.04 us | P50:  115.92 us | Tput:     6059.3 msg/s
+  [Trial 3] fifo           |   1024 B | Avg:  227.28 us | P50:  168.07 us | Tput:     4399.9 msg/s
+  [Trial 3] fifo           |   4096 B | Avg:  216.48 us | P50:  142.99 us | Tput:     4619.5 msg/s
+  [Trial 3] fifo           |  16384 B | Avg:  273.68 us | P50:  217.58 us | Tput:     3653.9 msg/s
+  [Trial 3] fifo           |  65536 B | Avg:  271.82 us | P50:  275.42 us | Tput:     3678.9 msg/s
+  [Trial 3] fifo           | 262144 B | Avg: 1131.18 us | P50:  939.31 us | Tput:      884.0 msg/s
+  [Trial 3] shm            |     64 B | Avg:  160.92 us | P50:  118.44 us | Tput:     6214.2 msg/s
+  [Trial 3] shm            |    256 B | Avg:  157.66 us | P50:  117.33 us | Tput:     6342.8 msg/s
+  [Trial 3] shm            |   1024 B | Avg:  168.44 us | P50:  122.87 us | Tput:     5936.7 msg/s
+  [Trial 3] kernel         |     64 B | Avg:    0.81 us | P50:    0.83 us | Tput:  1067223.7 msg/s
+  [Trial 3] kernel         |    256 B | Avg:    0.86 us | P50:    0.85 us | Tput:  1002999.9 msg/s
+  [Trial 3] kernel         |   1024 B | Avg:    1.02 us | P50:    1.01 us | Tput:   862049.7 msg/s
+  [Trial 3] kernel         |   4096 B | Avg:    1.61 us | P50:    1.35 us | Tput:   547893.7 msg/s
+  [Trial 3] kernel         |  16384 B | Avg:    3.49 us | P50:    2.28 us | Tput:   253589.2 msg/s
+
+--- Trial 4 of 7 ---
+  [Trial 4] shm            |     64 B | Avg:  152.02 us | P50:  114.74 us | Tput:     6578.0 msg/s
+  [Trial 4] shm            |    256 B | Avg:  148.22 us | P50:  116.37 us | Tput:     6746.9 msg/s
+  [Trial 4] shm            |   1024 B | Avg:  145.10 us | P50:  114.73 us | Tput:     6891.5 msg/s
+  [Trial 4] adaptive       |     64 B | Avg:  151.34 us | P50:  116.18 us | Tput:     6607.7 msg/s
+  [Trial 4] adaptive       |    256 B | Avg:  147.33 us | P50:  115.28 us | Tput:     6787.3 msg/s
+  [Trial 4] adaptive       |   1024 B | Avg:  158.64 us | P50:  117.55 us | Tput:     6303.5 msg/s
+  [Trial 4] adaptive       |   4096 B | Avg:  162.08 us | P50:  120.51 us | Tput:     6169.8 msg/s
+  [Trial 4] adaptive       |  16384 B | Avg:  161.68 us | P50:  125.16 us | Tput:     6184.9 msg/s
+  [Trial 4] adaptive       |  65536 B | Avg:  182.58 us | P50:  138.42 us | Tput:     5476.9 msg/s
+  [Trial 4] adaptive       | 262144 B | Avg: 1194.13 us | P50:  989.53 us | Tput:      837.4 msg/s
+  [Trial 4] uds            |     64 B | Avg:  162.96 us | P50:  117.34 us | Tput:     6136.6 msg/s
+  [Trial 4] uds            |    256 B | Avg:  160.95 us | P50:  118.43 us | Tput:     6213.2 msg/s
+  [Trial 4] uds            |   1024 B | Avg:  158.85 us | P50:  115.92 us | Tput:     6295.0 msg/s
+  [Trial 4] uds            |   4096 B | Avg:  157.35 us | P50:  117.10 us | Tput:     6355.1 msg/s
+  [Trial 4] uds            |  16384 B | Avg:  169.74 us | P50:  121.43 us | Tput:     5891.2 msg/s
+  [Trial 4] uds            |  65536 B | Avg:  196.86 us | P50:  128.03 us | Tput:     5079.8 msg/s
+  [Trial 4] uds            | 262144 B | Avg:  558.59 us | P50:  426.86 us | Tput:     1790.2 msg/s
+  [Trial 4] posix          |     64 B | Avg:  153.58 us | P50:  116.75 us | Tput:     6511.4 msg/s
+  [Trial 4] posix          |    256 B | Avg:  150.38 us | P50:  116.74 us | Tput:     6649.6 msg/s
+  [Trial 4] posix          |   1024 B | Avg:  165.22 us | P50:  120.62 us | Tput:     6052.6 msg/s
+  [Trial 4] posix          |   4096 B | Avg:  158.24 us | P50:  119.52 us | Tput:     6319.4 msg/s
+  [Trial 4] pipe           |     64 B | Avg:  151.61 us | P50:  116.43 us | Tput:     6596.0 msg/s
+  [Trial 4] pipe           |    256 B | Avg:  150.38 us | P50:  117.71 us | Tput:     6650.0 msg/s
+  [Trial 4] pipe           |   1024 B | Avg:  126.51 us | P50:  106.36 us | Tput:     7904.3 msg/s
+  [Trial 4] pipe           |   4096 B | Avg:  119.05 us | P50:  106.06 us | Tput:     8399.8 msg/s
+  [Trial 4] pipe           |  16384 B | Avg:  128.09 us | P50:  110.55 us | Tput:     7807.0 msg/s
+  [Trial 4] pipe           |  65536 B | Avg:  142.09 us | P50:  127.71 us | Tput:     7037.6 msg/s
+  [Trial 4] pipe           | 262144 B | Avg: 1199.10 us | P50:  976.18 us | Tput:      834.0 msg/s
+  [Trial 4] fifo           |     64 B | Avg:  145.30 us | P50:  114.17 us | Tput:     6882.2 msg/s
+  [Trial 4] fifo           |    256 B | Avg:  159.99 us | P50:  118.11 us | Tput:     6250.6 msg/s
+  [Trial 4] fifo           |   1024 B | Avg:  161.87 us | P50:  119.52 us | Tput:     6177.9 msg/s
+  [Trial 4] fifo           |   4096 B | Avg:  155.02 us | P50:  116.55 us | Tput:     6450.8 msg/s
+  [Trial 4] fifo           |  16384 B | Avg:  171.34 us | P50:  127.04 us | Tput:     5836.3 msg/s
+  [Trial 4] fifo           |  65536 B | Avg:  183.16 us | P50:  137.96 us | Tput:     5459.8 msg/s
+  [Trial 4] fifo           | 262144 B | Avg: 1246.96 us | P50: 1002.01 us | Tput:      802.0 msg/s
+  [Trial 4] sysv           |     64 B | Avg:  165.10 us | P50:  119.46 us | Tput:     6056.8 msg/s
+  [Trial 4] sysv           |    256 B | Avg:  163.09 us | P50:  120.13 us | Tput:     6131.7 msg/s
+  [Trial 4] sysv           |   1024 B | Avg:  136.70 us | P50:  110.77 us | Tput:     7315.4 msg/s
+  [Trial 4] sysv           |   4096 B | Avg:  124.31 us | P50:  109.58 us | Tput:     8044.3 msg/s
+  [Trial 4] kernel         |     64 B | Avg:    0.68 us | P50:    0.66 us | Tput:  1291473.1 msg/s
+  [Trial 4] kernel         |    256 B | Avg:    0.73 us | P50:    0.67 us | Tput:  1185105.7 msg/s
+  [Trial 4] kernel         |   1024 B | Avg:    0.88 us | P50:    0.81 us | Tput:   993354.9 msg/s
+  [Trial 4] kernel         |   4096 B | Avg:    1.26 us | P50:    1.15 us | Tput:   705666.9 msg/s
+  [Trial 4] kernel         |  16384 B | Avg:    2.31 us | P50:    2.26 us | Tput:   379139.3 msg/s
+
+--- Trial 5 of 7 ---
+  [Trial 5] posix          |     64 B | Avg:  121.79 us | P50:  106.69 us | Tput:     8211.0 msg/s
+  [Trial 5] posix          |    256 B | Avg:  163.40 us | P50:  122.92 us | Tput:     6119.9 msg/s
+  [Trial 5] posix          |   1024 B | Avg:  156.96 us | P50:  116.85 us | Tput:     6371.1 msg/s
+  [Trial 5] posix          |   4096 B | Avg:  165.43 us | P50:  120.97 us | Tput:     6044.8 msg/s
+  [Trial 5] pipe           |     64 B | Avg:  164.60 us | P50:  120.14 us | Tput:     6075.2 msg/s
+  [Trial 5] pipe           |    256 B | Avg:  156.72 us | P50:  118.67 us | Tput:     6380.7 msg/s
+  [Trial 5] pipe           |   1024 B | Avg:  153.03 us | P50:  117.46 us | Tput:     6534.6 msg/s
+  [Trial 5] pipe           |   4096 B | Avg:  151.11 us | P50:  118.61 us | Tput:     6617.8 msg/s
+  [Trial 5] pipe           |  16384 B | Avg:  172.62 us | P50:  126.35 us | Tput:     5792.9 msg/s
+  [Trial 5] pipe           |  65536 B | Avg:  183.63 us | P50:  141.79 us | Tput:     5445.8 msg/s
+  [Trial 5] pipe           | 262144 B | Avg: 1103.96 us | P50:  922.11 us | Tput:      905.8 msg/s
+  [Trial 5] sysv           |     64 B | Avg:  119.78 us | P50:  107.69 us | Tput:     8348.8 msg/s
+  [Trial 5] sysv           |    256 B | Avg:  121.37 us | P50:  109.38 us | Tput:     8239.1 msg/s
+  [Trial 5] sysv           |   1024 B | Avg:  134.87 us | P50:  110.75 us | Tput:     7414.8 msg/s
+  [Trial 5] sysv           |   4096 B | Avg:  170.34 us | P50:  126.46 us | Tput:     5870.6 msg/s
+  [Trial 5] shm            |     64 B | Avg:  169.31 us | P50:  122.08 us | Tput:     5906.4 msg/s
+  [Trial 5] shm            |    256 B | Avg:  175.67 us | P50:  125.44 us | Tput:     5692.5 msg/s
+  [Trial 5] shm            |   1024 B | Avg:  153.02 us | P50:  119.11 us | Tput:     6535.3 msg/s
+  [Trial 5] adaptive       |     64 B | Avg:  165.99 us | P50:  124.43 us | Tput:     6024.6 msg/s
+  [Trial 5] adaptive       |    256 B | Avg:  170.06 us | P50:  119.79 us | Tput:     5880.1 msg/s
+  [Trial 5] adaptive       |   1024 B | Avg:  156.13 us | P50:  115.93 us | Tput:     6405.0 msg/s
+  [Trial 5] adaptive       |   4096 B | Avg:  154.14 us | P50:  115.70 us | Tput:     6487.7 msg/s
+  [Trial 5] adaptive       |  16384 B | Avg:  161.51 us | P50:  123.76 us | Tput:     6191.7 msg/s
+  [Trial 5] adaptive       |  65536 B | Avg:  228.43 us | P50:  153.10 us | Tput:     4377.7 msg/s
+  [Trial 5] adaptive       | 262144 B | Avg: 1189.58 us | P50:  969.18 us | Tput:      840.6 msg/s
+  [Trial 5] fifo           |     64 B | Avg:  116.04 us | P50:  103.06 us | Tput:     8618.0 msg/s
+  [Trial 5] fifo           |    256 B | Avg:  117.56 us | P50:  104.79 us | Tput:     8506.7 msg/s
+  [Trial 5] fifo           |   1024 B | Avg:  121.11 us | P50:  107.96 us | Tput:     8257.3 msg/s
+  [Trial 5] fifo           |   4096 B | Avg:  115.24 us | P50:  104.45 us | Tput:     8677.8 msg/s
+  [Trial 5] fifo           |  16384 B | Avg:  121.26 us | P50:  108.39 us | Tput:     8246.4 msg/s
+  [Trial 5] fifo           |  65536 B | Avg:  152.93 us | P50:  132.81 us | Tput:     6539.0 msg/s
+  [Trial 5] fifo           | 262144 B | Avg:  997.08 us | P50:  883.72 us | Tput:     1002.9 msg/s
+  [Trial 5] uds            |     64 B | Avg:  133.68 us | P50:  103.82 us | Tput:     7480.5 msg/s
+  [Trial 5] uds            |    256 B | Avg:  132.46 us | P50:  105.09 us | Tput:     7549.3 msg/s
+  [Trial 5] uds            |   1024 B | Avg:  120.67 us | P50:  105.11 us | Tput:     8287.2 msg/s
+  [Trial 5] uds            |   4096 B | Avg:  117.36 us | P50:  105.52 us | Tput:     8520.6 msg/s
+  [Trial 5] uds            |  16384 B | Avg:  152.66 us | P50:  112.39 us | Tput:     6550.4 msg/s
+  [Trial 5] uds            |  65536 B | Avg:  121.66 us | P50:  108.92 us | Tput:     8219.6 msg/s
+  [Trial 5] uds            | 262144 B | Avg:  384.80 us | P50:  360.07 us | Tput:     2598.7 msg/s
+  [Trial 5] kernel         |     64 B | Avg:    0.79 us | P50:    0.69 us | Tput:  1084217.7 msg/s
+  [Trial 5] kernel         |    256 B | Avg:    0.75 us | P50:    0.70 us | Tput:  1126440.6 msg/s
+  [Trial 5] kernel         |   1024 B | Avg:    1.03 us | P50:    0.87 us | Tput:   862586.3 msg/s
+  [Trial 5] kernel         |   4096 B | Avg:    1.21 us | P50:    1.11 us | Tput:   736074.1 msg/s
+  [Trial 5] kernel         |  16384 B | Avg:    2.47 us | P50:    2.29 us | Tput:   352956.8 msg/s
+
+--- Trial 6 of 7 ---
+  [Trial 6] pipe           |     64 B | Avg:  116.38 us | P50:  104.24 us | Tput:     8592.8 msg/s
+  [Trial 6] pipe           |    256 B | Avg:  123.40 us | P50:  107.69 us | Tput:     8103.5 msg/s
+  [Trial 6] pipe           |   1024 B | Avg:  244.78 us | P50:  252.54 us | Tput:     4085.4 msg/s
+  [Trial 6] pipe           |   4096 B | Avg:  220.73 us | P50:  185.80 us | Tput:     4530.5 msg/s
+  [Trial 6] pipe           |  16384 B | Avg:  212.21 us | P50:  171.87 us | Tput:     4712.2 msg/s
+  [Trial 6] pipe           |  65536 B | Avg:  223.54 us | P50:  163.89 us | Tput:     4473.4 msg/s
+  [Trial 6] pipe           | 262144 B | Avg: 1513.31 us | P50: 1388.49 us | Tput:      660.8 msg/s
+  [Trial 6] shm            |     64 B | Avg:  198.22 us | P50:  174.83 us | Tput:     5044.9 msg/s
+  [Trial 6] shm            |    256 B | Avg:  220.60 us | P50:  191.82 us | Tput:     4533.0 msg/s
+  [Trial 6] shm            |   1024 B | Avg:  186.47 us | P50:  136.61 us | Tput:     5362.7 msg/s
+  [Trial 6] adaptive       |     64 B | Avg:  117.71 us | P50:  105.27 us | Tput:     8495.2 msg/s
+  [Trial 6] adaptive       |    256 B | Avg:  145.23 us | P50:  112.54 us | Tput:     6885.8 msg/s
+  [Trial 6] adaptive       |   1024 B | Avg:  206.19 us | P50:  174.75 us | Tput:     4850.0 msg/s
+  [Trial 6] adaptive       |   4096 B | Avg:  179.84 us | P50:  131.26 us | Tput:     5560.5 msg/s
+  [Trial 6] adaptive       |  16384 B | Avg:  186.50 us | P50:  141.84 us | Tput:     5362.0 msg/s
+  [Trial 6] adaptive       |  65536 B | Avg:  209.53 us | P50:  153.30 us | Tput:     4772.7 msg/s
+  [Trial 6] adaptive       | 262144 B | Avg: 1506.22 us | P50: 1381.27 us | Tput:      663.9 msg/s
+  [Trial 6] sysv           |     64 B | Avg:  203.08 us | P50:  176.29 us | Tput:     4924.1 msg/s
+  [Trial 6] sysv           |    256 B | Avg:  228.13 us | P50:  203.41 us | Tput:     4383.5 msg/s
+  [Trial 6] sysv           |   1024 B | Avg:  240.31 us | P50:  225.56 us | Tput:     4161.3 msg/s
+  [Trial 6] sysv           |   4096 B | Avg:  240.47 us | P50:  202.34 us | Tput:     4158.6 msg/s
+  [Trial 6] uds            |     64 B | Avg:  181.37 us | P50:  127.07 us | Tput:     5513.6 msg/s
+  [Trial 6] uds            |    256 B | Avg:  180.18 us | P50:  127.54 us | Tput:     5549.9 msg/s
+  [Trial 6] uds            |   1024 B | Avg:  181.91 us | P50:  130.93 us | Tput:     5497.2 msg/s
+  [Trial 6] uds            |   4096 B | Avg:  223.58 us | P50:  187.12 us | Tput:     4472.6 msg/s
+  [Trial 6] uds            |  16384 B | Avg:  213.15 us | P50:  185.18 us | Tput:     4691.5 msg/s
+  [Trial 6] uds            |  65536 B | Avg:  258.87 us | P50:  222.33 us | Tput:     3862.9 msg/s
+  [Trial 6] uds            | 262144 B | Avg:  620.47 us | P50:  483.79 us | Tput:     1611.7 msg/s
+  [Trial 6] fifo           |     64 B | Avg:  168.06 us | P50:  126.02 us | Tput:     5950.3 msg/s
+  [Trial 6] fifo           |    256 B | Avg:  209.27 us | P50:  172.81 us | Tput:     4778.5 msg/s
+  [Trial 6] fifo           |   1024 B | Avg:  204.73 us | P50:  150.03 us | Tput:     4884.5 msg/s
+  [Trial 6] fifo           |   4096 B | Avg:  208.52 us | P50:  177.99 us | Tput:     4795.6 msg/s
+  [Trial 6] fifo           |  16384 B | Avg:  222.18 us | P50:  182.58 us | Tput:     4500.9 msg/s
+  [Trial 6] fifo           |  65536 B | Avg:  236.48 us | P50:  174.01 us | Tput:     4228.7 msg/s
+  [Trial 6] fifo           | 262144 B | Avg: 1489.90 us | P50: 1243.70 us | Tput:      671.2 msg/s
+  [Trial 6] posix          |     64 B | Avg:  218.47 us | P50:  176.22 us | Tput:     4577.4 msg/s
+  [Trial 6] posix          |    256 B | Avg:  141.09 us | P50:  112.54 us | Tput:     7087.5 msg/s
+  [Trial 6] posix          |   1024 B | Avg:  127.91 us | P50:  108.96 us | Tput:     7818.2 msg/s
+  [Trial 6] posix          |   4096 B | Avg:  128.09 us | P50:  106.36 us | Tput:     7807.3 msg/s
+  [Trial 6] kernel         |     64 B | Avg:    0.67 us | P50:    0.67 us | Tput:  1293718.1 msg/s
+  [Trial 6] kernel         |    256 B | Avg:    0.66 us | P50:    0.64 us | Tput:  1316870.7 msg/s
+  [Trial 6] kernel         |   1024 B | Avg:    0.92 us | P50:    0.84 us | Tput:   961739.7 msg/s
+  [Trial 6] kernel         |   4096 B | Avg:    1.15 us | P50:    1.10 us | Tput:   768007.6 msg/s
+  [Trial 6] kernel         |  16384 B | Avg:    2.31 us | P50:    2.23 us | Tput:   377296.2 msg/s
+
+--- Trial 7 of 7 ---
+  [Trial 7] sysv           |     64 B | Avg:  118.72 us | P50:  105.27 us | Tput:     8423.2 msg/s
+  [Trial 7] sysv           |    256 B | Avg:  119.79 us | P50:  106.95 us | Tput:     8347.8 msg/s
+  [Trial 7] sysv           |   1024 B | Avg:  204.19 us | P50:  146.93 us | Tput:     4897.4 msg/s
+  [Trial 7] sysv           |   4096 B | Avg:  178.38 us | P50:  132.35 us | Tput:     5606.0 msg/s
+  [Trial 7] pipe           |     64 B | Avg:  121.43 us | P50:  106.46 us | Tput:     8235.3 msg/s
+  [Trial 7] pipe           |    256 B | Avg:  116.37 us | P50:  104.65 us | Tput:     8593.0 msg/s
+  [Trial 7] pipe           |   1024 B | Avg:  133.91 us | P50:  108.38 us | Tput:     7467.9 msg/s
+  [Trial 7] pipe           |   4096 B | Avg:  121.26 us | P50:  107.08 us | Tput:     8246.9 msg/s
+  [Trial 7] pipe           |  16384 B | Avg:  154.68 us | P50:  122.82 us | Tput:     6465.0 msg/s
+  [Trial 7] pipe           |  65536 B | Avg:  237.09 us | P50:  190.63 us | Tput:     4217.8 msg/s
+  [Trial 7] pipe           | 262144 B | Avg: 1088.22 us | P50:  904.35 us | Tput:      918.9 msg/s
+  [Trial 7] shm            |     64 B | Avg:  167.69 us | P50:  123.76 us | Tput:     5963.5 msg/s
+  [Trial 7] shm            |    256 B | Avg:  116.49 us | P50:  104.35 us | Tput:     8584.4 msg/s
+  [Trial 7] shm            |   1024 B | Avg:  116.11 us | P50:  104.90 us | Tput:     8612.4 msg/s
+  [Trial 7] uds            |     64 B | Avg:  120.40 us | P50:  106.56 us | Tput:     8305.9 msg/s
+  [Trial 7] uds            |    256 B | Avg:  115.12 us | P50:  103.11 us | Tput:     8686.4 msg/s
+  [Trial 7] uds            |   1024 B | Avg:  160.78 us | P50:  115.15 us | Tput:     6219.7 msg/s
+  [Trial 7] uds            |   4096 B | Avg:  188.07 us | P50:  124.31 us | Tput:     5317.0 msg/s
+  [Trial 7] uds            |  16384 B | Avg:  199.05 us | P50:  139.20 us | Tput:     5023.8 msg/s
+  [Trial 7] uds            |  65536 B | Avg:  155.25 us | P50:  119.83 us | Tput:     6441.3 msg/s
+  [Trial 7] uds            | 262144 B | Avg:  405.39 us | P50:  376.17 us | Tput:     2466.8 msg/s
+  [Trial 7] fifo           |     64 B | Avg:  149.23 us | P50:  113.05 us | Tput:     6701.3 msg/s
+  [Trial 7] fifo           |    256 B | Avg:  129.55 us | P50:  109.44 us | Tput:     7718.9 msg/s
+  [Trial 7] fifo           |   1024 B | Avg:  129.79 us | P50:  109.25 us | Tput:     7704.9 msg/s
+  [Trial 7] fifo           |   4096 B | Avg:  121.89 us | P50:  107.70 us | Tput:     8204.3 msg/s
+  [Trial 7] fifo           |  16384 B | Avg:  120.88 us | P50:  109.36 us | Tput:     8272.8 msg/s
+  [Trial 7] fifo           |  65536 B | Avg:  178.71 us | P50:  138.09 us | Tput:     5595.6 msg/s
+  [Trial 7] fifo           | 262144 B | Avg: 1043.03 us | P50:  924.59 us | Tput:      958.8 msg/s
+  [Trial 7] posix          |     64 B | Avg:  165.99 us | P50:  121.06 us | Tput:     6024.3 msg/s
+  [Trial 7] posix          |    256 B | Avg:  141.09 us | P50:  112.09 us | Tput:     7087.8 msg/s
+  [Trial 7] posix          |   1024 B | Avg:  116.94 us | P50:  106.11 us | Tput:     8551.5 msg/s
+  [Trial 7] posix          |   4096 B | Avg:  120.01 us | P50:  106.76 us | Tput:     8332.9 msg/s
+  [Trial 7] adaptive       |     64 B | Avg:  117.62 us | P50:  106.42 us | Tput:     8502.2 msg/s
+  [Trial 7] adaptive       |    256 B | Avg:  122.93 us | P50:  106.95 us | Tput:     8134.5 msg/s
+  [Trial 7] adaptive       |   1024 B | Avg:  118.68 us | P50:  106.41 us | Tput:     8425.7 msg/s
+  [Trial 7] adaptive       |   4096 B | Avg:  116.82 us | P50:  105.91 us | Tput:     8560.3 msg/s
+  [Trial 7] adaptive       |  16384 B | Avg:  145.59 us | P50:  117.36 us | Tput:     6868.5 msg/s
+  [Trial 7] adaptive       |  65536 B | Avg:  207.26 us | P50:  143.86 us | Tput:     4825.0 msg/s
+  [Trial 7] adaptive       | 262144 B | Avg: 1214.53 us | P50:  972.56 us | Tput:      823.4 msg/s
+  [Trial 7] kernel         |     64 B | Avg:    0.69 us | P50:    0.67 us | Tput:  1255323.0 msg/s
+  [Trial 7] kernel         |    256 B | Avg:    1.02 us | P50:    0.69 us | Tput:   854980.9 msg/s
+  [Trial 7] kernel         |   1024 B | Avg:    2.59 us | P50:    2.32 us | Tput:   339277.6 msg/s
+  [Trial 7] kernel         |   4096 B | Avg:    1.59 us | P50:    1.35 us | Tput:   561028.4 msg/s
+  [Trial 7] kernel         |  16384 B | Avg:    3.53 us | P50:    2.31 us | Tput:   246141.6 msg/s
+
+[Step 4/7] Evaluating Concurrency Scalability (1P:1C, 2P:1C, 4P:1C, 1P:2C, 4P:4C)...
+[PASS                 ] Mech: pipe           | Topology: 1P:1C | Tput:    9151.25 msg/s
+[PASS                 ] Mech: fifo           | Topology: 1P:1C | Tput:   77067.79 msg/s
+[PASS                 ] Mech: sysv           | Topology: 1P:1C | Tput:   38296.01 msg/s
+[PASS                 ] Mech: posix          | Topology: 1P:1C | Tput:    4475.69 msg/s
+[PASS                 ] Mech: shm            | Topology: 1P:1C | Tput:   94875.46 msg/s
+[PASS                 ] Mech: uds            | Topology: 1P:1C | Tput:    3800.97 msg/s
+[PASS                 ] Mech: adaptive       | Topology: 1P:1C | Tput:    4787.43 msg/s
+[PASS                 ] Mech: kernel         | Topology: 1P:1C | Tput:  536818.50 msg/s
+[UNSUPPORTED_BY_DESIGN] Mech: pipe           | Topology: 2P:1C | Tput:       0.00 msg/s
+[UNSUPPORTED_BY_DESIGN] Mech: fifo           | Topology: 2P:1C | Tput:       0.00 msg/s
+[SUPPORTED            ] Mech: sysv           | Topology: 2P:1C | Tput:       0.00 msg/s
+[SUPPORTED            ] Mech: posix          | Topology: 2P:1C | Tput:       0.00 msg/s
+[UNSUPPORTED_BY_DESIGN] Mech: shm            | Topology: 2P:1C | Tput:       0.00 msg/s
+[UNSUPPORTED_BY_DESIGN] Mech: uds            | Topology: 2P:1C | Tput:       0.00 msg/s
+[UNSUPPORTED_BY_DESIGN] Mech: adaptive       | Topology: 2P:1C | Tput:       0.00 msg/s
+[SUPPORTED            ] Mech: kernel         | Topology: 2P:1C | Tput:       0.00 msg/s
+[UNSUPPORTED_BY_DESIGN] Mech: pipe           | Topology: 4P:1C | Tput:       0.00 msg/s
+[UNSUPPORTED_BY_DESIGN] Mech: fifo           | Topology: 4P:1C | Tput:       0.00 msg/s
+[SUPPORTED            ] Mech: sysv           | Topology: 4P:1C | Tput:       0.00 msg/s
+[SUPPORTED            ] Mech: posix          | Topology: 4P:1C | Tput:       0.00 msg/s
+[UNSUPPORTED_BY_DESIGN] Mech: shm            | Topology: 4P:1C | Tput:       0.00 msg/s
+[UNSUPPORTED_BY_DESIGN] Mech: uds            | Topology: 4P:1C | Tput:       0.00 msg/s
+[UNSUPPORTED_BY_DESIGN] Mech: adaptive       | Topology: 4P:1C | Tput:       0.00 msg/s
+[SUPPORTED            ] Mech: kernel         | Topology: 4P:1C | Tput:       0.00 msg/s
+[UNSUPPORTED_BY_DESIGN] Mech: pipe           | Topology: 1P:2C | Tput:       0.00 msg/s
+[UNSUPPORTED_BY_DESIGN] Mech: fifo           | Topology: 1P:2C | Tput:       0.00 msg/s
+[SUPPORTED            ] Mech: sysv           | Topology: 1P:2C | Tput:       0.00 msg/s
+[SUPPORTED            ] Mech: posix          | Topology: 1P:2C | Tput:       0.00 msg/s
+[UNSUPPORTED_BY_DESIGN] Mech: shm            | Topology: 1P:2C | Tput:       0.00 msg/s
+[UNSUPPORTED_BY_DESIGN] Mech: uds            | Topology: 1P:2C | Tput:       0.00 msg/s
+[UNSUPPORTED_BY_DESIGN] Mech: adaptive       | Topology: 1P:2C | Tput:       0.00 msg/s
+[SUPPORTED            ] Mech: kernel         | Topology: 1P:2C | Tput:       0.00 msg/s
+[UNSUPPORTED_BY_DESIGN] Mech: pipe           | Topology: 4P:4C | Tput:       0.00 msg/s
+[UNSUPPORTED_BY_DESIGN] Mech: fifo           | Topology: 4P:4C | Tput:       0.00 msg/s
+[SUPPORTED            ] Mech: sysv           | Topology: 4P:4C | Tput:       0.00 msg/s
+[SUPPORTED            ] Mech: posix          | Topology: 4P:4C | Tput:       0.00 msg/s
+[UNSUPPORTED_BY_DESIGN] Mech: shm            | Topology: 4P:4C | Tput:       0.00 msg/s
+[UNSUPPORTED_BY_DESIGN] Mech: uds            | Topology: 4P:4C | Tput:       0.00 msg/s
+[UNSUPPORTED_BY_DESIGN] Mech: adaptive       | Topology: 4P:4C | Tput:       0.00 msg/s
+[SUPPORTED            ] Mech: kernel         | Topology: 4P:4C | Tput:       0.00 msg/s
+
+Wrote concurrency scalability results to results/unified/raw/concurrency_results.csv
+
+[Step 5/7] Profiling System Calls (isolated strace measurement)...
+
+[Step 6/7] Post-processing datasets, calculating statistics, and generating graphs...
+Generated aggregated results: results/unified/processed/aggregated_results.csv
+Generated statistical summary: results/unified/processed/statistical_summary.csv
+Generated metadata: results/unified/processed/benchmark_metadata.json
+Generating publication-quality comparison charts...
+Generating comprehensive research benchmark report...
+Generated research report: results/unified/reports/FINAL_BENCHMARK_REPORT.md
+
+[Step 7/7] Validating deliverables and compiling final evaluation status...
+==============================================================================
+                       COMPONENT EVALUATION SUMMARY                           
+==============================================================================
+  1. Anonymous Pipes:            PASS (49 measurements recorded)
+  2. Named Pipes (FIFO):         PASS (49 measurements recorded)
+  3. System V Message Queues:    PASS (28 measurements recorded)
+  4. POSIX Message Queues:       PASS (28 measurements recorded)
+  5. POSIX Shared Memory:        PASS (21 measurements recorded)
+  6. Unix Domain Sockets:        PASS (49 measurements recorded)
+  7. Kernel Mailbox (/dev/aipc): PASS (35 measurements recorded)
+  8. Adaptive Policy Selector:   PASS (49 measurements recorded)
+==============================================================================
+Generated Artifacts:
+  - Raw Datasets:      results/unified/raw/
+  - Processed Summary: results/unified/processed/aggregated_results.csv
+  - Statistical Table: results/unified/processed/statistical_summary.csv
+  - 13 Charts (PNG):   results/unified/graphs/
+  - Benchmark Report:  results/unified/reports/FINAL_BENCHMARK_REPORT.md
+==============================================================================
+Mini A-IPC Unified Benchmark Complete!
+
+[Mini-A-IPC] Running cleanup routines...
+[Mini-A-IPC] Safely unloading kernel module aipc_module (loaded by benchmark)...
+[sudo] password for ayush: 
+ayush@fedora:~/Mini-A-IPC$

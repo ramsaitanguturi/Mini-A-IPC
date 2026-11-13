@@ -182,5 +182,14 @@ else
 fi
 pass "mixed shared-memory child independently rejects corrupt payload"
 
+# 16. Multi-process concurrency tests
+./mini-aipc-concurrency --mode sysv --producers 2 --consumers 1 --size 64 --count 50 --csv >/tmp/aipc_conc_sysv.out || fail "sysv 2P:1C concurrency test"
+grep -q ',PASS,OK' /tmp/aipc_conc_sysv.out || fail "sysv concurrency failed"
+pass "sysv multi-producer concurrent execution (2P:1C)"
+
+./mini-aipc-concurrency --mode posix --producers 4 --consumers 4 --size 64 --count 25 --csv >/tmp/aipc_conc_posix.out || fail "posix 4P:4C concurrency test"
+grep -q ',PASS,OK' /tmp/aipc_conc_posix.out || fail "posix concurrency failed"
+pass "posix M:N concurrent execution (4P:4C)"
+
 rm -f /tmp/aipc_*.out
 echo "All CLI correctness and failure-path tests passed."

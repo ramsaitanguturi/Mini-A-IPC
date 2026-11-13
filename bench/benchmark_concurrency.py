@@ -162,9 +162,66 @@ def run_concurrency_benchmark(producers, consumers, payload_size, messages_per_p
                     "notes": res.stderr.strip() or "Execution failed"
                 }
 
-    # For MPMC mechanisms under M:N concurrency:
-    if mechanism == "kernel":
-        if not os.path.exists(device_path):
+    # For MPMC mechanisms (sysv, posix, kernel), execute real multi-process concurrency
+    conc_bin = "./mini-aipc-concurrency"
+    if os.path.exists(conc_bin):
+        cmd = [
+            conc_bin,
+            "--mode", mechanism,
+            "--producers", str(producers),
+            "--consumers", str(consumers),
+            "--size", str(payload_size),
+            "--count", str(messages_per_p),
+            "--device", device_path,
+            "--csv"
+        ]
+        try:
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            if res.returncode == 0:
+                parts = res.stdout.strip().split(",")
+                if len(parts) >= 11:
+                    return {
+                        "mechanism": mechanism,
+                        "producers": producers,
+                        "consumers": consumers,
+                        "payload_bytes": payload_size,
+                        "messages_per_producer": messages_per_p,
+                        "total_messages": int(parts[5]),
+                        "elapsed_ms": float(parts[6]),
+                        "throughput_msg_sec": float(parts[7]),
+                        "throughput_mb_sec": float(parts[8]),
+                        "status": parts[9],
+                        "notes": parts[10]
+                    }
+            elif res.returncode == 77:
+                return {
+                    "mechanism": mechanism,
+                    "producers": producers,
+                    "consumers": consumers,
+                    "payload_bytes": payload_size,
+                    "messages_per_producer": messages_per_p,
+                    "total_messages": total_messages,
+                    "elapsed_ms": 0.0,
+                    "throughput_msg_sec": 0.0,
+                    "throughput_mb_sec": 0.0,
+                    "status": "BLOCKED",
+                    "notes": f"Kernel device {device_path} not found or inaccessible"
+                }
+            else:
+                return {
+                    "mechanism": mechanism,
+                    "producers": producers,
+                    "consumers": consumers,
+                    "payload_bytes": payload_size,
+                    "messages_per_producer": messages_per_p,
+                    "total_messages": total_messages,
+                    "elapsed_ms": 0.0,
+                    "throughput_msg_sec": 0.0,
+                    "throughput_mb_sec": 0.0,
+                    "status": "FAILED",
+                    "notes": res.stderr.strip() or f"Process exited with code {res.returncode}"
+                }
+        except subprocess.TimeoutExpired:
             return {
                 "mechanism": mechanism,
                 "producers": producers,
@@ -175,25 +232,11 @@ def run_concurrency_benchmark(producers, consumers, payload_size, messages_per_p
                 "elapsed_ms": 0.0,
                 "throughput_msg_sec": 0.0,
                 "throughput_mb_sec": 0.0,
-                "status": "BLOCKED",
-                "notes": f"Kernel device {device_path} not found"
+                "status": "FAILED",
+                "notes": "Concurrency benchmark timed out after 30 seconds"
             }
-        # Multi-process test on /dev/aipc
-        return {
-            "mechanism": mechanism,
-            "producers": producers,
-            "consumers": consumers,
-            "payload_bytes": payload_size,
-            "messages_per_producer": messages_per_p,
-            "total_messages": total_messages,
-            "elapsed_ms": 0.0,
-            "throughput_msg_sec": 0.0,
-            "throughput_mb_sec": 0.0,
-            "status": "SUPPORTED",
-            "notes": f"Kernel circular ring buffer supports M:N concurrency across {producers}P and {consumers}C"
-        }
 
-    # MPMC message queues (SysV and POSIX)
+    # Fallback if binary is not yet compiled
     return {
         "mechanism": mechanism,
         "producers": producers,
@@ -204,8 +247,8 @@ def run_concurrency_benchmark(producers, consumers, payload_size, messages_per_p
         "elapsed_ms": 0.0,
         "throughput_msg_sec": 0.0,
         "throughput_mb_sec": 0.0,
-        "status": "SUPPORTED",
-        "notes": f"Message queue architecture natively supports concurrent {producers}P and {consumers}C processes"
+        "status": "FAILED",
+        "notes": "mini-aipc-concurrency executable not found; build project first"
     }
 
 
