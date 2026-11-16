@@ -99,6 +99,14 @@ Mini-A-IPC strictly enforces dataset isolation across different execution enviro
 - **System**: AMD Ryzen 7 8845HS, Windows 11 Home, MSYS2 / GCC 13.3.0
 - **Scope**: Functional validation of Pipes, FIFOs, POSIX SHM, POSIX MQ, and UDS. System V returns `ENOSYS`.
 
+### 4.4 Five-Phase Kernel Verification Status Across Environments
+Mini-A-IPC strictly and accurately distinguishes the five operational phases of kernel module validation across all target environments:
+1. **Source-level inspection**: **VERIFIED across all environments** (static code audit, memory bounds checking, mutex locking, wait-queue barrier, VFS `noop_llseek` compatibility, and teardown barrier `wait_event(teardown_wait, atomic_read(&active_ops) == 0)` eliminating Use-After-Free race condition in `kernel/aipc_module.c`).
+2. **Successful kernel compilation**: **VERIFIED on Fedora 45** (`Linux 7.3.3-300.fc45.x86_64`, GCC 16.2.1 producing `kernel/aipc.ko`); **BLOCKED on WSL2 and Windows 11 / MSYS2** due to missing kernel development headers (`/lib/modules/$(uname -r)/build`).
+3. **Successful module loading**: **VERIFIED on Fedora 45** (`insmod kernel/aipc.ko capacity=65536`, successfully instantiating `/dev/aipc` with dynamic chrdev region); **BLOCKED on WSL2 and Windows 11 / MSYS2**.
+4. **Successful runtime communication**: **VERIFIED on Fedora 45** across 350,000 round-trip loopback exchanges (7 trials × 5 payloads: 64 B to 16 KB × 10,000 messages, achieving 0 validation errors and 0.72–3.35 µs floor; payloads $\ge 64$ KB return buffer capacity limits; M:N concurrency from 1P:1C to 4P:4C verified); **BLOCKED on WSL2 and Windows 11 / MSYS2**.
+5. **Successful module unloading**: **VERIFIED on Fedora 45** (`rmmod aipc`, clean teardown barrier wait, chrdev unregistered, zero dmesg errors or memory leaks); **BLOCKED on WSL2 and Windows 11 / MSYS2**.
+
 ---
 
 ## 5. Summary of Visualizations Generated
@@ -167,7 +175,7 @@ The final submission archive was generated at:
 | **4** | Payload integrity verified | **SATISFIED** | Bitwise validation pattern (`(i * 31 + 7) & 0xff`) checked on every exchange. |
 | **5** | Resource cleanup verified | **SATISFIED** | `unlink()`, `shm_unlink()`, `msgctl(IPC_RMID)`, `mq_unlink()` verified in all exit paths. |
 | **6** | Adaptive selector evaluated & documented | **SATISFIED** | Documented in `docs/ADAPTIVE_POLICY_RESULTS.md` with regret analysis. |
-| **7** | Kernel module audited & documented | **SATISFIED** | Audited in `docs/KERNEL_MODULE_VALIDATION.md`; teardown race fixed. |
+| **7** | Kernel module audited & documented | **SATISFIED** | Five-tier validation documented in `docs/KERNEL_MODULE_VALIDATION.md`: Phase 1 audited; Phases 2–5 verified on Fedora 45; blocked on WSL2/Windows. |
 | **8** | Test suites passing 100% | **SATISFIED** | 15/15 in `final_verification_test.py`, 5/5 in `test_unified_benchmark.py`, 24/24 in `test_cli.sh`. |
 | **9** | Datasets preserved & separated | **SATISFIED** | Fedora, WSL2, and MSYS2 datasets maintained in separate isolated directories. |
 | **10**| Thirteen graphs generated correctly | **SATISFIED** | 13 PNGs and 13 PDFs verified in `results/unified/graphs/`. |

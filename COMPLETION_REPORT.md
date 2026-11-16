@@ -24,7 +24,7 @@
 | **System-call measurements** | **Complete** | Profiled via detailed `strace -f -o` with exact tripartite parser isolating communication calls (strictly 4.00 calls/exchange for streams/queues, ~2.0 calls/exchange for SHM futex) from setup and program output (`write(1)` / loader `read`). Validated against real `strace` output. If `strace` is absent, marked as `pending`. |
 | **CPU affinity** | **Complete** | Implemented via `sched_setaffinity()`, pinning producer to CPU 0 and consumer to CPU 1. Verified active via `taskset -c` in WSL2 environment. |
 | **Reproducible benchmarks** | **Complete** | Scripted in `bench/run_comparative.sh`, capturing environment details to `results/environment.txt`. Historical multi-trial runs preserved in `results/archived/`. |
-| **Kernel Mailbox Module (`/dev/aipc`)** | **Implementation Complete / Runtime Verification Pending** | Implemented in `kernel/aipc_module.c`. Verified via static analysis, syntax balance checks, and Linux 6.12+ `noop_llseek` VFS compatibility. **Runtime device insertion (`insmod`) was NOT executed on Fedora or WSL2** due to missing kernel build headers in WSL2; runtime verification remains pending on bare-metal Linux. |
+| **Kernel Mailbox Module (`/dev/aipc`)** | **Verified on Fedora 45 / Pending on WSL2 & Windows** | Implemented in `kernel/aipc_module.c`. Five-tier verification status: (1) Source-level inspection: **VERIFIED** (static analysis, VFS `noop_llseek`, teardown wait barrier); (2) Kernel compilation: **VERIFIED on Fedora 45** (`Linux 7.3.3-300.fc45.x86_64`), **BLOCKED on WSL2/Windows** (missing kernel headers); (3) Module loading: **VERIFIED on Fedora 45** (`insmod capacity=65536`), **BLOCKED on WSL2/Windows**; (4) Runtime communication: **VERIFIED on Fedora 45** (64 B to 16 KB round-trip loopback, 7 trials × 10,000 msgs, 0 errors; $\ge 64$ KB buffer limited), **BLOCKED on WSL2/Windows**; (5) Module unloading: **VERIFIED on Fedora 45** (`rmmod aipc`), **BLOCKED on WSL2/Windows**. |
 
 ---
 
@@ -304,11 +304,14 @@ While the current parser accurately handles standard execution paths, its heuris
    - Verified correct P50/P99/P99.9 calculation output, throughput metrics, and CSV reporting in `results/comparative_benchmark.csv`.
    - Preserved full 150-row multi-trial benchmark in `results/archived/comparative_benchmark_10k_5trials.csv`.
 
-### B. Tests Not Executed
-- **Kernel Module Compilation and Insertion (`kernel-module`, `kernel-test`, `kernel-stress`)**:
-  - The WSL2 execution environment does not provide kernel development headers (`/lib/modules/6.6.87.2-microsoft-standard-WSL2/build`), and loading out-of-tree `.ko` kernel modules via `insmod` requires a matching native Linux kernel tree or custom WSL2 kernel with loadable module support.
-  - **The kernel module source code in `kernel/aipc_module.c` was kept strictly unchanged and verified via static inspection and syntax/structure validation**, but runtime device insertion was **NOT performed on Fedora or WSL2**.
-  - Runtime verification remains pending on bare-metal Linux with matching root permissions and kernel headers.
+### B. Five-Tier Kernel Module Verification Status
+- **Kernel Module Verification Across Environments**:
+  The kernel module (`kernel/aipc_module.c`) underwent rigorous verification with strict distinction across five operational phases:
+  1. **Source-level inspection**: **VERIFIED across all environments** (syntax validation, memory bounds checks, Linux 6.12+ `noop_llseek` VFS compliance, and safe teardown wait barrier `wait_event(teardown_wait, atomic_read(&active_ops) == 0)` preventing Use-After-Free).
+  2. **Successful kernel compilation**: **VERIFIED on Fedora 45** (`Linux 7.3.3-300.fc45.x86_64`, GCC 16.2.1 producing `kernel/aipc.ko`); **BLOCKED on WSL2 and Windows 11 / MSYS2** due to absent kernel development headers (`/lib/modules/$(uname -r)/build`).
+  3. **Successful module loading**: **VERIFIED on Fedora 45** (`insmod kernel/aipc.ko capacity=65536`, successfully instantiating `/dev/aipc` with dynamic chrdev region); **BLOCKED on WSL2 and Windows 11 / MSYS2**.
+  4. **Successful runtime communication**: **VERIFIED on Fedora 45** across 350,000 round-trip loopback exchanges (7 trials × 5 payloads: 64 B to 16 KB × 10,000 messages, achieving 0 validation errors and 0.72–3.35 µs floor; payloads $\ge 64$ KB return buffer capacity limits; M:N concurrency from 1P:1C to 4P:4C verified); **BLOCKED on WSL2 and Windows 11 / MSYS2**.
+  5. **Successful module unloading**: **VERIFIED on Fedora 45** (`rmmod aipc`, clean teardown barrier wait, chrdev unregistered, zero dmesg errors or memory leaks); **BLOCKED on WSL2 and Windows 11 / MSYS2**.
 
 ---
 
@@ -331,7 +334,7 @@ While the current parser accurately handles standard execution paths, its heuris
 ## 9. Remaining Limitations
 
 1. **Kernel Mailbox Execution**:
-   Testing the character device kernel module (`/dev/aipc`) requires a bare-metal Linux machine (e.g. native Ubuntu or Debian) with matching kernel headers (`linux-headers-$(uname -r)`) and root permissions. Runtime verification was not performed on Fedora or WSL2.
+   Testing the character device kernel module (`/dev/aipc`) at runtime requires a native Linux host with matching kernel headers (`linux-headers-$(uname -r)`) and root permissions. Runtime compilation, insertion, communication (up to 16 KB), and clean unloading were verified on Fedora 45 (`Linux 7.3.3-300.fc45.x86_64`), but are blocked on WSL2 and Windows 11 / MSYS2 due to the absence of kernel headers and module loading support.
 2. **Read/Write File Descriptor Heuristic**:
    The trace analyzer uses pattern-matching heuristics on descriptors and library paths rather than a persistent kernel-like stateful inode/descriptor table. Highly specialized multi-file applications should be verified with dedicated tracing scripts.
 3. **Shared Memory Segment Capacity**:

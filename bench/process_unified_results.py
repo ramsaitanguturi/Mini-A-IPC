@@ -100,6 +100,13 @@ def generate_graphs(processed_data, raw_dir, graphs_dir):
         "savefig.dpi": 300
     })
 
+    def save_chart(fig, out_dir, name):
+        png_path = os.path.join(out_dir, f"{name}.png")
+        pdf_path = os.path.join(out_dir, f"{name}.pdf")
+        fig.savefig(png_path, dpi=300, bbox_inches="tight")
+        fig.savefig(pdf_path, bbox_inches="tight")
+        plt.close(fig)
+
     # 1. Latency Comparison (Average RTT at 64 B)
     data_64 = [r for r in processed_data if int(r.get("payload_bytes", 0)) == 64]
     if data_64:
@@ -119,8 +126,7 @@ def generate_graphs(processed_data, raw_dir, graphs_dir):
             yval = bar.get_height()
             ax.text(bar.get_x() + bar.get_width()/2.0, yval + (max(avgs)*0.02), f"{yval:.2f} µs", ha="center", va="bottom", fontsize=9)
         plt.tight_layout()
-        plt.savefig(os.path.join(graphs_dir, "latency_comparison.png"))
-        plt.close()
+        save_chart(fig, graphs_dir, "latency_comparison")
 
     # 2. P50 Median Latency Comparison
     if data_64:
@@ -135,8 +141,7 @@ def generate_graphs(processed_data, raw_dir, graphs_dir):
             yval = bar.get_height()
             ax.text(bar.get_x() + bar.get_width()/2.0, yval + (max(p50s)*0.02), f"{yval:.2f} µs", ha="center", va="bottom", fontsize=9)
         plt.tight_layout()
-        plt.savefig(os.path.join(graphs_dir, "p50_latency.png"))
-        plt.close()
+        save_chart(fig, graphs_dir, "p50_latency")
 
     # 3. P95 Tail Latency Comparison
     if data_64:
@@ -151,8 +156,7 @@ def generate_graphs(processed_data, raw_dir, graphs_dir):
             yval = bar.get_height()
             ax.text(bar.get_x() + bar.get_width()/2.0, yval + (max(p95s)*0.02 if p95s else 0), f"{yval:.2f} µs", ha="center", va="bottom", fontsize=9)
         plt.tight_layout()
-        plt.savefig(os.path.join(graphs_dir, "p95_latency.png"))
-        plt.close()
+        save_chart(fig, graphs_dir, "p95_latency")
 
     # 4. P99 Extreme Tail Latency Comparison
     if data_64:
@@ -167,8 +171,7 @@ def generate_graphs(processed_data, raw_dir, graphs_dir):
             yval = bar.get_height()
             ax.text(bar.get_x() + bar.get_width()/2.0, yval + (max(p99s)*0.02), f"{yval:.2f} µs", ha="center", va="bottom", fontsize=9)
         plt.tight_layout()
-        plt.savefig(os.path.join(graphs_dir, "p99_latency.png"))
-        plt.close()
+        save_chart(fig, graphs_dir, "p99_latency")
 
     # 5. Throughput Comparison (Messages/sec)
     if data_64:
@@ -183,17 +186,25 @@ def generate_graphs(processed_data, raw_dir, graphs_dir):
             yval = bar.get_height()
             ax.text(bar.get_x() + bar.get_width()/2.0, yval + (max(tputs)*0.02), f"{yval:,.0f}", ha="center", va="bottom", fontsize=8)
         plt.tight_layout()
-        plt.savefig(os.path.join(graphs_dir, "throughput_comparison.png"))
-        plt.close()
+        save_chart(fig, graphs_dir, "throughput_comparison")
 
     # 6. CPU Comparison (User vs System Time)
     cpu_path = os.path.join(raw_dir, "cpu_metrics.csv")
     cpu_rows = load_csv(cpu_path)
     if cpu_rows:
         fig, ax = plt.subplots(figsize=(10, 6))
-        c_mechs = [r["mechanism"] for r in cpu_rows if int(r.get("payload_bytes", 64)) == 64]
-        user_times = [float(r.get("user_time_sec", 0.0)) for r in cpu_rows if int(r.get("payload_bytes", 64)) == 64]
-        sys_times = [float(r.get("system_time_sec", 0.0)) for r in cpu_rows if int(r.get("payload_bytes", 64)) == 64]
+        mech_cpu = {}
+        for r in cpu_rows:
+            if int(r.get("payload_bytes", 64)) == 64:
+                m = r["mechanism"]
+                if m not in mech_cpu:
+                    mech_cpu[m] = {"user": [], "sys": []}
+                mech_cpu[m]["user"].append(float(r.get("user_time_sec", 0.0)))
+                mech_cpu[m]["sys"].append(float(r.get("system_time_sec", 0.0)))
+        
+        c_mechs = [m for m in ["pipe", "fifo", "sysv", "posix", "shm", "uds", "adaptive", "kernel"] if m in mech_cpu]
+        user_times = [statistics.mean(mech_cpu[m]["user"]) if mech_cpu[m]["user"] else 0.0 for m in c_mechs]
+        sys_times = [statistics.mean(mech_cpu[m]["sys"]) if mech_cpu[m]["sys"] else 0.0 for m in c_mechs]
         c_labels = [MECHANISM_LABELS.get(m, m) for m in c_mechs]
 
         x = range(len(c_mechs))
@@ -201,45 +212,60 @@ def generate_graphs(processed_data, raw_dir, graphs_dir):
         ax.bar(x, user_times, width, label="User CPU Time (s)", color="#4575b4", edgecolor="black")
         ax.bar(x, sys_times, width, bottom=user_times, label="System (Kernel) CPU Time (s)", color="#d73027", edgecolor="black")
         ax.set_ylabel("CPU Time (seconds)")
-        ax.set_title("CPU Utilization Breakdown by Mechanism (User vs Kernel Mode)")
+        ax.set_title("CPU Utilization Breakdown by Mechanism (User vs Kernel Mode, 64-Byte Payload)")
         ax.set_xticks(x)
         ax.set_xticklabels(c_labels, rotation=25, ha="right")
         ax.legend()
         ax.grid(axis="y", linestyle="--", alpha=0.5)
         plt.tight_layout()
-        plt.savefig(os.path.join(graphs_dir, "cpu_comparison.png"))
-        plt.close()
+        save_chart(fig, graphs_dir, "cpu_comparison")
 
     # 7. Memory Comparison (Peak RSS)
     mem_path = os.path.join(raw_dir, "memory_metrics.csv")
     mem_rows = load_csv(mem_path)
     if mem_rows:
         fig, ax = plt.subplots(figsize=(10, 6))
-        m_mechs = [r["mechanism"] for r in mem_rows if int(r.get("payload_bytes", 64)) == 64]
-        rss_kb = [float(r.get("peak_rss_kb", 0.0)) for r in mem_rows if int(r.get("payload_bytes", 64)) == 64]
+        mech_mem = {}
+        for r in mem_rows:
+            if int(r.get("payload_bytes", 64)) == 64:
+                m = r["mechanism"]
+                if m not in mech_mem:
+                    mech_mem[m] = []
+                mech_mem[m].append(float(r.get("peak_rss_kb", 0.0)))
+
+        m_mechs = [m for m in ["pipe", "fifo", "sysv", "posix", "shm", "uds", "adaptive", "kernel"] if m in mech_mem]
+        rss_kb = [statistics.mean(mech_mem[m]) if mech_mem[m] else 0.0 for m in m_mechs]
         m_labels = [MECHANISM_LABELS.get(m, m) for m in m_mechs]
         m_colors = [PALETTE.get(m, "#555") for m in m_mechs]
 
         bars = ax.bar(m_labels, rss_kb, color=m_colors, edgecolor="black", alpha=0.85)
         ax.set_ylabel("Peak Resident Set Size (KB)")
-        ax.set_title("Peak Memory Consumption (RSS) by IPC Mechanism")
+        ax.set_title("Peak Memory Consumption (RSS) by IPC Mechanism (64-Byte Payload)")
         ax.grid(axis="y", linestyle="--", alpha=0.5)
         plt.xticks(rotation=25, ha="right")
         for bar in bars:
             yval = bar.get_height()
             ax.text(bar.get_x() + bar.get_width()/2.0, yval + (max(rss_kb)*0.02 if rss_kb else 0), f"{yval:,.0f} KB", ha="center", va="bottom", fontsize=8)
         plt.tight_layout()
-        plt.savefig(os.path.join(graphs_dir, "memory_comparison.png"))
-        plt.close()
+        save_chart(fig, graphs_dir, "memory_comparison")
 
     # 8. Context Switches (Voluntary vs Involuntary)
     sys_path = os.path.join(raw_dir, "system_metrics.csv")
     sys_rows = load_csv(sys_path)
     if sys_rows:
         fig, ax = plt.subplots(figsize=(10, 6))
-        s_mechs = [r["mechanism"] for r in sys_rows if int(r.get("payload_bytes", 64)) == 64]
-        vol = [float(r.get("voluntary_context_switches", 0.0)) for r in sys_rows if int(r.get("payload_bytes", 64)) == 64]
-        invol = [float(r.get("involuntary_context_switches", 0.0)) for r in sys_rows if int(r.get("payload_bytes", 64)) == 64]
+        mech_sys = {}
+        for r in sys_rows:
+            if int(r.get("payload_bytes", 64)) == 64:
+                m = r["mechanism"]
+                if m not in mech_sys:
+                    mech_sys[m] = {"vol": [], "invol": []}
+                mech_sys[m]["vol"].append(float(r.get("voluntary_context_switches", 0.0)))
+                mech_sys[m]["invol"].append(float(r.get("involuntary_context_switches", 0.0)))
+
+        s_mechs = [m for m in ["pipe", "fifo", "sysv", "posix", "shm", "uds", "adaptive", "kernel"] if m in mech_sys]
+        vol = [statistics.mean(mech_sys[m]["vol"]) if mech_sys[m]["vol"] else 0.0 for m in s_mechs]
+        invol = [statistics.mean(mech_sys[m]["invol"]) if mech_sys[m]["invol"] else 0.0 for m in s_mechs]
         s_labels = [MECHANISM_LABELS.get(m, m) for m in s_mechs]
 
         x = range(len(s_mechs))
@@ -247,14 +273,13 @@ def generate_graphs(processed_data, raw_dir, graphs_dir):
         ax.bar(x, vol, width, label="Voluntary Switches (Waiting/I-O)", color="#31a354", edgecolor="black")
         ax.bar(x, invol, width, bottom=vol, label="Involuntary Switches (Preemption)", color="#e6550d", edgecolor="black")
         ax.set_ylabel("Total Context Switches")
-        ax.set_title("Operating System Context Switches (Voluntary vs Preemptive)")
+        ax.set_title("Operating System Context Switches (Voluntary vs Preemptive, 64-Byte Payload)")
         ax.set_xticks(x)
         ax.set_xticklabels(s_labels, rotation=25, ha="right")
         ax.legend()
         ax.grid(axis="y", linestyle="--", alpha=0.5)
         plt.tight_layout()
-        plt.savefig(os.path.join(graphs_dir, "context_switches.png"))
-        plt.close()
+        save_chart(fig, graphs_dir, "context_switches")
 
     # 9. Syscall Comparison
     call_path = os.path.join(raw_dir, "syscall_metrics.csv")
@@ -275,8 +300,7 @@ def generate_graphs(processed_data, raw_dir, graphs_dir):
             yval = bar.get_height()
             ax.text(bar.get_x() + bar.get_width()/2.0, yval + 0.1, f"{yval:.2f}", ha="center", va="bottom", fontsize=9)
         plt.tight_layout()
-        plt.savefig(os.path.join(graphs_dir, "syscall_comparison.png"))
-        plt.close()
+        save_chart(fig, graphs_dir, "syscall_comparison")
 
     # 10. Payload Scalability (Latency vs Payload Size from 64 B to 256 KB)
     fig, ax = plt.subplots(figsize=(11, 6))
@@ -295,8 +319,7 @@ def generate_graphs(processed_data, raw_dir, graphs_dir):
     ax.grid(True, which="both", linestyle="--", alpha=0.5)
     ax.legend(loc="upper left")
     plt.tight_layout()
-    plt.savefig(os.path.join(graphs_dir, "payload_scalability.png"))
-    plt.close()
+    save_chart(fig, graphs_dir, "payload_scalability")
 
     # 11. Concurrency Scalability
     conc_path = os.path.join(raw_dir, "concurrency_results.csv")
@@ -312,15 +335,16 @@ def generate_graphs(processed_data, raw_dir, graphs_dir):
                 if match and match[0]["status"] == "PASS":
                     pts.append(float(match[0]["throughput_msg_sec"]))
                 else:
-                    pts.append(0.0)
-            ax.plot(c_topos, pts, marker="s", label=MECHANISM_LABELS.get(m, m), color=PALETTE.get(m, "#444"), linewidth=2)
+                    pts.append(None)
+            valid_indices = [i for i, pt in enumerate(pts) if pt is not None]
+            if valid_indices:
+                ax.plot([c_topos[i] for i in valid_indices], [pts[i] for i in valid_indices], marker="s", label=MECHANISM_LABELS.get(m, m), color=PALETTE.get(m, "#444"), linewidth=2)
         ax.set_ylabel("Throughput (messages / sec)")
         ax.set_title("Concurrency Scalability: M:N Producer-Consumer Topologies")
         ax.grid(True, linestyle="--", alpha=0.5)
         ax.legend()
         plt.tight_layout()
-        plt.savefig(os.path.join(graphs_dir, "concurrency_scalability.png"))
-        plt.close()
+        save_chart(fig, graphs_dir, "concurrency_scalability")
 
     # 12. Adaptive Selector vs Best Individual Mechanism
     adapt_path = os.path.join(raw_dir, "adaptive_results.csv")
@@ -342,8 +366,7 @@ def generate_graphs(processed_data, raw_dir, graphs_dir):
         ax.legend()
         ax.grid(axis="y", linestyle="--", alpha=0.5)
         plt.tight_layout()
-        plt.savefig(os.path.join(graphs_dir, "adaptive_vs_best.png"))
-        plt.close()
+        save_chart(fig, graphs_dir, "adaptive_vs_best")
 
     # 13. Kernel Mailbox vs User-space Mechanisms
     if data_64:
@@ -355,14 +378,13 @@ def generate_graphs(processed_data, raw_dir, graphs_dir):
             cols = [PALETTE.get(r["mechanism"], "#555") for r in u_mechs]
             bars = ax.bar(names, vals, color=cols, edgecolor="black", alpha=0.85)
             ax.set_ylabel("Average RTT Latency (µs)")
-            ax.set_title("Kernel-Space (/dev/aipc) vs Classical User-Space Transports")
+            ax.set_title("Kernel-Space (/dev/aipc) Driver Overhead vs User-Space IPC")
             ax.grid(axis="y", linestyle="--", alpha=0.5)
             for bar in bars:
                 yval = bar.get_height()
                 ax.text(bar.get_x() + bar.get_width()/2.0, yval + (max(vals)*0.02), f"{yval:.2f} µs", ha="center", va="bottom", fontsize=9)
             plt.tight_layout()
-            plt.savefig(os.path.join(graphs_dir, "kernel_vs_userspace.png"))
-            plt.close()
+            save_chart(fig, graphs_dir, "kernel_vs_userspace")
 
 
 def generate_final_report(processed_data, raw_dir, reports_dir, env_info, metadata):
@@ -525,7 +547,7 @@ def generate_final_report(processed_data, raw_dir, reports_dir, env_info, metada
         ))
     lines.append("")
 
-    # 12. CPU Comparison & 13. Memory Comparison
+    # 12. CPU Comparison & 13. Memory Consumption
     lines.append("## 12. CPU Utilization & 13. Memory Consumption")
     lines.append("")
     lines.append("![CPU Comparison](../graphs/cpu_comparison.png)")
@@ -533,15 +555,35 @@ def generate_final_report(processed_data, raw_dir, reports_dir, env_info, metada
     lines.append("")
     lines.append("| Mechanism | User CPU (s) | System CPU (s) | Total CPU % | Peak RSS (KB) | Memory / Process |")
     lines.append("|:---|:---:|:---:|:---:|:---:|:---:|")
+    mech_cpu = {}
     for r in cpu_rows:
         if int(r.get("payload_bytes", 64)) == 64:
             m = r["mechanism"]
-            matching_mem = [x for x in mem_rows if x["mechanism"] == m]
-            rss = matching_mem[0].get("peak_rss_kb", "N/A") if matching_mem else "N/A"
-            lines.append("| **{}** | {} | {} | {}% | {} KB | User-space heap |".format(
-                MECHANISM_LABELS.get(m, m), r.get("user_time_sec", "0.0"), r.get("system_time_sec", "0.0"),
-                r.get("cpu_percent", "N/A"), rss
-            ))
+            if m not in mech_cpu:
+                mech_cpu[m] = {"user": [], "sys": [], "pct": []}
+            mech_cpu[m]["user"].append(float(r.get("user_time_sec", 0.0)))
+            mech_cpu[m]["sys"].append(float(r.get("system_time_sec", 0.0)))
+            pct_val = str(r.get("cpu_percent", "0")).replace("%", "")
+            try:
+                mech_cpu[m]["pct"].append(float(pct_val))
+            except ValueError:
+                pass
+
+    mech_mem = {}
+    for r in mem_rows:
+        if int(r.get("payload_bytes", 64)) == 64:
+            m = r["mechanism"]
+            if m not in mech_mem:
+                mech_mem[m] = []
+            mech_mem[m].append(float(r.get("peak_rss_kb", 0.0)))
+
+    for m in ["pipe", "fifo", "sysv", "posix", "shm", "uds", "adaptive", "kernel"]:
+        if m in mech_cpu or m in mech_mem:
+            u_mean = statistics.mean(mech_cpu[m]["user"]) if m in mech_cpu and mech_cpu[m]["user"] else 0.0
+            s_mean = statistics.mean(mech_cpu[m]["sys"]) if m in mech_cpu and mech_cpu[m]["sys"] else 0.0
+            p_mean = statistics.mean(mech_cpu[m]["pct"]) if m in mech_cpu and mech_cpu[m]["pct"] else 0.0
+            rss_mean = statistics.mean(mech_mem[m]) if m in mech_mem and mech_mem[m] else 0.0
+            lines.append(f"| **{MECHANISM_LABELS.get(m, m)}** | {u_mean:.2f} | {s_mean:.2f} | {p_mean:.0f}% | {rss_mean:,.0f} KB | User-space heap |")
     lines.append("")
 
     # 14. Context-Switch Comparison & 15. System-Call Comparison
@@ -552,17 +594,24 @@ def generate_final_report(processed_data, raw_dir, reports_dir, env_info, metada
     lines.append("")
     lines.append("| Mechanism | Voluntary Switches | Involuntary Switches | Comm Syscalls / Exch | Classification | Details |")
     lines.append("|:---|:---:|:---:|:---:|:---:|:---|")
+    mech_sys = {}
     for r in sys_rows:
         if int(r.get("payload_bytes", 64)) == 64:
             m = r["mechanism"]
+            if m not in mech_sys:
+                mech_sys[m] = {"vol": [], "invol": []}
+            mech_sys[m]["vol"].append(float(r.get("voluntary_context_switches", 0.0)))
+            mech_sys[m]["invol"].append(float(r.get("involuntary_context_switches", 0.0)))
+
+    for m in ["pipe", "fifo", "sysv", "posix", "shm", "uds", "adaptive", "kernel"]:
+        if m in mech_sys:
+            v_mean = statistics.mean(mech_sys[m]["vol"]) if mech_sys[m]["vol"] else 0.0
+            iv_mean = statistics.mean(mech_sys[m]["invol"]) if mech_sys[m]["invol"] else 0.0
             matching_call = [x for x in call_rows if x["mechanism"] == m]
             calls_ex = (matching_call[0].get("comm_syscalls_per_exchange") or matching_call[0].get("comm_per_ex", "N/A")) if matching_call else "N/A"
             cls = matching_call[0].get("classification", "standard") if matching_call else "standard"
             det = (matching_call[0].get("relevant_syscall_details") or matching_call[0].get("detail_str", "Standard sync")) if matching_call else "Standard sync"
-            lines.append("| **{}** | {} | {} | {} | {} | {} |".format(
-                MECHANISM_LABELS.get(m, m), r.get("voluntary_context_switches", "N/A"),
-                r.get("involuntary_context_switches", "N/A"), calls_ex, cls, det
-            ))
+            lines.append(f"| **{MECHANISM_LABELS.get(m, m)}** | {v_mean:,.0f} | {iv_mean:,.0f} | {calls_ex} | {cls} | {det} |")
     lines.append("")
 
     # 16. Payload Scalability
@@ -585,6 +634,8 @@ def generate_final_report(processed_data, raw_dir, reports_dir, env_info, metada
                     row_str += " Bounded (1KB) |"
                 elif m in ["sysv", "posix"] and s > 8192:
                     row_str += " Exceeds Limit |"
+                elif m == "kernel" and s >= 65536:
+                    row_str += " Buffer Limit (64 KB) |"
                 else:
                     row_str += " N/A |"
         lines.append(row_str)

@@ -1,1 +1,8 @@
 mechanism,payload_bytes,exchanges,total_calls,comm_syscalls,comm_syscalls_per_exchange,setup_syscalls,other_syscalls,classification,relevant_syscall_details
+pipe,64,100,455,400,4.0,25,30,exact,comm: read(200)+write(200)=400; setup: clone(1)+close(10)+pipe2(2)+wait4(1)=25; other: runtime/loader=30
+fifo,64,100,461,400,4.0,29,32,exact,comm: read(200)+write(200)=400; setup: clone(1)+close(6)+mknodat(2)+openat(6)+unlink(4)+wait4(1)=29; other: runtime/loader=32
+sysv,64,100,448,400,4.0,17,31,exact,comm: msgrcv(200)+msgsnd(200)=400; setup: clone(1)+close(2)+msgctl(1)+msgget(1)+wait4(1)=17; other: runtime/loader=31
+posix,64,100,458,400,4.0,25,33,exact,comm: mq_timedreceive(200)+mq_timedsend(200)=400; setup: clone(1)+close(6)+mq_open(2)+mq_unlink(4)+wait4(1)=25; other: runtime/loader=33
+shm,64,100,256,206,2.06,21,29,exact,"comm: futex(206)=206 (sync only, 0 data-path syscalls); setup: clone(1)+close(3)+ftruncate(1)+mmap(9)+unlink(1)+wait4(1)=21; other: runtime/loader=29"
+uds,64,100,458,400,4.0,27,31,exact,comm: recvfrom(200)+sendto(200)=400; setup: accept(1)+bind(1)+clone(1)+close(6)+connect(1)+listen(1)+socket(2)+unlink(2)+wait4(1)=27; other: runtime/loader=31
+adaptive,64,100,258,206,2.06,23,29,exact,comm: futex(206)=206 (routed to shm at 64 B); setup: clone(1)+close(3)+mmap(9)+unlink(1)+wait4(1)=23; other: runtime/loader=29

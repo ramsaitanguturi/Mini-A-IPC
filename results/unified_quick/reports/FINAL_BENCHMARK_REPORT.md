@@ -138,20 +138,13 @@ Python Version:   Python 3.15.2
 
 | Mechanism | User CPU (s) | System CPU (s) | Total CPU % | Peak RSS (KB) | Memory / Process |
 |:---|:---:|:---:|:---:|:---:|:---:|
-| **Named Pipe (FIFO)** | 0.00 | 0.02 | 19%% | 2504 KB | User-space heap |
-| **System V MQ** | 0.00 | 0.02 | 18%% | 2248 KB | User-space heap |
-| **POSIX MQ** | 0.00 | 0.02 | 16%% | 2180 KB | User-space heap |
-| **Anonymous Pipe** | 0.00 | 0.02 | 18%% | 2672 KB | User-space heap |
-| **POSIX SHM** | 0.00 | 0.02 | 17%% | 2436 KB | User-space heap |
-| **Adaptive Selector** | 0.00 | 0.02 | 16%% | 2556 KB | User-space heap |
-| **Unix Domain Socket** | 0.00 | 0.02 | 19%% | 2496 KB | User-space heap |
-| **POSIX SHM** | 0.00 | 0.02 | 16%% | 2436 KB | User-space heap |
-| **Named Pipe (FIFO)** | 0.00 | 0.02 | 18%% | 2504 KB | User-space heap |
-| **POSIX MQ** | 0.00 | 0.02 | 16%% | 2180 KB | User-space heap |
-| **Anonymous Pipe** | 0.00 | 0.02 | 16%% | 2672 KB | User-space heap |
-| **Unix Domain Socket** | 0.00 | 0.02 | 18%% | 2496 KB | User-space heap |
-| **System V MQ** | 0.00 | 0.02 | 17%% | 2248 KB | User-space heap |
-| **Adaptive Selector** | 0.00 | 0.02 | 16%% | 2556 KB | User-space heap |
+| **Anonymous Pipe** | 0.00 | 0.02 | 17% | 2,460 KB | User-space heap |
+| **Named Pipe (FIFO)** | 0.00 | 0.02 | 18% | 2,458 KB | User-space heap |
+| **System V MQ** | 0.00 | 0.02 | 18% | 2,184 KB | User-space heap |
+| **POSIX MQ** | 0.00 | 0.02 | 16% | 2,256 KB | User-space heap |
+| **POSIX SHM** | 0.00 | 0.02 | 16% | 2,406 KB | User-space heap |
+| **Unix Domain Socket** | 0.00 | 0.02 | 18% | 2,436 KB | User-space heap |
+| **Adaptive Selector** | 0.00 | 0.02 | 16% | 2,466 KB | User-space heap |
 
 ## 14. Context Switches & 15. System Call Profiling
 
@@ -160,20 +153,13 @@ Python Version:   Python 3.15.2
 
 | Mechanism | Voluntary Switches | Involuntary Switches | Comm Syscalls / Exch | Classification | Details |
 |:---|:---:|:---:|:---:|:---:|:---|
-| **Named Pipe (FIFO)** | 2183 | 7 | N/A | standard | Standard sync |
-| **System V MQ** | 2187 | 2 | N/A | standard | Standard sync |
-| **POSIX MQ** | 2187 | 4 | N/A | standard | Standard sync |
-| **Anonymous Pipe** | 2186 | 1 | N/A | standard | Standard sync |
-| **POSIX SHM** | 2186 | 5 | N/A | standard | Standard sync |
-| **Adaptive Selector** | 2191 | 0 | N/A | standard | Standard sync |
-| **Unix Domain Socket** | 2224 | 1 | N/A | standard | Standard sync |
-| **POSIX SHM** | 2186 | 3 | N/A | standard | Standard sync |
-| **Named Pipe (FIFO)** | 2183 | 5 | N/A | standard | Standard sync |
-| **POSIX MQ** | 2197 | 4 | N/A | standard | Standard sync |
-| **Anonymous Pipe** | 2197 | 1 | N/A | standard | Standard sync |
-| **Unix Domain Socket** | 2219 | 3 | N/A | standard | Standard sync |
-| **System V MQ** | 2193 | 3 | N/A | standard | Standard sync |
-| **Adaptive Selector** | 2197 | 2 | N/A | standard | Standard sync |
+| **Anonymous Pipe** | 2,192 | 1 | 4.0 | exact | comm: read(200)+write(200)=400; setup: clone(1)+close(10)+pipe2(2)+wait4(1)=25; other: runtime/loader=30 |
+| **Named Pipe (FIFO)** | 2,183 | 6 | 4.0 | exact | comm: read(200)+write(200)=400; setup: clone(1)+close(6)+mknodat(2)+openat(6)+unlink(4)+wait4(1)=29; other: runtime/loader=32 |
+| **System V MQ** | 2,190 | 2 | 4.0 | exact | comm: msgrcv(200)+msgsnd(200)=400; setup: clone(1)+close(2)+msgctl(1)+msgget(1)+wait4(1)=17; other: runtime/loader=31 |
+| **POSIX MQ** | 2,192 | 4 | 4.0 | exact | comm: mq_timedreceive(200)+mq_timedsend(200)=400; setup: clone(1)+close(6)+mq_open(2)+mq_unlink(4)+wait4(1)=25; other: runtime/loader=33 |
+| **POSIX SHM** | 2,186 | 4 | 2.06 | exact | comm: futex(206)=206 (sync only, 0 data-path syscalls); setup: clone(1)+close(3)+ftruncate(1)+mmap(9)+unlink(1)+wait4(1)=21; other: runtime/loader=29 |
+| **Unix Domain Socket** | 2,222 | 2 | 4.0 | exact | comm: recvfrom(200)+sendto(200)=400; setup: accept(1)+bind(1)+clone(1)+close(6)+connect(1)+listen(1)+socket(2)+unlink(2)+wait4(1)=27; other: runtime/loader=31 |
+| **Adaptive Selector** | 2,194 | 1 | 2.06 | exact | comm: futex(206)=206 (routed to shm at 64 B); setup: clone(1)+close(3)+mmap(9)+unlink(1)+wait4(1)=23; other: runtime/loader=29 |
 
 ## 16. Payload Scalability (64 B to 256 KB)
 
@@ -183,7 +169,7 @@ Python Version:   Python 3.15.2
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | **Adaptive Selector** | 117.66 | N/A | 125.04 | N/A | 122.75 | N/A | N/A |
 | **Named Pipe (FIFO)** | 123.87 | N/A | 125.48 | N/A | 130.52 | N/A | N/A |
-| **Kernel Mailbox (/dev/aipc)** | 0.83 | N/A | 1.16 | N/A | 3.27 | N/A | N/A |
+| **Kernel Mailbox (/dev/aipc)** | 0.83 | N/A | 1.16 | N/A | 3.27 | Buffer Limit (64 KB) | Buffer Limit (64 KB) |
 | **Anonymous Pipe** | 127.00 | N/A | 126.75 | N/A | 131.85 | N/A | N/A |
 | **POSIX MQ** | 123.52 | N/A | 123.80 | N/A | Exceeds Limit | Exceeds Limit | Exceeds Limit |
 | **POSIX SHM** | 123.67 | N/A | 124.51 | Bounded (1KB) | Bounded (1KB) | Bounded (1KB) | Bounded (1KB) |

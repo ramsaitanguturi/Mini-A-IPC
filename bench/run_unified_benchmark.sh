@@ -61,6 +61,8 @@ SKIP_KERNEL=0
 SKIP_PROFILING=0
 SKIP_UNIDIRECTIONAL=0
 SMOKE_MODE=0
+QUICK_MODE=0
+OUTPUT_DIR=""
 
 usage() {
   cat <<EOF
@@ -86,6 +88,8 @@ Options:
   --no-affinity                Disable CPU affinity pinning
   --seed N                     Deterministic randomization seed (default: 20261111)
   --smoke                      Quick smoke preset (messages=200, warmup=20, trials=3)
+  --quick, -q                  Quick benchmark preset (messages=1000, warmup=100, trials=2, payloads=64,1024,16384)
+  --output-dir DIR             Output directory (default: results/unified, or results/unified_quick if --quick)
   --skip-concurrency           Skip multi-producer/multi-consumer sweep
   --skip-unidirectional        Skip matched unidirectional baseline
   --skip-profiling             Skip separate RSS/ctx/syscall profiling pass
@@ -118,6 +122,8 @@ while [[ $# -gt 0 ]]; do
     --no-affinity) USE_AFFINITY=0; shift ;;
     --seed) [[ $# -ge 2 ]] || { echo "ERROR: --seed requires a value" >&2; exit 2; }; SEED="$2"; shift 2 ;;
     --smoke) SMOKE_MODE=1; MESSAGES=200; WARMUP=20; TRIALS=3; CONCURRENCY_MESSAGES=200; CONCURRENCY_TRIALS=2; PROFILE_MESSAGES=200; PROFILE_WARMUP=20; UNIDIRECTIONAL_MESSAGES=200; UNIDIRECTIONAL_TRIALS=2; shift ;;
+    --quick|-q) QUICK_MODE=1; MESSAGES=1000; WARMUP=100; TRIALS=2; PAYLOADS="64,1024,16384"; CONCURRENCY_MESSAGES=1000; CONCURRENCY_TRIALS=2; PROFILE_MESSAGES=200; PROFILE_WARMUP=20; UNIDIRECTIONAL_MESSAGES=200; UNIDIRECTIONAL_TRIALS=2; [[ -z "$OUTPUT_DIR" ]] && OUTPUT_DIR="$ROOT/results/unified_quick"; shift ;;
+    --output-dir) [[ $# -ge 2 ]] || { echo "ERROR: --output-dir requires a value" >&2; exit 2; }; OUTPUT_DIR="$2"; shift 2 ;;
     --skip-concurrency) SKIP_CONCURRENCY=1; shift ;;
     --skip-unidirectional) SKIP_UNIDIRECTIONAL=1; shift ;;
     --skip-profiling) SKIP_PROFILING=1; shift ;;
@@ -216,7 +222,10 @@ fi
 # ---------------------------------------------------------------------------
 # Output Directories, Unique Experiment ID, and Non-Overwrite Preservation
 # ---------------------------------------------------------------------------
-UNIFIED_DIR="$ROOT/results/unified"
+if [[ -z "$OUTPUT_DIR" ]]; then
+  OUTPUT_DIR="$ROOT/results/unified"
+fi
+UNIFIED_DIR="$OUTPUT_DIR"
 RAW_DIR="$UNIFIED_DIR/raw"
 PROC_DIR="$UNIFIED_DIR/processed"
 GRAPHS_DIR="$UNIFIED_DIR/graphs"
