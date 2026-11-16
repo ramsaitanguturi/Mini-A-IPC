@@ -168,3 +168,4 @@ dmesg | tail -n 5
    For ultra-large payloads ($\ge 1\text{ MB}$), implement `mmap()` support on `/dev/aipc` to allow processes to map the kernel buffer directly into their virtual address space, eliminating `copy_to_user` and `copy_from_user` overhead entirely.
 3. **Multi-Channel Multiplexing**:
    Extend the driver to allocate minor device nodes (`/dev/aipc0`, `/dev/aipc1`, ...) or allocate private mailboxes on `open()` to support isolated multi-tenant IPC topologies.
+

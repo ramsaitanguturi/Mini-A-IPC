@@ -41,3 +41,4 @@
 
 ### 3.1 `strace` Availability
 - System-call profiling requires the Linux `strace` utility. On hosts where `strace` is not installed or when running under Windows/MSYS2, system call classification is based on static analysis of the source code, and runtime `strace` validation is reported as `PENDING` / `SKIPPED`.
+

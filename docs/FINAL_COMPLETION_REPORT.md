@@ -184,3 +184,4 @@ The final submission archive was generated at:
 I hereby certify that the **Mini-A-IPC** repository has been thoroughly inspected, repaired, verified, and packaged in full accordance with high engineering standards and academic research rigor. 
 
 **Zero P0 or P1 defects remain**. The project is genuinely verified, reproducible, academically defensible, and ready for final submission.
+

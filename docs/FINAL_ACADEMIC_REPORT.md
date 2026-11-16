@@ -295,3 +295,4 @@ In *Classical IPC in Linux OS: Review and Latency Analysis for HPC Scenarios* (2
 5. Corbet, J., Rubini, A., & Kroah-Hartman, G. (2005). *Linux Device Drivers* (3rd ed.). O'Reilly Media.
 6. IEEE and The Open Group. (2018). *POSIX.1-2017: Standard for Information Technology—Portable Operating System Interface (POSIX(R))*, IEEE Std 1003.1-2017.
 7. Linux Kernel Documentation. (2026). *The Pipe Buffer Architecture & Character Devices*. `Documentation/filesystems/` and `Documentation/core-api/`.
+

@@ -51,3 +51,4 @@ The project builds upon the empirical baseline established by **I. M. Danyliuk (
 - **Pipe Efficiency for Intermediate Payloads**: For payloads between 1 KB and 64 KB, Anonymous Pipes deliver superior throughput ($110\text{ MB/s}$ peak) due to heavily optimized circular page rings in the Linux VFS.
 - **Socket Buffer Scaling for Large Payloads**: For payloads exceeding 64 KB (up to 256 KB), Unix Domain Sockets outperform pipes by **1.75x** due to dynamic socket buffer window scaling.
 - **Adaptive Controller Viability**: The adaptive selector incurs negligible decision overhead (~2.36–18.42 ns) and eliminates up to 47.5% of data-path system calls in mixed 80/20 small/large workloads.
+

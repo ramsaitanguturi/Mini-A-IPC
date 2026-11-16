@@ -120,3 +120,4 @@ Evaluating Multi-Producer Multi-Consumer (M:N) scaling under high contention:
 - **Unix Domain Sockets (`uds`)**: Handled 4P:4C concurrent clients connected to a single server daemon cleanly.
 - **Shared Memory Mailbox (`shm`)**: Bounded single-mailbox topology correctly rejected concurrent multi-producer topologies (`rc=3`, `UNSUPPORTED`), establishing that a single-mailbox SHM design is strictly SPSC.
 - Visualization: [Figure 11: Concurrency Scalability](../results/unified/graphs/concurrency_scalability.png).
+

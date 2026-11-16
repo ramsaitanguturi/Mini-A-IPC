@@ -149,3 +149,4 @@ The kernel mailbox operates as a circular queue protected by a sleepable mutex:
 - Read operation: consumes $\min(\text{requested}, U)$ bytes, updates $H = (H + n) \pmod C$, decrements $U$, wakes `writers` wait queue.
 - Write operation: produces $\min(\text{requested}, W)$ bytes, updates $T = (T + n) \pmod C$, increments $U$, wakes `readers` wait queue.
 - Teardown barrier: `aipc_exit()` asserts `shutdown = true`, wakes all waiters, and waits on `wait_event(teardown_wait, atomic_read(&active_ops) == 0)` before releasing buffer memory.
+

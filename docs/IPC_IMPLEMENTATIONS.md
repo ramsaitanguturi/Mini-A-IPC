@@ -89,3 +89,4 @@ This document provides a comprehensive technical audit and API specification for
 | **Max Payload** | Unlimited (Chunked)| Unlimited (Chunked)| 1,024 Bytes | System `msgmax` | Configured `msgsize`| Unlimited (Chunked)|
 | **Multiplexing** | `poll`, `select` | `poll`, `select` | Not native (sem) | Not native | `mq_notify`, `poll` | `poll`, `epoll` |
 | **Multi-Process** | Related (fork) | Unrelated | Unrelated | Unrelated | Unrelated | Unrelated |
+
