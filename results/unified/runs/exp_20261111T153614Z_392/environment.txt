@@ -1,0 +1,47 @@
+Mini A-IPC Unified Benchmark Environment
+Experiment ID: exp_20261111T153614Z_392
+Environment ID: MSYS_NT-10.0-26200_x86_64_RamSai
+Captured at (UTC): 2026-11-11T15:36:14Z
+
+[OS / Kernel]
+MSYS_NT-10.0-26200 RamSai 3.5.7-2644508f.x86_64 2025-02-06 19:32 UTC x86_64 Msys
+NAME=MSYS2
+ID=msys2
+PRETTY_NAME="MSYS2"
+ID_LIKE="cygwin arch"
+HOME_URL="https://www.msys2.org"
+BUG_REPORT_URL="https://github.com/msys2/MSYS2-packages/issues"
+
+[CPU]
+model name	: AMD Ryzen 7 8845HS w/ Radeon 780M Graphics
+
+[Memory]
+MemTotal:       15973576 kB
+MemFree:         2909212 kB
+HighTotal:             0 kB
+HighFree:              0 kB
+LowTotal:       15973576 kB
+LowFree:         2909212 kB
+SwapTotal:      19031700 kB
+SwapFree:       17524764 kB
+
+[Compiler & Flags]
+gcc (GCC) 13.3.0
+CFLAGS := -std=c11 -D_POSIX_C_SOURCE=200809L -D_GNU_SOURCE -Wall -Wextra -Wpedantic -O2 -Iinclude
+LDFLAGS := -pthread -lrt -lm
+
+[Python & Libraries]
+python: 3.14.3 pandas: 3.0.1 numpy: 2.4.3 matplotlib: 3.10.8
+
+[Instrumentation & Kernel Availability]
+CPU affinity status: SUPPORTED and ACTIVE (sched_setaffinity: producer=0, consumer=1)
+Kernel headers: UNAVAILABLE (non-Linux host MSYS_NT-10.0-26200)
+Linux strace: UNAVAILABLE (host strace is Cygwin/MSYS or absent)
+GNU time: /usr/bin/time
+Pre-existing aipc_module loaded: NO
+
+[Experiment Parameters]
+MESSAGES=200 WARMUP=20 TRIALS=3 SEED=20261111
+PAYLOADS=64,256,1024,4096,16384,65536,262144
+CONCURRENCY_MATRIX=1:1,2:1,4:1,1:2,4:4 CONCURRENCY_PAYLOAD=256
+THRESHOLD=1024
