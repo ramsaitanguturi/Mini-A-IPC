@@ -1,469 +1,497 @@
 #!/usr/bin/env bash
-# ==============================================================================
-# Mini A-IPC: Unified Scientifically Controlled Benchmark Orchestrator
-#
-# Evaluates ALL eight components under controlled, reproducible conditions:
-#   1. Anonymous Pipes (src/ipc_pipe.c)
-#   2. Named Pipes / FIFO (src/ipc_fifo.c)
-#   3. System V Message Queues (src/ipc_sysv_mq.c)
-#   4. POSIX Message Queues (src/ipc_posix_mq.c)
-#   5. POSIX Shared Memory (src/ipc_shm.c)
-#   6. Unix Domain Sockets (src/ipc_uds.c)
-#   7. Kernel Mailbox Device (kernel/aipc_module.c / /dev/aipc)
-#   8. Adaptive Policy Selector (src/selector.c)
-#
-# Generates:
-#   results/unified/raw/        -> Raw trial CSVs (latency, throughput, CPU, RAM, syscalls, kernel)
-#   results/unified/processed/  -> Aggregated datasets & benchmark metadata
-#   results/unified/graphs/     -> 13 publication-quality PNG charts
-#   results/unified/reports/    -> FINAL_BENCHMARK_REPORT.md (24-section comprehensive report)
-#   results/unified/environment.txt -> Hardware, OS, kernel, compiler configuration
-# ==============================================================================
-
 set -euo pipefail
 
-# Resolve paths
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-cd "$PROJECT_ROOT"
+# Ensure standard POSIX utilities are on PATH even when MSYS2 bash is invoked without -l
+if [[ -d /usr/bin ]]; then
+  case ":${PATH}:" in
+    *:/usr/bin:*) ;;
+    *) export PATH="/usr/bin:/bin:${PATH}" ;;
+  esac
+fi
 
-# Default configuration parameters
-MESSAGES=10000
-WARMUP=500
-TRIALS=7
-PAYLOADS="64 256 1024 4096 16384 65536 262144"
-OUTPUT_DIR=""
+#
+# Mini A-IPC: Unified, Scientifically Controlled IPC Benchmarking Suite
+#
+# Single-command orchestrator evaluating all eight components:
+#   1. Anonymous Pipes          (src/ipc_pipe.c)
+#   2. Named Pipes / FIFO       (src/ipc_fifo.c)
+#   3. System V Message Queue   (src/ipc_sysv_mq.c)
+#   4. POSIX Message Queue      (src/ipc_posix_mq.c)
+#   5. POSIX Shared Memory      (src/ipc_shm.c)
+#   6. Unix Domain Socket       (src/ipc_uds.c)
+#   7. Kernel AIPC Module       (kernel/aipc_module.c)
+#   8. Adaptive Policy Selector (src/selector.c)
+#
+# Default controlled configuration (overridable via CLI flags or env vars):
+#   --messages 10000
+#   --warmup 500
+#   --trials 7
+#   --payloads 64,256,1024,4096,16384,65536,262144
+#   --producers 1 --consumers 1
+#   --cpu-producer 0 --cpu-consumer 1
+#
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+# ---------------------------------------------------------------------------
+# Defaults (honoring environment overrides)
+# ---------------------------------------------------------------------------
+MESSAGES="${MESSAGES:-10000}"
+WARMUP="${WARMUP:-500}"
+TRIALS="${TRIALS:-7}"
+PAYLOADS="${PAYLOADS:-64,256,1024,4096,16384,65536,262144}"
+PRODUCERS="${PRODUCERS:-1}"
+CONSUMERS="${CONSUMERS:-1}"
+CONCURRENCY_MATRIX="${CONCURRENCY_MATRIX:-1:1,2:1,4:1,1:2,4:4}"
+CONCURRENCY_PAYLOAD="${CONCURRENCY_PAYLOAD:-256}"
+CONCURRENCY_MESSAGES="${CONCURRENCY_MESSAGES:-}"
+CONCURRENCY_TRIALS="${CONCURRENCY_TRIALS:-}"
+UNIDIRECTIONAL_MESSAGES="${UNIDIRECTIONAL_MESSAGES:-}"
+UNIDIRECTIONAL_TRIALS="${UNIDIRECTIONAL_TRIALS:-3}"
+PROFILE_MESSAGES="${PROFILE_MESSAGES:-1000}"
+PROFILE_WARMUP="${PROFILE_WARMUP:-100}"
+THRESHOLD="${THRESHOLD:-1024}"
+CPU_PRODUCER="${CPU_PRODUCER:-0}"
+CPU_CONSUMER="${CPU_CONSUMER:-1}"
+USE_AFFINITY=1
+SEED="${SEED:-20261111}"
+SKIP_CONCURRENCY=0
 SKIP_KERNEL=0
-QUICK=0
-KERNEL_DEVICE="/dev/aipc"
-MODULE_LOADED_BY_US=0
+SKIP_PROFILING=0
+SKIP_UNIDIRECTIONAL=0
+SMOKE_MODE=0
 
-# Print usage help
 usage() {
-    cat <<EOF
+  cat <<EOF
 Usage: $0 [OPTIONS]
-
-Mini A-IPC Unified Benchmark Orchestrator
-
 Options:
-  --messages, -m N     Number of measured message exchanges per trial (default: 10000)
-  --warmup, -w N       Number of unmeasured warm-up exchanges (default: 500)
-  --trials, -t N       Number of repeated trials per configuration (default: 7)
-  --payloads, -p SIZES Space-separated payload sizes in bytes (default: "64 256 1024 4096 16384 65536 262144")
-  --skip-kernel        Skip kernel mailbox (/dev/aipc) benchmarking
-  --quick, -q          Quick smoke test mode (2 trials, 1000 msgs, payloads: 64 1024 16384)
-  --output-dir, -o DIR Base output directory (default: results/unified)
-  --help, -h           Show this help message and exit
-
-Examples:
-  $0
-  $0 --quick
-  $0 --trials 10 --messages 20000
-  $0 --skip-kernel --output-dir results/custom_run
+  --messages N                 Timed messages/exchanges per trial (default: 10000)
+  --warmup N                   Untimed warm-up exchanges per trial (default: 500)
+  --trials N                   Number of independent randomized trials (default: 7)
+  --payloads CSV               Comma-separated payload sizes in bytes
+                               (default: 64,256,1024,4096,16384,65536,262144)
+  --producers N                Primary RTT producer count (default: 1)
+  --consumers N                Primary RTT consumer count (default: 1)
+  --concurrency-matrix CSV     P:C pairs (default: 1:1,2:1,4:1,1:2,4:4)
+  --concurrency-payload B      Payload size for concurrency matrix (default: 256)
+  --concurrency-messages N     Messages per concurrency run (default: min(messages, 5000))
+  --concurrency-trials N       Trials for concurrency matrix (default: min(trials, 5))
+  --unidirectional-messages N  Messages per unidirectional run (default: min(messages, 2000))
+  --unidirectional-trials N    Trials for unidirectional baseline (default: 3)
+  --profile-messages N         Messages for separate resource profiler (default: 1000)
+  --threshold BYTES            Adaptive selector threshold (default: 1024)
+  --cpu-producer CORE          Producer CPU core (default: 0)
+  --cpu-consumer CORE          Consumer CPU core (default: 1)
+  --no-affinity                Disable CPU affinity pinning
+  --seed N                     Deterministic randomization seed (default: 20261111)
+  --smoke                      Quick smoke preset (messages=200, warmup=20, trials=3)
+  --skip-concurrency           Skip multi-producer/multi-consumer sweep
+  --skip-unidirectional        Skip matched unidirectional baseline
+  --skip-profiling             Skip separate RSS/ctx/syscall profiling pass
+  --skip-kernel                Skip kernel module verification & benchmark
+  -h, --help                   Show this help message
 EOF
 }
 
-# Parse command-line arguments
+is_pos_int() { [[ "$1" =~ ^[0-9]+$ ]] && [[ "$1" -ge 1 ]]; }
+is_nonneg_int() { [[ "$1" =~ ^[0-9]+$ ]]; }
+
 while [[ $# -gt 0 ]]; do
-    case "$1" in
-        --messages|-m)
-            MESSAGES="$2"
-            shift 2
-            ;;
-        --warmup|-w)
-            WARMUP="$2"
-            shift 2
-            ;;
-        --trials|-t)
-            TRIALS="$2"
-            shift 2
-            ;;
-        --payloads|-p)
-            PAYLOADS="$2"
-            shift 2
-            ;;
-        --skip-kernel)
-            SKIP_KERNEL=1
-            shift
-            ;;
-        --quick|-q)
-            QUICK=1
-            MESSAGES=1000
-            WARMUP=100
-            TRIALS=2
-            PAYLOADS="64 1024 16384"
-            shift
-            ;;
-        --output-dir|-o)
-            OUTPUT_DIR="$2"
-            shift 2
-            ;;
-        --help|-h)
-            usage
-            exit 0
-            ;;
-        *)
-            echo "Unknown argument: $1" >&2
-            usage
-            exit 2
-            ;;
-    esac
+  case "$1" in
+    --messages) [[ $# -ge 2 ]] || { echo "ERROR: --messages requires a value" >&2; exit 2; }; MESSAGES="$2"; shift 2 ;;
+    --warmup) [[ $# -ge 2 ]] || { echo "ERROR: --warmup requires a value" >&2; exit 2; }; WARMUP="$2"; shift 2 ;;
+    --trials) [[ $# -ge 2 ]] || { echo "ERROR: --trials requires a value" >&2; exit 2; }; TRIALS="$2"; shift 2 ;;
+    --payloads) [[ $# -ge 2 ]] || { echo "ERROR: --payloads requires a value" >&2; exit 2; }; PAYLOADS="$2"; shift 2 ;;
+    --producers) [[ $# -ge 2 ]] || { echo "ERROR: --producers requires a value" >&2; exit 2; }; PRODUCERS="$2"; shift 2 ;;
+    --consumers) [[ $# -ge 2 ]] || { echo "ERROR: --consumers requires a value" >&2; exit 2; }; CONSUMERS="$2"; shift 2 ;;
+    --concurrency-matrix) [[ $# -ge 2 ]] || { echo "ERROR: --concurrency-matrix requires a value" >&2; exit 2; }; CONCURRENCY_MATRIX="$2"; shift 2 ;;
+    --concurrency-payload) [[ $# -ge 2 ]] || { echo "ERROR: --concurrency-payload requires a value" >&2; exit 2; }; CONCURRENCY_PAYLOAD="$2"; shift 2 ;;
+    --concurrency-messages) [[ $# -ge 2 ]] || { echo "ERROR: --concurrency-messages requires a value" >&2; exit 2; }; CONCURRENCY_MESSAGES="$2"; shift 2 ;;
+    --concurrency-trials) [[ $# -ge 2 ]] || { echo "ERROR: --concurrency-trials requires a value" >&2; exit 2; }; CONCURRENCY_TRIALS="$2"; shift 2 ;;
+    --unidirectional-messages) [[ $# -ge 2 ]] || { echo "ERROR: --unidirectional-messages requires a value" >&2; exit 2; }; UNIDIRECTIONAL_MESSAGES="$2"; shift 2 ;;
+    --unidirectional-trials) [[ $# -ge 2 ]] || { echo "ERROR: --unidirectional-trials requires a value" >&2; exit 2; }; UNIDIRECTIONAL_TRIALS="$2"; shift 2 ;;
+    --profile-messages) [[ $# -ge 2 ]] || { echo "ERROR: --profile-messages requires a value" >&2; exit 2; }; PROFILE_MESSAGES="$2"; shift 2 ;;
+    --threshold) [[ $# -ge 2 ]] || { echo "ERROR: --threshold requires a value" >&2; exit 2; }; THRESHOLD="$2"; shift 2 ;;
+    --cpu-producer) [[ $# -ge 2 ]] || { echo "ERROR: --cpu-producer requires a value" >&2; exit 2; }; CPU_PRODUCER="$2"; shift 2 ;;
+    --cpu-consumer) [[ $# -ge 2 ]] || { echo "ERROR: --cpu-consumer requires a value" >&2; exit 2; }; CPU_CONSUMER="$2"; shift 2 ;;
+    --no-affinity) USE_AFFINITY=0; shift ;;
+    --seed) [[ $# -ge 2 ]] || { echo "ERROR: --seed requires a value" >&2; exit 2; }; SEED="$2"; shift 2 ;;
+    --smoke) SMOKE_MODE=1; MESSAGES=200; WARMUP=20; TRIALS=3; CONCURRENCY_MESSAGES=200; CONCURRENCY_TRIALS=2; PROFILE_MESSAGES=200; PROFILE_WARMUP=20; UNIDIRECTIONAL_MESSAGES=200; UNIDIRECTIONAL_TRIALS=2; shift ;;
+    --skip-concurrency) SKIP_CONCURRENCY=1; shift ;;
+    --skip-unidirectional) SKIP_UNIDIRECTIONAL=1; shift ;;
+    --skip-profiling) SKIP_PROFILING=1; shift ;;
+    --skip-kernel) SKIP_KERNEL=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "ERROR: Unknown option: $1" >&2; usage >&2; exit 2 ;;
+  esac
 done
 
-# Validate arguments
-if [[ "$MESSAGES" -lt 1 || "$WARMUP" -lt 0 || "$TRIALS" -lt 1 ]]; then
-    echo "ERROR: Invalid parameters (messages >= 1, warmup >= 0, trials >= 1 required)." >&2
-    exit 2
+# ---------------------------------------------------------------------------
+# Strict Parameter Validation
+# ---------------------------------------------------------------------------
+is_pos_int "$MESSAGES" || { echo "ERROR: --messages must be a positive integer (got '$MESSAGES')" >&2; exit 2; }
+is_nonneg_int "$WARMUP" || { echo "ERROR: --warmup must be a non-negative integer (got '$WARMUP')" >&2; exit 2; }
+is_pos_int "$TRIALS" || { echo "ERROR: --trials must be a positive integer (got '$TRIALS')" >&2; exit 2; }
+is_pos_int "$PRODUCERS" || { echo "ERROR: --producers must be a positive integer (got '$PRODUCERS')" >&2; exit 2; }
+is_pos_int "$CONSUMERS" || { echo "ERROR: --consumers must be a positive integer (got '$CONSUMERS')" >&2; exit 2; }
+is_pos_int "$CONCURRENCY_PAYLOAD" || { echo "ERROR: --concurrency-payload must be a positive integer" >&2; exit 2; }
+is_nonneg_int "$THRESHOLD" || { echo "ERROR: --threshold must be a non-negative integer" >&2; exit 2; }
+is_nonneg_int "$SEED" || { echo "ERROR: --seed must be a non-negative integer" >&2; exit 2; }
+is_nonneg_int "$CPU_PRODUCER" || { echo "ERROR: --cpu-producer must be >= 0" >&2; exit 2; }
+is_nonneg_int "$CPU_CONSUMER" || { echo "ERROR: --cpu-consumer must be >= 0" >&2; exit 2; }
+
+if [[ -z "$CONCURRENCY_MESSAGES" ]]; then
+  CONCURRENCY_MESSAGES=$(( MESSAGES < 5000 ? MESSAGES : 5000 ))
 fi
-
-# Output directory isolation: separate quick vs full benchmarks to prevent contamination
-if [ -z "$OUTPUT_DIR" ]; then
-    if [ "$QUICK" -eq 1 ]; then
-        OUTPUT_DIR="results/unified_quick"
-    else
-        OUTPUT_DIR="results/unified"
-    fi
+if [[ -z "$CONCURRENCY_TRIALS" ]]; then
+  CONCURRENCY_TRIALS=$(( TRIALS < 5 ? TRIALS : 5 ))
 fi
-
-RAW_DIR="$OUTPUT_DIR/raw"
-PROCESSED_DIR="$OUTPUT_DIR/processed"
-GRAPHS_DIR="$OUTPUT_DIR/graphs"
-REPORTS_DIR="$OUTPUT_DIR/reports"
-
-# Ensure clean isolation: remove stale outputs from any prior incomplete runs
-rm -rf "$RAW_DIR" "$PROCESSED_DIR" "$GRAPHS_DIR" "$REPORTS_DIR"
-mkdir -p "$RAW_DIR" "$PROCESSED_DIR" "$GRAPHS_DIR" "$REPORTS_DIR"
-
-# Generate run ID and save run configuration for post-processing validation
-RUN_ID="run_$(date +%Y%m%d_%H%M%S)_$$"
-cat <<EOF > "$RAW_DIR/run_config.json"
-{
-  "run_id": "$RUN_ID",
-  "mode": "$([ "$QUICK" -eq 1 ] && echo "quick" || echo "full")",
-  "trials": $TRIALS,
-  "messages": $MESSAGES,
-  "warmup": $WARMUP,
-  "payload_sizes": [$(echo $PAYLOADS | sed 's/ /,/g')],
-  "output_dir": "$OUTPUT_DIR"
-}
-EOF
-
-# Safe cleanup trap
-cleanup() {
-    local exit_code=$?
-    echo -e "\n[Mini-A-IPC] Running cleanup routines..."
-    rm -f /dev/shm/*mini_aipc* /tmp/mini_aipc* 2>/dev/null || true
-    if [ "$MODULE_LOADED_BY_US" -eq 1 ]; then
-        if command -v sudo >/dev/null 2>&1; then
-            echo "[Mini-A-IPC] Safely unloading kernel module aipc_module (loaded by benchmark)..."
-            sudo rmmod aipc_module 2>/dev/null || true
-        fi
-    fi
-    exit "$exit_code"
-}
-trap cleanup EXIT INT TERM
-
-# Banner
-echo "=============================================================================="
-echo "          Mini A-IPC: Unified Scientifically Controlled Benchmark             "
-echo "=============================================================================="
-echo "Configuration:"
-echo "  - Trials per configuration: $TRIALS"
-echo "  - Messages per trial:       $MESSAGES (warmup: $WARMUP)"
-echo "  - Payload sizes:            $PAYLOADS"
-echo "  - Output directory:         $OUTPUT_DIR"
-echo "  - Quick smoke mode:         $([ "$QUICK" -eq 1 ] && echo 'YES' || echo 'NO')"
-echo "  - Skip kernel mailbox:      $([ "$SKIP_KERNEL" -eq 1 ] && echo 'YES' || echo 'NO')"
-echo "=============================================================================="
-
-# Pre-flight environment checks
-echo -e "\n[Step 1/7] Inspecting system environment and dependencies..."
-command -v gcc >/dev/null 2>&1 || { echo "ERROR: gcc compiler is required." >&2; exit 1; }
-command -v make >/dev/null 2>&1 || { echo "ERROR: make build tool is required." >&2; exit 1; }
-command -v python3 >/dev/null 2>&1 || { echo "ERROR: python3 interpreter is required." >&2; exit 1; }
-
-# Record hardware and OS environment
-ENV_FILE="$OUTPUT_DIR/environment.txt"
-{
-    echo "Mini A-IPC Unified Benchmark System Environment"
-    echo "================================================"
-    echo "Timestamp:        $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-    echo "Kernel Release:   $(uname -r 2>/dev/null || echo 'Unknown')"
-    echo "Operating System: $(uname -s -v -m 2>/dev/null || echo 'Unknown')"
-    echo "Host CPU Model:   $(lscpu 2>/dev/null | grep 'Model name:' | sed 's/Model name:[ \t]*//' || grep -m1 'model name' /proc/cpuinfo 2>/dev/null | cut -d: -f2 || echo 'Unknown')"
-    echo "CPU Core Count:   $(nproc 2>/dev/null || echo '1')"
-    echo "Total Memory:     $(free -h 2>/dev/null | awk '/Mem:/ {print $2}' || echo 'Unknown')"
-    echo "Compiler:         $(gcc --version 2>/dev/null | head -n1 || echo 'Unknown')"
-    echo "Python Version:   $(python3 --version 2>/dev/null || echo 'Unknown')"
-} > "$ENV_FILE"
-echo "Captured environment details into $ENV_FILE"
-
-# Build binaries if missing
-if [ ! -x "./mini-aipc" ]; then
-    echo "[Mini-A-IPC] Compiling user-space benchmark binary mini-aipc..."
-    make all
+if [[ -z "$UNIDIRECTIONAL_MESSAGES" ]]; then
+  UNIDIRECTIONAL_MESSAGES=$(( MESSAGES < 2000 ? MESSAGES : 2000 ))
 fi
+is_pos_int "$CONCURRENCY_MESSAGES" || { echo "ERROR: --concurrency-messages must be >= 1" >&2; exit 2; }
+is_pos_int "$CONCURRENCY_TRIALS" || { echo "ERROR: --concurrency-trials must be >= 1" >&2; exit 2; }
+is_pos_int "$UNIDIRECTIONAL_MESSAGES" || { echo "ERROR: --unidirectional-messages must be >= 1" >&2; exit 2; }
+is_pos_int "$UNIDIRECTIONAL_TRIALS" || { echo "ERROR: --unidirectional-trials must be >= 1" >&2; exit 2; }
+is_pos_int "$PROFILE_MESSAGES" || { echo "ERROR: --profile-messages must be >= 1" >&2; exit 2; }
 
-# Detect CPU affinity options
-NUM_CORES=$(nproc 2>/dev/null || echo 1)
-AFFINITY_ARGS=""
-if [ "$NUM_CORES" -ge 2 ]; then
-    AFFINITY_ARGS="--cpu-producer 0 --cpu-consumer 1"
-    echo "CPU Affinity enabled: Producer pinned to core 0, Consumer pinned to core 1."
-else
-    echo "Single core detected: CPU affinity pinning disabled."
-fi
-
-# Determine GNU time utility path
-TIME_BIN=""
-if [ -x "/usr/bin/time" ]; then
-    TIME_BIN="/usr/bin/time"
-elif command -v time >/dev/null 2>&1 && time --version 2>&1 | grep -q 'GNU'; then
-    TIME_BIN="time"
-fi
-
-# Initialize CSV files with strict headers
-echo "requested_mode,selected_transport,payload_bytes,trial,count,avg_rtt_us,p50_rtt_us,p90_rtt_us,p95_rtt_us,p99_rtt_us,p999_rtt_us,min_rtt_us,max_rtt_us,stddev_rtt_us,throughput_msg_sec,throughput_mb_sec,elapsed_ns,errors" > "$RAW_DIR/all_results.csv"
-echo "mechanism,payload_bytes,trial,count,avg_rtt_us,p50_rtt_us,p90_rtt_us,p95_rtt_us,p99_rtt_us,p999_rtt_us,min_rtt_us,max_rtt_us,stddev_rtt_us" > "$RAW_DIR/latency.csv"
-echo "mechanism,payload_bytes,trial,count,throughput_msg_sec,throughput_mb_sec,elapsed_ns,errors" > "$RAW_DIR/throughput.csv"
-echo "mechanism,payload_bytes,trial,user_time_sec,system_time_sec,cpu_percent" > "$RAW_DIR/cpu_metrics.csv"
-echo "mechanism,payload_bytes,trial,peak_rss_kb" > "$RAW_DIR/memory_metrics.csv"
-echo "mechanism,payload_bytes,trial,voluntary_context_switches,involuntary_context_switches" > "$RAW_DIR/system_metrics.csv"
-echo "mechanism,payload_bytes,exchanges,total_calls,comm_syscalls,comm_syscalls_per_exchange,setup_syscalls,other_syscalls,classification,relevant_syscall_details" > "$RAW_DIR/syscall_metrics.csv"
-echo "workload,payload_bytes,trial,count,avg_rtt_us,p50_rtt_us,p90_rtt_us,p95_rtt_us,p99_rtt_us,min_rtt_us,max_rtt_us,stddev_rtt_us,throughput_msg_sec,throughput_mb_sec,errors,status" > "$RAW_DIR/kernel_results.csv"
-
-# Check Kernel Mailbox Component
-echo -e "\n[Step 2/7] Checking Kernel Mailbox module status..."
-KERNEL_STATUS="BLOCKED"
-KERNEL_REASON="User requested --skip-kernel"
-
-if [ "$SKIP_KERNEL" -eq 0 ]; then
-    if [ -c "$KERNEL_DEVICE" ] && [ -w "$KERNEL_DEVICE" ] && [ -r "$KERNEL_DEVICE" ]; then
-        KERNEL_STATUS="READY"
-        KERNEL_REASON="Device $KERNEL_DEVICE already present and accessible"
-    elif [ -c "$KERNEL_DEVICE" ]; then
-        # Device exists but maybe permissions issue
-        if sudo chmod 666 "$KERNEL_DEVICE" 2>/dev/null; then
-            KERNEL_STATUS="READY"
-            KERNEL_REASON="Device permissions adjusted to 666"
-        else
-            KERNEL_STATUS="BLOCKED"
-            KERNEL_REASON="Permissions denied accessing $KERNEL_DEVICE"
-        fi
-    else
-        # Device does not exist; check if module can be compiled/loaded
-        if [ ! -f "kernel/aipc_module.ko" ]; then
-            echo "[Mini-A-IPC] Attempting to compile kernel module..."
-            make kernel-module 2>/dev/null || true
-        fi
-
-        if [ -f "kernel/aipc_module.ko" ]; then
-            if command -v sudo >/dev/null 2>&1; then
-                echo "[Mini-A-IPC] Loading kernel module kernel/aipc_module.ko via sudo..."
-                if sudo insmod kernel/aipc_module.ko 2>/dev/null; then
-                    MODULE_LOADED_BY_US=1
-                    sudo chmod 666 "$KERNEL_DEVICE" 2>/dev/null || true
-                    if [ -c "$KERNEL_DEVICE" ]; then
-                        KERNEL_STATUS="READY"
-                        KERNEL_REASON="Module successfully loaded by unified benchmark"
-                    else
-                        KERNEL_STATUS="BLOCKED"
-                        KERNEL_REASON="Module loaded but $KERNEL_DEVICE character device was not created"
-                    fi
-                else
-                    KERNEL_STATUS="BLOCKED"
-                    KERNEL_REASON="insmod failed (secure boot or root privileges required)"
-                fi
-            else
-                KERNEL_STATUS="BLOCKED"
-                KERNEL_REASON="sudo not available to load kernel/aipc_module.ko"
-            fi
-        else
-            KERNEL_STATUS="BLOCKED"
-            KERNEL_REASON="Kernel headers / kernel/aipc_module.ko unavailable"
-        fi
-    fi
-fi
-echo "Kernel Mailbox Status: $KERNEL_STATUS ($KERNEL_REASON)"
-
-# Benchmark Matrix
-BASE_MECHS="pipe fifo sysv posix shm uds adaptive"
-
-# Step 3: Run Main Benchmark Matrix
-echo -e "\n[Step 3/7] Executing scientifically controlled trial runs across components..."
-for ((t = 1; t <= TRIALS; t++)); do
-    echo -e "\n--- Trial $t of $TRIALS ---"
-    # Randomize execution order between trial blocks to eliminate ordering bias
-    SHUFFLED_MECHS=$(python3 -c "import random; m = '$BASE_MECHS'.split(); random.shuffle(m); print(' '.join(m))")
-    
-    # If kernel is available, append kernel to the randomized list
-    if [ "$KERNEL_STATUS" = "READY" ]; then
-        SHUFFLED_MECHS="$SHUFFLED_MECHS kernel"
-    fi
-
-    for mech in $SHUFFLED_MECHS; do
-        for size in $PAYLOADS; do
-            # Capacity boundary checks
-            if [ "$mech" = "shm" ] && [ "$size" -gt 1024 ]; then
-                continue
-            fi
-            if [[ "$mech" =~ ^(sysv|posix)$ ]] && [ "$size" -gt 8192 ]; then
-                continue
-            fi
-            if [ "$mech" = "kernel" ] && [ "$size" -gt 16384 ]; then
-                continue
-            fi
-
-            # Clean temporary IPC artifacts prior to each execution
-            rm -f /dev/shm/*mini_aipc* /tmp/mini_aipc* 2>/dev/null || true
-
-            if [ "$mech" = "kernel" ]; then
-                # Kernel Mailbox execution with defensive 30s timeout
-                KM_OUT=$(timeout 30s python3 bench/benchmark_kernel_runner.py --device "$KERNEL_DEVICE" --mode roundtrip --size "$size" --count "$MESSAGES" --warmup "$WARMUP" --trial "$t" --csv-extended 2>/dev/null || echo "")
-                KM_LINE=$(echo "$KM_OUT" | grep ',' | tail -n1 || echo "")
-                if [ -n "$KM_LINE" ]; then
-                    echo "$KM_LINE" >> "$RAW_DIR/all_results.csv"
-                    IFS=',' read -r req sel sz tr cnt avg p50 p90 p95 p99 p999 min max std tput mb el err <<< "$KM_LINE"
-                    echo "$req,$sz,$tr,$cnt,$avg,$p50,$p90,$p95,$p99,$p999,$min,$max,$std" >> "$RAW_DIR/latency.csv"
-                    echo "$req,$sz,$tr,$cnt,$tput,$mb,$el,$err" >> "$RAW_DIR/throughput.csv"
-                    echo "roundtrip,$sz,$tr,$cnt,$avg,$p50,$p90,$p95,$p99,$min,$max,$std,$tput,$mb,$err,PASS" >> "$RAW_DIR/kernel_results.csv"
-                    printf "  [%s] %-14s | %6s B | Avg: %7.2f us | P50: %7.2f us | Tput: %10.1f msg/s\n" \
-                        "Trial $t" "$mech" "$size" "${avg:-0.0}" "${p50:-0.0}" "${tput:-0.0}" || true
-                else
-                    echo "  [Trial $t] $mech           | $size B | TIMEOUT / SKIPPED"
-                fi
-            else
-                # User-space IPC execution
-                TIME_FILE="/tmp/mini_aipc_time_$$.txt"
-                if [ -n "$TIME_BIN" ]; then
-                    OUT=$($TIME_BIN -f "%U,%S,%P,%M,%w,%c" -o "$TIME_FILE" ./mini-aipc --mode "$mech" --size "$size" --count "$MESSAGES" --warmup "$WARMUP" --trial "$t" $AFFINITY_ARGS --csv-extended 2>/dev/null || echo "")
-                else
-                    OUT=$(./mini-aipc --mode "$mech" --size "$size" --count "$MESSAGES" --warmup "$WARMUP" --trial "$t" $AFFINITY_ARGS --csv-extended 2>/dev/null || echo "")
-                fi
-
-                CSV_LINE=$(echo "$OUT" | grep ',' | tail -n1 || echo "")
-                if [ -n "$CSV_LINE" ]; then
-                    echo "$CSV_LINE" >> "$RAW_DIR/all_results.csv"
-                    IFS=',' read -r req sel sz tr cnt avg p50 p90 p95 p99 p999 min max std tput mb el err <<< "$CSV_LINE"
-                    echo "$req,$sz,$tr,$cnt,$avg,$p50,$p90,$p95,$p99,$p999,$min,$max,$std" >> "$RAW_DIR/latency.csv"
-                    echo "$req,$sz,$tr,$cnt,$tput,$mb,$el,$err" >> "$RAW_DIR/throughput.csv"
-
-                    # Parse time metrics if collected
-                    if [ -f "$TIME_FILE" ]; then
-                        TIME_LINE=$(tail -n1 "$TIME_FILE")
-                        rm -f "$TIME_FILE"
-                        IFS=',' read -r ut st cp rss vc ivc <<< "$TIME_LINE"
-                        echo "$req,$sz,$tr,$ut,$st,$cp" >> "$RAW_DIR/cpu_metrics.csv"
-                        echo "$req,$sz,$tr,$rss" >> "$RAW_DIR/memory_metrics.csv"
-                        echo "$req,$sz,$tr,$vc,$ivc" >> "$RAW_DIR/system_metrics.csv"
-                    fi
-
-                    printf "  [%s] %-14s | %6s B | Avg: %7.2f us | P50: %7.2f us | Tput: %10.1f msg/s\n" \
-                        "Trial $t" "$mech" "$size" "${avg:-0.0}" "${p50:-0.0}" "${tput:-0.0}" || true
-                else
-                    echo "  [Trial $t] $mech | $size B | FAILED" >&2
-                fi
-            fi
-        done
-    done
+IFS=',' read -ra _p_arr <<< "$PAYLOADS"
+[[ "${#_p_arr[@]}" -gt 0 ]] || { echo "ERROR: --payloads cannot be empty" >&2; exit 2; }
+for _p in "${_p_arr[@]}"; do
+  is_pos_int "$_p" || { echo "ERROR: Invalid payload size '$_p' in --payloads" >&2; exit 2; }
 done
 
-# Step 4: Concurrency Scalability Experiment
-echo -e "\n[Step 4/7] Evaluating Concurrency Scalability (1P:1C, 2P:1C, 4P:1C, 1P:2C, 4P:4C)..."
-CONC_MSGS=1000
-[ "$QUICK" -eq 1 ] && CONC_MSGS=200
-python3 bench/benchmark_concurrency.py --payload 64 --messages "$CONC_MSGS" --output "$RAW_DIR/concurrency_results.csv" --device "$KERNEL_DEVICE" || true
+IFS=',' read -ra _m_arr <<< "$CONCURRENCY_MATRIX"
+for _pair in "${_m_arr[@]}"; do
+  [[ "$_pair" =~ ^[1-9][0-9]*:[1-9][0-9]*$ ]] || { echo "ERROR: Invalid concurrency pair '$_pair' (expected M:N)" >&2; exit 2; }
+done
 
-# Step 5: System Call Profiling (Strace) in isolated pass
-echo -e "\n[Step 5/7] Profiling System Calls (isolated strace measurement)..."
-if command -v strace >/dev/null 2>&1; then
-    for mech in pipe fifo sysv posix shm uds; do
-        STRACE_LOG="/tmp/mini_aipc_strace_${mech}.log"
-        rm -f /dev/shm/*mini_aipc* /tmp/mini_aipc* 2>/dev/null || true
-        if strace -f -o "$STRACE_LOG" ./mini-aipc --mode "$mech" --size 64 --count 1000 --warmup 0 >/dev/null 2>&1; then
-            if [ -f "$STRACE_LOG" ]; then
-                ROW=$(python3 bench/parse_strace.py "$STRACE_LOG" "$mech" 64 1000 2>/dev/null || echo "")
-                if [ -n "$ROW" ]; then
-                    echo "$ROW" >> "$RAW_DIR/syscall_metrics.csv"
-                    echo "  Captured strace profile for $mech"
-                fi
-                rm -f "$STRACE_LOG"
-            fi
-        fi
-    done
-else
-    echo "  strace utility not installed; recording theoretical and verified baseline profiles..."
-    # Write verified communication-path baseline profiles
-    cat <<EOF >> "$RAW_DIR/syscall_metrics.csv"
-pipe,64,1000,4025,4.02,4000,4.00,12,13,exact,"comm: read(2000)+write(2000)=4000; setup: pipe2(1)+close(4)=12; other: unclassified(13)"
-fifo,64,1000,4030,4.03,4000,4.00,16,14,exact,"comm: read(2000)+write(2000)=4000; setup: mkfifo(1)+open(2)+close(4)=16; other: unclassified(14)"
-sysv,64,1000,2018,2.02,2000,2.00,8,10,exact,"comm: msgsnd(1000)+msgrcv(1000)=2000; setup: msgget(1)+msgctl(1)=8; other: unclassified(10)"
-posix,64,1000,2022,2.02,2000,2.00,10,12,exact,"comm: mq_send(1000)+mq_receive(1000)=2000; setup: mq_open(2)+mq_unlink(1)=10; other: unclassified(12)"
-shm,64,1000,42,0.04,0,0.00,24,18,exact,"comm: futex(0)=0; setup: shm_open(1)+mmap(2)+sem_post(0)=24; other: unclassified(18)"
-uds,64,1000,4022,4.02,4000,4.00,10,12,exact,"comm: read(2000)+write(2000)=4000; setup: socketpair(1)+close(4)=10; other: unclassified(12)"
-EOF
+# ---------------------------------------------------------------------------
+# Pre-Flight Safety & Dependency Checks
+# ---------------------------------------------------------------------------
+if [[ "$EUID" -eq 0 ]]; then
+  echo "WARNING: Running entire benchmark as root is discouraged; continuing, but non-kernel experiments do not require sudo." >&2
 fi
 
-# Step 6: Post-Processing, Statistics & Graph Generation Engine
-echo -e "\n[Step 6/7] Post-processing datasets, calculating statistics, and generating graphs..."
-python3 bench/process_unified_results.py --input-dir "$OUTPUT_DIR" --output-dir "$OUTPUT_DIR"
+command -v gcc >/dev/null 2>&1 || { echo "ERROR: gcc compiler not found in PATH" >&2; exit 1; }
+command -v make >/dev/null 2>&1 || { echo "ERROR: make not found in PATH" >&2; exit 1; }
 
-# Step 7: Final Validation and Summary
-echo -e "\n[Step 7/7] Validating deliverables and compiling final evaluation status..."
-echo "=============================================================================="
-echo "                       COMPONENT EVALUATION SUMMARY                           "
-echo "=============================================================================="
-
-# Status determination for each of the 8 components
-check_mech_status() {
-    local mech="$1"
-    local count
-    count=$(grep -c "^$mech," "$RAW_DIR/all_results.csv" 2>/dev/null || echo 0)
-    if [ "$count" -ge "$TRIALS" ]; then
-        echo "PASS ($count measurements recorded)"
-    elif [ "$count" -gt 0 ]; then
-        echo "PARTIAL ($count measurements recorded)"
-    else
-        echo "FAIL (No successful measurements recorded)"
+# Detect Python 3 binary with pandas, numpy, matplotlib
+find_python_with_deps() {
+  local candidates=()
+  [[ -n "${PYTHON_BIN:-}" ]] && candidates+=("$PYTHON_BIN")
+  candidates+=(python3 python)
+  for wp in \
+    "/c/Users/${USER:-ramsa}/AppData/Local/Programs/Python/Python314/python.exe" \
+    "/c/Users/${USER:-ramsa}/AppData/Local/Programs/Python/Python312/python.exe" \
+    "/c/Python314/python.exe" \
+    "/c/Python312/python.exe"; do
+    [[ -x "$wp" ]] && candidates+=("$wp")
+  done
+  for cand in "${candidates[@]}"; do
+    if command -v "$cand" >/dev/null 2>&1 || [[ -x "$cand" ]]; then
+      if "$cand" -c "import pandas, numpy, matplotlib" >/dev/null 2>&1; then
+        echo "$cand"
+        return 0
+      fi
     fi
+  done
+  return 1
 }
 
-PIPE_STATUS=$(check_mech_status "pipe")
-FIFO_STATUS=$(check_mech_status "fifo")
-SYSV_STATUS=$(check_mech_status "sysv")
-POSIX_STATUS=$(check_mech_status "posix")
-SHM_STATUS=$(check_mech_status "shm")
-UDS_STATUS=$(check_mech_status "uds")
-ADAPT_STATUS=$(check_mech_status "adaptive")
+PYTHON_BIN="$(find_python_with_deps)" || {
+  echo "ERROR: No Python 3 interpreter with pandas, numpy, and matplotlib found." >&2
+  echo "Set PYTHON_BIN=/path/to/python3 and retry." >&2
+  exit 1
+}
 
-if [ "$KERNEL_STATUS" = "READY" ]; then
-    KM_COUNT=$(grep -c "^roundtrip," "$RAW_DIR/kernel_results.csv" 2>/dev/null || echo 0)
-    if [ "$KM_COUNT" -ge "$TRIALS" ]; then
-        KERNEL_FINAL_STATUS="PASS ($KM_COUNT measurements recorded)"
-    elif [ "$KM_COUNT" -gt 0 ]; then
-        KERNEL_FINAL_STATUS="PARTIAL ($KM_COUNT measurements recorded)"
-    else
-        KERNEL_FINAL_STATUS="FAIL (Execution produced zero measurements)"
-    fi
-else
-    KERNEL_FINAL_STATUS="BLOCKED ($KERNEL_REASON)"
+# Check disk space (>= 50 MB free)
+AVAIL_KB=$(df -Pk "$ROOT" | awk 'NR==2 {print $4}')
+if [[ -n "$AVAIL_KB" && "$AVAIL_KB" -lt 51200 ]]; then
+  echo "ERROR: Insufficient disk space (${AVAIL_KB} KB available; need >= 51200 KB)" >&2
+  exit 1
 fi
 
-printf "  1. Anonymous Pipes:            %s\n" "$PIPE_STATUS"
-printf "  2. Named Pipes (FIFO):         %s\n" "$FIFO_STATUS"
-printf "  3. System V Message Queues:    %s\n" "$SYSV_STATUS"
-printf "  4. POSIX Message Queues:       %s\n" "$POSIX_STATUS"
-printf "  5. POSIX Shared Memory:        %s\n" "$SHM_STATUS"
-printf "  6. Unix Domain Sockets:        %s\n" "$UDS_STATUS"
-printf "  7. Kernel Mailbox (/dev/aipc): %s\n" "$KERNEL_FINAL_STATUS"
-printf "  8. Adaptive Policy Selector:   %s\n" "$ADAPT_STATUS"
-echo "=============================================================================="
-echo "Generated Artifacts:"
-echo "  - Raw Datasets:      $RAW_DIR/"
-echo "  - Processed Summary: $PROCESSED_DIR/aggregated_results.csv"
-echo "  - Statistical Table: $PROCESSED_DIR/statistical_summary.csv"
-echo "  - 13 Charts (PNG):   $GRAPHS_DIR/"
-echo "  - Benchmark Report:  $REPORTS_DIR/FINAL_BENCHMARK_REPORT.md"
-echo "=============================================================================="
-echo "Mini A-IPC Unified Benchmark Complete!"
+# ---------------------------------------------------------------------------
+# Output Directories, Unique Experiment ID, and Non-Overwrite Preservation
+# ---------------------------------------------------------------------------
+UNIFIED_DIR="$ROOT/results/unified"
+RAW_DIR="$UNIFIED_DIR/raw"
+PROC_DIR="$UNIFIED_DIR/processed"
+GRAPHS_DIR="$UNIFIED_DIR/graphs"
+REPORTS_DIR="$UNIFIED_DIR/reports"
+RUNS_DIR="$UNIFIED_DIR/runs"
 
+mkdir -p "$RAW_DIR" "$PROC_DIR" "$GRAPHS_DIR" "$REPORTS_DIR" "$RUNS_DIR"
+
+# Preserve any previous unified run before starting a new one
+if [[ -f "$PROC_DIR/benchmark_metadata.json" ]]; then
+  PREV_ID="$("$PYTHON_BIN" -c "import json; print(json.load(open(r'$PROC_DIR/benchmark_metadata.json')).get('experiment_id',''))" 2>/dev/null || true)"
+  if [[ -n "$PREV_ID" && ! -d "$RUNS_DIR/$PREV_ID" ]]; then
+    echo "[Init] Preserving previous experiment snapshot -> results/unified/runs/${PREV_ID}/"
+    mkdir -p "$RUNS_DIR/$PREV_ID"
+    cp -r "$RAW_DIR" "$PROC_DIR" "$GRAPHS_DIR" "$REPORTS_DIR" "$RUNS_DIR/$PREV_ID/" 2>/dev/null || true
+    [[ -f "$UNIFIED_DIR/environment.txt" ]] && cp "$UNIFIED_DIR/environment.txt" "$RUNS_DIR/$PREV_ID/"
+  fi
+fi
+
+EXPERIMENT_ID="exp_$(date -u +%Y%m%dT%H%M%SZ)_$$"
+ENVIRONMENT_ID="$(uname -s)_$(uname -m)_$(hostname 2>/dev/null || echo host)"
+
+# Safe cleanup trap preserving partial CSVs and cleaning stray IPC nodes
+cleanup_on_exit() {
+  rm -f /tmp/mini_aipc_*.fifo /tmp/mini_aipc_*.sock /dev/mqueue/mini_aipc_* /dev/shm/mini_aipc_* 2>/dev/null || true
+}
+trap cleanup_on_exit EXIT INT TERM
+
+echo "========================================================================"
+echo " Mini A-IPC: Unified Controlled IPC Benchmarking Suite"
+echo "========================================================================"
+echo " Experiment ID   : $EXPERIMENT_ID"
+echo " Python Runtime  : $PYTHON_BIN"
+echo " Messages/Trial  : $MESSAGES (Warm-up: $WARMUP)"
+echo " Trials          : $TRIALS (Seed: $SEED)"
+echo " Payloads (B)    : $PAYLOADS"
+echo " Concurrency     : $CONCURRENCY_MATRIX (@ ${CONCURRENCY_PAYLOAD} B)"
+echo " CPU Pinning     : $([[ $USE_AFFINITY -eq 1 ]] && echo "Producer=$CPU_PRODUCER, Consumer=$CPU_CONSUMER" || echo "Disabled")"
+echo "========================================================================"
+
+# ---------------------------------------------------------------------------
+# Step 1: Clean Host-Native Build
+# ---------------------------------------------------------------------------
+echo "[1/7] Checking & building project binaries..."
+OS_SYS="$(uname -s)"
+NEED_CLEAN=0
+if [[ "$OS_SYS" == MSYS* || "$OS_SYS" == CYGWIN* ]]; then
+  # Ensure we don't accidentally run pre-committed Linux ELF files on MSYS2
+  if [[ -f "$ROOT/mini-aipc" ]] && file "$ROOT/mini-aipc" 2>/dev/null | grep -q "ELF"; then
+    NEED_CLEAN=1
+  fi
+fi
+if [[ "$NEED_CLEAN" -eq 1 || ! -x "$ROOT/bin/aipc_unified_bench" ]]; then
+  make clean
+fi
+make all
+
+BIN_UNIFIED="$ROOT/bin/aipc_unified_bench"
+BIN_MINI="$ROOT/mini-aipc"
+BIN_MIXED="$ROOT/mini-aipc-mixed"
+if [[ "$OS_SYS" == MSYS* || "$OS_SYS" == CYGWIN* ]]; then
+  [[ -x "${BIN_UNIFIED}.exe" ]] && BIN_UNIFIED="${BIN_UNIFIED}.exe"
+  [[ -x "${BIN_MINI}.exe" ]] && BIN_MINI="${BIN_MINI}.exe"
+  [[ -x "${BIN_MIXED}.exe" ]] && BIN_MIXED="${BIN_MIXED}.exe"
+fi
+
+# ---------------------------------------------------------------------------
+# Step 2: Check CPU Affinity & Capture Environment
+# ---------------------------------------------------------------------------
+echo "[2/7] Capturing execution environment -> results/unified/environment.txt"
+AFF_PROD="-1"
+AFF_CONS="-1"
+AFF_STATUS="DISABLED by --no-affinity"
+if [[ "$USE_AFFINITY" -eq 1 ]]; then
+  if taskset -c "$CPU_PRODUCER" true >/dev/null 2>&1 && taskset -c "$CPU_CONSUMER" true >/dev/null 2>&1; then
+    AFF_PROD="$CPU_PRODUCER"
+    AFF_CONS="$CPU_CONSUMER"
+    AFF_STATUS="SUPPORTED and ACTIVE (sched_setaffinity: producer=$AFF_PROD, consumer=$AFF_CONS)"
+  else
+    AFF_STATUS="UNAVAILABLE on host (proceeding unpinned)"
+  fi
+fi
+
+{
+  echo "Mini A-IPC Unified Benchmark Environment"
+  echo "Experiment ID: ${EXPERIMENT_ID}"
+  echo "Environment ID: ${ENVIRONMENT_ID}"
+  echo "Captured at (UTC): $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo
+  echo "[OS / Kernel]"
+  uname -a
+  cat /etc/os-release 2>/dev/null || true
+  echo
+  echo "[CPU]"
+  lscpu 2>/dev/null || grep -m1 'model name' /proc/cpuinfo 2>/dev/null || echo "nproc=$(nproc 2>/dev/null || echo unknown)"
+  echo
+  echo "[Memory]"
+  head -n 8 /proc/meminfo 2>/dev/null || true
+  echo
+  echo "[Compiler & Flags]"
+  gcc --version 2>&1 | head -n 1
+  grep -E '^CFLAGS|^LDFLAGS' Makefile || true
+  echo
+  echo "[Python & Libraries]"
+  "$PYTHON_BIN" -c "import sys, pandas, numpy, matplotlib; print('python:', sys.version.split()[0], 'pandas:', pandas.__version__, 'numpy:', numpy.__version__, 'matplotlib:', matplotlib.__version__)"
+  echo
+  echo "[Instrumentation & Kernel Availability]"
+  echo "CPU affinity status: ${AFF_STATUS}"
+  if [[ "$OS_SYS" == "Linux" ]]; then
+    echo "Kernel headers (/lib/modules/$(uname -r)/build): $([[ -d "/lib/modules/$(uname -r)/build" ]] && echo PRESENT || echo MISSING)"
+    echo "Linux strace: $(command -v strace 2>/dev/null || echo MISSING)"
+    echo "Linux perf: $(command -v perf 2>/dev/null || echo MISSING)"
+  else
+    echo "Kernel headers: UNAVAILABLE (non-Linux host ${OS_SYS})"
+    echo "Linux strace: UNAVAILABLE (host strace is Cygwin/MSYS or absent)"
+  fi
+  echo "GNU time: $(command -v /usr/bin/time 2>/dev/null || echo MISSING)"
+  echo "Pre-existing aipc_module loaded: $(lsmod 2>/dev/null | grep -q '^aipc_module\b' && echo YES || echo NO)"
+  echo
+  echo "[Experiment Parameters]"
+  echo "MESSAGES=${MESSAGES} WARMUP=${WARMUP} TRIALS=${TRIALS} SEED=${SEED}"
+  echo "PAYLOADS=${PAYLOADS}"
+  echo "CONCURRENCY_MATRIX=${CONCURRENCY_MATRIX} CONCURRENCY_PAYLOAD=${CONCURRENCY_PAYLOAD}"
+  echo "THRESHOLD=${THRESHOLD}"
+} > "$UNIFIED_DIR/environment.txt"
+
+# ---------------------------------------------------------------------------
+# Step 3: Run Controlled Sequential Randomized Benchmark Matrix
+# ---------------------------------------------------------------------------
+echo "[3/7] Executing controlled sequential benchmark trials..."
+ORCH_FLAGS=(
+  --bin "$BIN_UNIFIED"
+  --mixed-bin "$BIN_MIXED"
+  --experiment-id "$EXPERIMENT_ID"
+  --environment-id "$ENVIRONMENT_ID"
+  --out-csv "$RAW_DIR/all_results.csv"
+  --meta-out "$PROC_DIR/benchmark_metadata.json"
+  --messages "$MESSAGES"
+  --warmup "$WARMUP"
+  --trials "$TRIALS"
+  --payloads "$PAYLOADS"
+  --producers "$PRODUCERS"
+  --consumers "$CONSUMERS"
+  --concurrency-matrix "$CONCURRENCY_MATRIX"
+  --concurrency-payload "$CONCURRENCY_PAYLOAD"
+  --concurrency-messages "$CONCURRENCY_MESSAGES"
+  --concurrency-trials "$CONCURRENCY_TRIALS"
+  --unidirectional-messages "$UNIDIRECTIONAL_MESSAGES"
+  --unidirectional-trials "$UNIDIRECTIONAL_TRIALS"
+  --threshold "$THRESHOLD"
+  --cpu-producer "$AFF_PROD"
+  --cpu-consumer "$AFF_CONS"
+  --seed "$SEED"
+)
+[[ "$SKIP_CONCURRENCY" -eq 1 ]] && ORCH_FLAGS+=(--skip-concurrency)
+[[ "$SKIP_UNIDIRECTIONAL" -eq 1 ]] && ORCH_FLAGS+=(--skip-unidirectional)
+
+"$PYTHON_BIN" "$ROOT/bench/orchestrate_unified.py" "${ORCH_FLAGS[@]}"
+
+# ---------------------------------------------------------------------------
+# Step 4: Separate Resource & Syscall Profiling Pass
+# ---------------------------------------------------------------------------
+PROFILE_TMP="$RAW_DIR/_profile_tmp.csv"
+SYSCALLS_TMP="$RAW_DIR/_syscalls_tmp.csv"
+rm -f "$PROFILE_TMP" "$SYSCALLS_TMP"
+
+if [[ "$SKIP_PROFILING" -eq 0 ]]; then
+  echo "[4/7] Running separate OS/RSS/context-switch/syscall profiling pass..."
+  "$PYTHON_BIN" "$ROOT/bench/profile_resources.py" \
+    --bin "$BIN_UNIFIED" \
+    --mini-aipc "$BIN_MINI" \
+    --experiment-id "$EXPERIMENT_ID" \
+    --payloads "$PAYLOADS" \
+    --mechanisms "pipe,fifo,sysv,posix,shm,uds,adaptive" \
+    --messages "$PROFILE_MESSAGES" \
+    --warmup "$PROFILE_WARMUP" \
+    --cpu-producer "$AFF_PROD" \
+    --cpu-consumer "$AFF_CONS" \
+    --out-profile "$PROFILE_TMP" \
+    --out-syscalls "$SYSCALLS_TMP"
+else
+  echo "[4/7] Separate profiling skipped (--skip-profiling)."
+fi
+
+# ---------------------------------------------------------------------------
+# Step 5: Kernel Module Verification & Benchmarking
+# ---------------------------------------------------------------------------
+if [[ "$SKIP_KERNEL" -eq 0 ]]; then
+  echo "[5/7] Executing Kernel AIPC Module verification & benchmark suite..."
+  EXPERIMENT_ID="$EXPERIMENT_ID" \
+  OUT_CSV="$RAW_DIR/kernel_results.csv" \
+  OUT_EXPLORATORY="$RAW_DIR/kernel_exploratory.csv" \
+  PAYLOADS="$PAYLOADS" \
+  MESSAGES="$UNIDIRECTIONAL_MESSAGES" \
+  WARMUP="$PROFILE_WARMUP" \
+  TRIALS="$TRIALS" \
+  PYTHON_BIN="$PYTHON_BIN" \
+    bash "$ROOT/bench/run_kernel_suite.sh" || true
+else
+  echo "[5/7] Kernel suite skipped (--skip-kernel); recording BLOCKED notice..."
+  EXPERIMENT_ID="$EXPERIMENT_ID" \
+  OUT_CSV="$RAW_DIR/kernel_results.csv" \
+  PAYLOADS="$PAYLOADS" \
+  PYTHON_BIN="$PYTHON_BIN" \
+    bash -c '
+      "$PYTHON_BIN" - "$OUT_CSV" "$EXPERIMENT_ID" "$PAYLOADS" <<PY
+import csv, sys
+out_csv, exp_id, payloads_s = sys.argv[1:]
+fieldnames = ["experiment_id","record_type","test_or_metric","payload_bytes","trial","messages","completed_messages","validation_errors","status","status_reason","elapsed_ns","duration_s","avg_latency_us","throughput_msg_s","bytes_per_sec","mb_per_sec","consumer_peak_rss_kb","workload_type"]
+with open(out_csv, "w", newline="", encoding="utf-8") as f:
+    w = csv.DictWriter(f, fieldnames=fieldnames)
+    w.writeheader()
+    w.writerow({"experiment_id": exp_id, "record_type": "functional_test", "test_or_metric": "kernel_suite", "status": "BLOCKED", "status_reason": "Skipped by --skip-kernel flag", "workload_type": "kernel_functional"})
+PY
+    '
+fi
+
+# ---------------------------------------------------------------------------
+# Step 6: Statistical Analysis, Graphs, & Final Report
+# ---------------------------------------------------------------------------
+echo "[6/7] Computing statistical summaries, 95% CIs, paired tests, and adaptive regret..."
+"$PYTHON_BIN" "$ROOT/bench/analyze_results.py" \
+  --raw-dir "$RAW_DIR" \
+  --processed-dir "$PROC_DIR" \
+  --meta-in "$PROC_DIR/benchmark_metadata.json" \
+  --profile-tmp "$PROFILE_TMP" \
+  --syscalls-tmp "$SYSCALLS_TMP"
+
+rm -f "$PROFILE_TMP" "$SYSCALLS_TMP"
+
+echo "[7/7] Generating 13 publication-quality PNG/PDF graphs and FINAL_BENCHMARK_REPORT.md..."
+"$PYTHON_BIN" "$ROOT/bench/generate_graphs.py" \
+  --raw-dir "$RAW_DIR" \
+  --processed-dir "$PROC_DIR" \
+  --graphs-dir "$GRAPHS_DIR"
+
+"$PYTHON_BIN" "$ROOT/bench/generate_report.py" --unified-dir "$UNIFIED_DIR"
+
+# Archive immutable snapshot of this completed experiment
+SNAP_DIR="$RUNS_DIR/$EXPERIMENT_ID"
+mkdir -p "$SNAP_DIR"
+cp -r "$RAW_DIR" "$PROC_DIR" "$GRAPHS_DIR" "$REPORTS_DIR" "$UNIFIED_DIR/environment.txt" "$SNAP_DIR/"
+
+"$PYTHON_BIN" - "$PROC_DIR/benchmark_metadata.json" "$RUNS_DIR/experiments_index.csv" <<'PY'
+import csv, json, os, sys
+meta_path, idx_path = sys.argv[1:]
+m = json.load(open(meta_path, encoding="utf-8"))
+exists = os.path.exists(idx_path)
+with open(idx_path, "a", newline="", encoding="utf-8") as f:
+    cols = ["experiment_id", "started_at_utc", "overall_status", "host_os", "messages", "trials", "payloads"]
+    w = csv.DictWriter(f, fieldnames=cols)
+    if not exists:
+        w.writeheader()
+    w.writerow({
+        "experiment_id": m.get("experiment_id"),
+        "started_at_utc": m.get("started_at_utc"),
+        "overall_status": m.get("overall_status"),
+        "host_os": m.get("host_os"),
+        "messages": m.get("config", {}).get("messages"),
+        "trials": m.get("config", {}).get("trials"),
+        "payloads": m.get("config", {}).get("payloads"),
+    })
+PY
+
+echo "========================================================================"
+echo " Unified Benchmark Complete! Summary:"
+"$PYTHON_BIN" - "$PROC_DIR/benchmark_metadata.json" <<'PY'
+import json, sys
+m = json.load(open(sys.argv[1], encoding="utf-8"))
+print(f"   Experiment ID  : {m['experiment_id']}")
+print(f"   Overall Status : {m['overall_status']}")
+for k, v in m.get("component_status", {}).items():
+    print(f"   - {k:<14}: {v['status']:<11} ({v['reason']})")
+PY
+echo " Report : results/unified/reports/FINAL_BENCHMARK_REPORT.md"
+echo " Graphs : results/unified/graphs/*.png (+ .pdf)"
+echo " Archive: results/unified/runs/${EXPERIMENT_ID}/"
+echo "========================================================================"

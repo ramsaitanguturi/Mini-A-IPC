@@ -1,11 +1,30 @@
-# Compiled binaries
-mini-aipc
-mini-aipc-mixed
-aipc-client
-bin/
+# Mini A-IPC: Project .gitignore
 
-# Object files and kernel module artifacts
+# Compiled binaries and executables (Unix and Windows)
+mini-aipc
+mini-aipc.exe
+mini-aipc-mixed
+mini-aipc-mixed.exe
+mini-aipc-concurrency
+mini-aipc-concurrency.exe
+aipc-client
+aipc-client.exe
+bin/*.exe
+bin/aipc_unified_bench
+bin/aipc_unified_bench.exe
+bin/ipc_fifo
+bin/ipc_fifo.exe
+
+# Object files and build artifacts
 *.o
+*.obj
+*.so
+*.dll
+*.dylib
+*.a
+*.lib
+
+# Kernel module build artifacts
 *.ko
 *.mod
 *.mod.c
@@ -20,14 +39,44 @@ kernel/*.order
 kernel/*.symvers
 kernel/.*.cmd
 kernel/.tmp_versions/
+kernel/Module.symvers
+kernel/modules.order
 
-# Python cache
+# Python and testing caches
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
 
-# Temporary files
+# Editor and OS temporary files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.bak
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Temporary benchmark and test files
 /tmp/
 *.tmp
 *.log
+results/benchmark.csv
+results/calibration.csv
+results/threshold.txt
+results/mixed_workload.csv
+results/kernel-consumer.expected
+results/kernel-consumer.actual
+results/kernel-load-unload-dmesg.txt
 
+# Preserve important results directories
+!results/comparative_benchmark.csv
+!results/syscall_benchmark.csv
+!results/environment.txt
+!results/archived/
+!results/unified/
+!results/msys2_historical/

@@ -1,0 +1,23 @@
+experiment_id,record_type,test_or_metric,payload_bytes,trial,messages,completed_messages,validation_errors,status,status_reason,elapsed_ns,duration_s,avg_latency_us,throughput_msg_s,bytes_per_sec,mb_per_sec,consumer_peak_rss_kb,workload_type
+exp_20261111T153614Z_392,functional_test,module_compilation,,,,,,BLOCKED,Host OS is MSYS_NT-10.0-26200; Linux kernel build tree unavailable,,,,,,,,kernel_functional
+exp_20261111T153614Z_392,functional_test,module_loading,,,,,,BLOCKED,Host OS is MSYS_NT-10.0-26200; Linux kernel module build and insmod require a Linux kernel,,,,,,,,kernel_functional
+exp_20261111T153614Z_392,functional_test,device_creation,,,,,,BLOCKED,Host OS is MSYS_NT-10.0-26200; Linux kernel module build and insmod require a Linux kernel,,,,,,,,kernel_functional
+exp_20261111T153614Z_392,functional_test,write_read_functionality,,,,,,BLOCKED,Host OS is MSYS_NT-10.0-26200; Linux kernel module build and insmod require a Linux kernel,,,,,,,,kernel_functional
+exp_20261111T153614Z_392,functional_test,data_integrity,,,,,,BLOCKED,Host OS is MSYS_NT-10.0-26200; Linux kernel module build and insmod require a Linux kernel,,,,,,,,kernel_functional
+exp_20261111T153614Z_392,functional_test,buffer_capacity,,,,,,BLOCKED,Host OS is MSYS_NT-10.0-26200; Linux kernel module build and insmod require a Linux kernel,,,,,,,,kernel_functional
+exp_20261111T153614Z_392,functional_test,empty_buffer_behaviour,,,,,,BLOCKED,Host OS is MSYS_NT-10.0-26200; Linux kernel module build and insmod require a Linux kernel,,,,,,,,kernel_functional
+exp_20261111T153614Z_392,functional_test,full_buffer_behaviour,,,,,,BLOCKED,Host OS is MSYS_NT-10.0-26200; Linux kernel module build and insmod require a Linux kernel,,,,,,,,kernel_functional
+exp_20261111T153614Z_392,functional_test,blocking_operations,,,,,,BLOCKED,Host OS is MSYS_NT-10.0-26200; Linux kernel module build and insmod require a Linux kernel,,,,,,,,kernel_functional
+exp_20261111T153614Z_392,functional_test,nonblocking_operations,,,,,,BLOCKED,Host OS is MSYS_NT-10.0-26200; Linux kernel module build and insmod require a Linux kernel,,,,,,,,kernel_functional
+exp_20261111T153614Z_392,functional_test,concurrent_readers_writers,,,,,,BLOCKED,Host OS is MSYS_NT-10.0-26200; Linux kernel module build and insmod require a Linux kernel,,,,,,,,kernel_functional
+exp_20261111T153614Z_392,functional_test,poll_behaviour,,,,,,BLOCKED,Host OS is MSYS_NT-10.0-26200; Linux kernel module build and insmod require a Linux kernel,,,,,,,,kernel_functional
+exp_20261111T153614Z_392,functional_test,error_handling,,,,,,BLOCKED,Host OS is MSYS_NT-10.0-26200; Linux kernel module build and insmod require a Linux kernel,,,,,,,,kernel_functional
+exp_20261111T153614Z_392,functional_test,module_unloading,,,,,,BLOCKED,Host OS is MSYS_NT-10.0-26200; Linux kernel module build and insmod require a Linux kernel,,,,,,,,kernel_functional
+exp_20261111T153614Z_392,functional_test,repeated_load_unload,,,,,,BLOCKED,Host OS is MSYS_NT-10.0-26200; Linux kernel module build and insmod require a Linux kernel,,,,,,,,kernel_functional
+exp_20261111T153614Z_392,benchmark,kernel_unidirectional_mailbox,64,,,,,BLOCKED,Host OS is MSYS_NT-10.0-26200; Linux kernel module build and insmod require a Linux kernel,,,,,,,,kernel_unidirectional_mailbox
+exp_20261111T153614Z_392,benchmark,kernel_unidirectional_mailbox,256,,,,,BLOCKED,Host OS is MSYS_NT-10.0-26200; Linux kernel module build and insmod require a Linux kernel,,,,,,,,kernel_unidirectional_mailbox
+exp_20261111T153614Z_392,benchmark,kernel_unidirectional_mailbox,1024,,,,,BLOCKED,Host OS is MSYS_NT-10.0-26200; Linux kernel module build and insmod require a Linux kernel,,,,,,,,kernel_unidirectional_mailbox
+exp_20261111T153614Z_392,benchmark,kernel_unidirectional_mailbox,4096,,,,,BLOCKED,Host OS is MSYS_NT-10.0-26200; Linux kernel module build and insmod require a Linux kernel,,,,,,,,kernel_unidirectional_mailbox
+exp_20261111T153614Z_392,benchmark,kernel_unidirectional_mailbox,16384,,,,,BLOCKED,Host OS is MSYS_NT-10.0-26200; Linux kernel module build and insmod require a Linux kernel,,,,,,,,kernel_unidirectional_mailbox
+exp_20261111T153614Z_392,benchmark,kernel_unidirectional_mailbox,65536,,,,,BLOCKED,Host OS is MSYS_NT-10.0-26200; Linux kernel module build and insmod require a Linux kernel,,,,,,,,kernel_unidirectional_mailbox
+exp_20261111T153614Z_392,benchmark,kernel_unidirectional_mailbox,262144,,,,,BLOCKED,Host OS is MSYS_NT-10.0-26200; Linux kernel module build and insmod require a Linux kernel,,,,,,,,kernel_unidirectional_mailbox
