@@ -21,9 +21,18 @@ def run_test(name, fn):
         all_passed = False
         print(f'  [FAIL] {name}: {e}')
 
+def get_bash_path():
+    for cand in [r"C:\msys64\usr\bin\bash.exe", r"C:\Program Files\Git\bin\bash.exe", "/usr/bin/bash", "/bin/bash"]:
+        if os.path.exists(cand):
+            return cand
+    b = shutil.which('bash')
+    if b and 'system32' not in b.lower():
+        return b
+    return r'C:\Program Files\Git\bin\bash.exe'
+
 # 1. Shell scripts syntax check with bash -n
 def test_shell_scripts():
-    bash_path = shutil.which('bash') or r'C:\Program Files\Git\bin\bash.exe'
+    bash_path = get_bash_path()
     scripts = [
         'tests/test_cli.sh',
         'tests/kernel/test_device.sh',
@@ -415,7 +424,7 @@ def test_unified_benchmark_pipeline():
     import importlib.util
 
     # 1. Validate bash orchestrator syntax
-    bash_path = shutil.which('bash') or r'C:\Program Files\Git\bin\bash.exe'
+    bash_path = get_bash_path()
     res = subprocess.run([bash_path, '-n', 'bench/run_unified_benchmark.sh'], capture_output=True, text=True)
     assert res.returncode == 0, f"run_unified_benchmark.sh bash syntax error: {res.stderr}"
 

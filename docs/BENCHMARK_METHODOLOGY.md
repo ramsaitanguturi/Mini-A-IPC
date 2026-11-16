@@ -18,11 +18,11 @@ The Mini-A-IPC benchmark suite implements a rigorous, scientifically controlled 
      - Producer Process pinned to **CPU Core 0**
      - Consumer Process pinned to **CPU Core 1**
 3. **Artifact Cleanup:**
-   - Prior to each trial run, all temporary shared memory segments (`/dev/shm/*mini_aipc*`) and named FIFO nodes (`/tmp/mini_aipc*`) are purged to prevent resource leakage or descriptor reuse.
+   - Prior to each trial run, all temporary shared memory segments (`/dev/shm/*mini_aipc*`), named FIFO nodes (`/tmp/mini_aipc*`), POSIX message queues (`/mini_aipc*`), and Unix domain socket files (`/tmp/mini_aipc*.sock`) are purged to prevent resource leakage or descriptor reuse.
 
 ---
 
-## 2. Statistical Analysis & Percentile Calculations
+## 2. Statistical Rigor & Metric Definitions
 
 To prevent loss of tail-latency fidelity, Mini-A-IPC records the high-resolution round-trip latency (in nanoseconds) of every single measured transaction.
 
@@ -40,24 +40,43 @@ To prevent loss of tail-latency fidelity, Mini-A-IPC records the high-resolution
 - **Throughput:**
   $$\text{Throughput (msg/s)} = \frac{N}{\Delta t_{\text{sec}}}$$
   $$\text{Throughput (MB/s)} = \frac{N \times \text{payload\_bytes}}{1024 \times 1024 \times \Delta t_{\text{sec}}}$$
+  $$\text{Wire Throughput (MB/s)} = \frac{2 \times N \times \text{payload\_bytes}}{1024 \times 1024 \times \Delta t_{\text{sec}}}$$
+- **95% Confidence Intervals:**
+  $$\text{CI}_{95\%} = \bar{x} \pm t_{0.025, \text{df}} \cdot \frac{s}{\sqrt{N}}$$
+- **Non-Parametric Hypothesis Testing:**
+  Pairwise differences between mechanisms are verified using the **Wilcoxon Signed-Rank Test** to avoid assuming normal distribution on skewed tail latencies.
+
+### 2.2 Resource Profiling (`getrusage`)
+- **User CPU Time ($t_{\text{user}}$)** and **System CPU Time ($t_{\text{sys}}$)**
+- **Voluntary Context Switches (`ru_nvcsw`)**: Yields during blocking I/O or semaphore synchronization.
+- **Involuntary Context Switches (`ru_nivcsw`)**: Preemptions caused by time-slice expiration.
+- **Maximum Resident Set Size (`ru_maxrss`)**: High-water memory mark in kilobytes.
+- **Major and Minor Page Faults (`ru_majflt`, `ru_minflt`)**.
 
 ---
 
-## 3. System Environment & Virtualization Disclosure
+## 3. Environmental Separation and Hardware Provenance Disclosure
 
-All comparative benchmarks were collected in the following target execution environment:
+Mini-A-IPC strictly enforces dataset isolation across different execution environments. Under no circumstances are measurements from distinct operating system environments aggregated together.
 
-- **Operating System:** Fedora Linux 45 (Workstation Edition)
-- **Linux Kernel:** 7.2.15-300.fc45.x86_64 / 7.3.3
-- **Compiler:** GCC 16.2.1 (flags: `-std=c11 -O2 -Wall -Wextra -pthread -lrt -lm`)
-- **CPU Architecture:** Intel Core 7 240H (x86_64, 4 visible virtual CPUs)
-- **Virtualization:** KVM / VirtualBox hypervisor guest VM
+### Environment 1: Native Linux / Fedora 45 (Authoritative Unified Dataset)
+- **Dataset Path**: `results/unified/raw/all_results.csv`, `results/unified/processed/aggregated_results.csv`
+- **Host CPU**: Intel Core 7 240H (x86_64, 4 vCPUs)
+- **Kernel Version**: Linux 7.3.3-300.fc45.x86_64
+- **Toolchain**: GCC 16.2.1, GNU C Library 2.41
+- **Tested Mechanisms**: All 6 userspace IPC mechanisms + Custom Kernel Mailbox (`/dev/aipc`) + Adaptive Policy.
 
-### 3.1 Impact of Virtualization on IPC Latency
-1. **Hypervisor vCPU Scheduling:**
-   - In a virtual machine, when a guest thread blocks on a semaphore or pipe wait-queue, the guest Linux kernel yields the virtual CPU. The host OS hypervisor may deschedule the vCPU thread.
-   - When the partner thread posts or writes, an inter-processor interrupt (IPI) must traverse the hypervisor layer, causing hypervisor VM-exits and reinjections.
-   - This produces a **context-switch latency floor of ~95 to 120 microseconds** on this virtualized environment.
-2. **Trial-to-Trial Jitter:**
-   - Background tasks on the host operating system can cause transient vCPU pauses, explaining occasional trial spikes (such as Trial 2 and Trial 6) where all synchronizing mechanisms showed elevated latencies.
+### Environment 2: Ubuntu 26.04 on WSL2 (Comparative Host Dataset)
+- **Dataset Path**: `results/comparative_benchmark.csv`
+- **Host CPU**: AMD Ryzen 7 8845HS (16 vCPUs)
+- **Kernel Version**: Linux 6.6.87.2-microsoft-standard-WSL2
+- **Toolchain**: GCC 13.3.0
+- **Tested Mechanisms**: Pipe, FIFO, POSIX SHM, System V MQ, POSIX MQ, Unix Domain Sockets (Payloads: 64 B to 1024 B).
 
+### Environment 3: Windows 11 / MSYS2 POSIX Emulation (Host Validation Environment)
+- **Dataset Path**: `results/msys2_historical/`
+- **Host CPU**: AMD Ryzen 7 8845HS (16 vCPUs)
+- **OS**: Windows 11 Home (64-bit)
+- **POSIX Emulation**: MSYS2 / Cygwin API layer (GCC 13.3.0, Make 4.4.1)
+- **Supported Transports**: Pipe, FIFO, POSIX SHM, POSIX MQ, Unix Domain Sockets, SPSC Ring Buffer.
+- **Subsystem Blockers**: System V IPC syscalls (`msgget`) return `ENOSYS` unless background `cygserver` daemon is running. Linux kernel module (`aipc.ko`) cannot be loaded due to absence of a native Linux kernel.

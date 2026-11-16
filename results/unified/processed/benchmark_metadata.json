@@ -1,6 +1,6 @@
 {
   "benchmark_title": "Mini A-IPC Unified Controlled IPC Experiment",
-  "timestamp": "2026-11-13 16:43:32 UTC",
+  "timestamp": "2026-11-16 12:50:38 UTC",
   "components_evaluated": [
     "pipe",
     "fifo",

@@ -73,6 +73,10 @@ results/kernel-consumer.expected
 results/kernel-consumer.actual
 results/kernel-load-unload-dmesg.txt
 
+# Scratch scripts and release packages
+scratch/
+release/
+
 # Preserve important results directories
 !results/comparative_benchmark.csv
 !results/syscall_benchmark.csv

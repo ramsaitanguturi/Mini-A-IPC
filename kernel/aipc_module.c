@@ -33,6 +33,8 @@ struct aipc_device {
     struct mutex lock;
     wait_queue_head_t readers;
     wait_queue_head_t writers;
+    wait_queue_head_t teardown_wait;
+    atomic_t active_ops;
     bool shutdown;
 };
 
@@ -52,6 +54,9 @@ static int aipc_open(struct inode *inode, struct file *file)
 {
     (void)inode;
     (void)file;
+    if (!aipc || READ_ONCE(aipc->shutdown))
+        return -ENODEV;
+    atomic_inc(&aipc->active_ops);
     return 0;
 }
 
@@ -59,6 +64,8 @@ static int aipc_release(struct inode *inode, struct file *file)
 {
     (void)inode;
     (void)file;
+    if (aipc && atomic_dec_and_test(&aipc->active_ops))
+        wake_up(&aipc->teardown_wait);
     return 0;
 }
 
@@ -195,6 +202,8 @@ static int __init aipc_init(void)
     mutex_init(&aipc->lock);
     init_waitqueue_head(&aipc->readers);
     init_waitqueue_head(&aipc->writers);
+    init_waitqueue_head(&aipc->teardown_wait);
+    atomic_set(&aipc->active_ops, 0);
 
     ret = alloc_chrdev_region(&aipc->devno, 0, 1, AIPC_DEVICE_NAME);
     if (ret) goto fail_buffer;
@@ -230,16 +239,21 @@ fail_device:
 static void __exit aipc_exit(void)
 {
     if (!aipc) return;
-    device_destroy(aipc->class, aipc->devno);
-    class_destroy(aipc->class);
-    cdev_del(&aipc->cdev);
-    unregister_chrdev_region(aipc->devno, 1);
 
+    /* Signal shutdown and wake all blocked readers and writers */
     mutex_lock(&aipc->lock);
     aipc->shutdown = true;
     mutex_unlock(&aipc->lock);
     wake_up_interruptible_all(&aipc->readers);
     wake_up_interruptible_all(&aipc->writers);
+
+    /* Wait for all active file operations to release before deallocating memory */
+    wait_event(aipc->teardown_wait, atomic_read(&aipc->active_ops) == 0);
+
+    device_destroy(aipc->class, aipc->devno);
+    class_destroy(aipc->class);
+    cdev_del(&aipc->cdev);
+    unregister_chrdev_region(aipc->devno, 1);
 
     kfree(aipc->buffer);
     kfree(aipc);

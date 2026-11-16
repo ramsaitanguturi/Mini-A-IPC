@@ -92,6 +92,13 @@ static int wait_sem_monitor(sem_t *s, pid_t *child, int *child_reaped)
     }
 }
 
+static volatile sig_atomic_t g_mixed_child_died = 0;
+static void mixed_sigchld_handler(int sig)
+{
+    (void)sig;
+    g_mixed_child_died = 1;
+}
+
 static int wait_sem_parent(sem_t *s, pid_t *child, int *child_reaped, int use_monitor)
 {
     if (use_monitor) {
@@ -99,7 +106,7 @@ static int wait_sem_parent(sem_t *s, pid_t *child, int *child_reaped, int use_mo
     }
     while (sem_wait(s) < 0) {
         if (errno == EINTR) {
-            if (*child > 0) {
+            if (g_mixed_child_died || (*child > 0)) {
                 int st;
                 pid_t w = waitpid(*child, &st, WNOHANG);
                 if (w == *child) {
@@ -143,12 +150,15 @@ static int run_mixed(const char *policy, size_t count, size_t threshold,
     unsigned char *buffer = NULL, *returned = NULL;
     struct sigaction ign, old;
     int sig_changed = 0;
+    struct sigaction sa_chld, old_chld;
+    int chld_changed = 0;
     uint64_t start, end;
 
     if (!count || !elapsed || !errors || !small_count || !large_count) {
         errno = EINVAL; return -1;
     }
     *errors = *small_count = *large_count = 0;
+    g_mixed_child_died = 0;
     sizes = malloc(count * sizeof(*sizes));
     buffer = malloc(LARGE_SIZE);
     returned = malloc(LARGE_SIZE);
@@ -190,6 +200,13 @@ sems = 4;
     if (sigaction(SIGPIPE, &ign, &old) < 0) goto cleanup;
     sig_changed = 1;
 
+    memset(&sa_chld, 0, sizeof(sa_chld));
+    sa_chld.sa_handler = mixed_sigchld_handler;
+    sigemptyset(&sa_chld.sa_mask);
+    sa_chld.sa_flags = 0; /* No SA_RESTART: interrupt blocking sem_wait on child exit */
+    if (sigaction(SIGCHLD, &sa_chld, &old_chld) == 0)
+        chld_changed = 1;
+
     child = fork();
     if (child < 0) goto cleanup;
     if (child == 0) {
@@ -225,7 +242,9 @@ sems = 4;
         size_t n = sizes[i];
         fill_payload(buffer, n, i);
         if (strcmp(policy, "adaptive") == 0 && n <= threshold && n <= SHM_MAX_PAYLOAD) {
-            int use_monitor = (getenv("AIPC_TEST_MIXED_CHILD_EXIT") != NULL);
+            int use_monitor = (getenv("AIPC_TEST_MIXED_CHILD_EXIT") != NULL ||
+                               getenv("AIPC_TEST_CORRUPT_SHM_REQUEST") != NULL ||
+                               getenv("AIPC_SHM_MONITOR") != NULL);
             if (wait_sem_parent(&box->empty_req, &child, &child_reaped, use_monitor) < 0) { ++*errors; break; }
             memcpy(box->request, buffer, n); box->request_length = n;
             if (getenv("AIPC_TEST_CORRUPT_SHM_REQUEST") != NULL && n > 0)
@@ -273,6 +292,7 @@ cleanup:
         if (fd >= 0) close(fd);
         if (shmname[0]) shm_unlink(shmname);
         if (sig_changed) sigaction(SIGPIPE, &old, NULL);
+        if (chld_changed) sigaction(SIGCHLD, &old_chld, NULL);
         free(sizes); free(buffer); free(returned);
         errno = saved;
     }

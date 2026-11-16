@@ -39,9 +39,16 @@ grep -q 'Validation errors: 0' /tmp/aipc_shm.out || fail "shared-memory validati
 pass "shared-memory round-trip"
 
 # 5. System V message queue round-trip
-./mini-aipc --mode sysv --size 64 --count 100 >/tmp/aipc_sysv.out || fail "sysv correctness"
-grep -q 'Validation errors: 0' /tmp/aipc_sysv.out || fail "sysv validation"
-pass "sysv message queue round-trip"
+if ./mini-aipc --mode sysv --size 64 --count 100 >/tmp/aipc_sysv.out 2>&1; then
+  grep -q 'Validation errors: 0' /tmp/aipc_sysv.out || fail "sysv validation"
+  pass "sysv message queue round-trip"
+else
+  if grep -q "Function not implemented" /tmp/aipc_sysv.out; then
+    echo "SKIP: sysv message queue not supported by host subsystem (ENOSYS on MSYS2/Cygwin without cygserver)"
+  else
+    fail "sysv correctness"
+  fi
+fi
 
 # 6. POSIX message queue round-trip
 ./mini-aipc --mode posix --size 64 --count 100 >/tmp/aipc_posix.out || fail "posix mq correctness"
@@ -61,11 +68,17 @@ pass "adaptive routes large payload to pipe"
 # 9. Multi-size verification across all six mechanisms (64, 128, 256, 512, 1024 bytes)
 for m in pipe fifo sysv posix shm uds; do
   for s in 128 256 512 1024; do
-    ./mini-aipc --mode "$m" --size "$s" --count 20 >/tmp/aipc_multisize.out || fail "$m failed at size $s"
+    if ! ./mini-aipc --mode "$m" --size "$s" --count 20 >/tmp/aipc_multisize.out 2>&1; then
+      if [ "$m" = "sysv" ] && grep -q "Function not implemented" /tmp/aipc_multisize.out; then
+        echo "SKIP: $m at size $s not supported by host subsystem (ENOSYS on MSYS2/Cygwin without cygserver)"
+        continue
+      fi
+      fail "$m failed at size $s"
+    fi
     grep -q 'Validation errors: 0' /tmp/aipc_multisize.out || fail "$m validation failed at size $s"
   done
 done
-pass "all six mechanisms verified across payload sizes 128, 256, 512, 1024 bytes"
+pass "all available mechanisms verified across payload sizes 128, 256, 512, 1024 bytes"
 
 # 10. Warm-up, CPU affinity, and CSV output flags
 ./mini-aipc --mode uds --size 128 --count 50 --warmup 10 --cpu-producer 0 --cpu-consumer 1 >/tmp/aipc_opts.out || fail "warmup and cpu pinning"
@@ -145,9 +158,13 @@ if timeout 5s env AIPC_TEST_CHILD_EXIT=sysv ./mini-aipc --mode sysv --size 64 --
   fail "sysv child-exit fault should fail"
 else
   code=$?
-  [[ "$code" -ne 124 ]] || fail "parent hung on msgrcv after child exit"
+  if grep -q "Function not implemented" /tmp/aipc_sysv_child_exit.out; then
+    echo "SKIP: sysv child exit test skipped (ENOSYS on MSYS2/Cygwin without cygserver)"
+  else
+    [[ "$code" -ne 124 ]] || fail "parent hung on msgrcv after child exit"
+    pass "sysv message queue child exit handled without hang"
+  fi
 fi
-pass "sysv message queue child exit handled without hang"
 
 if timeout 5s env AIPC_TEST_CHILD_EXIT=posix ./mini-aipc --mode posix --size 64 --count 100 >/tmp/aipc_posix_child_exit.out 2>&1; then
   fail "posix child-exit fault should fail"
@@ -183,9 +200,16 @@ fi
 pass "mixed shared-memory child independently rejects corrupt payload"
 
 # 16. Multi-process concurrency tests
-./mini-aipc-concurrency --mode sysv --producers 2 --consumers 1 --size 64 --count 50 --csv >/tmp/aipc_conc_sysv.out || fail "sysv 2P:1C concurrency test"
-grep -q ',PASS,OK' /tmp/aipc_conc_sysv.out || fail "sysv concurrency failed"
-pass "sysv multi-producer concurrent execution (2P:1C)"
+if ./mini-aipc-concurrency --mode sysv --producers 2 --consumers 1 --size 64 --count 50 --csv >/tmp/aipc_conc_sysv.out 2>&1; then
+  grep -q ',PASS,OK' /tmp/aipc_conc_sysv.out || fail "sysv concurrency failed"
+  pass "sysv multi-producer concurrent execution (2P:1C)"
+else
+  if grep -q "Function not implemented" /tmp/aipc_conc_sysv.out; then
+    echo "SKIP: sysv concurrency not supported by host subsystem (ENOSYS on MSYS2/Cygwin without cygserver)"
+  else
+    fail "sysv 2P:1C concurrency test"
+  fi
+fi
 
 ./mini-aipc-concurrency --mode posix --producers 4 --consumers 4 --size 64 --count 25 --csv >/tmp/aipc_conc_posix.out || fail "posix 4P:4C concurrency test"
 grep -q ',PASS,OK' /tmp/aipc_conc_posix.out || fail "posix concurrency failed"

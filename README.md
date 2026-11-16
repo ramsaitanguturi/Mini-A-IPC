@@ -15,7 +15,28 @@ Additionally, it preserves the **adaptive payload-size selector** (`--mode adapt
 
 ---
 
-## 1. Research Grounding
+## 1. Documentation Index
+
+The repository includes a comprehensive, academically defensible documentation suite in [`docs/`](docs/):
+
+| Document | Description |
+| :--- | :--- |
+| [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) | High-level research scope, technology stack, and objectives |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System internals, module layout, cache-line alignment, and contracts |
+| [`docs/IPC_IMPLEMENTATIONS.md`](docs/IPC_IMPLEMENTATIONS.md) | Detailed technical specifications of all six userspace IPC implementations |
+| [`docs/KERNEL_MODULE_VALIDATION.md`](docs/KERNEL_MODULE_VALIDATION.md) | Custom kernel mailbox driver (`/dev/aipc`) audit, safety, and Fedora validation |
+| [`docs/ADAPTIVE_POLICY_RESULTS.md`](docs/ADAPTIVE_POLICY_RESULTS.md) | Regret formulation, suboptimality analysis, EWMA controller, and calibrated table |
+| [`docs/BENCHMARK_METHODOLOGY.md`](docs/BENCHMARK_METHODOLOGY.md) | Experimental controls, randomized trial blocks, CPU pinning, and statistical formulas |
+| [`docs/BENCHMARK_RESULTS.md`](docs/BENCHMARK_RESULTS.md) | Complete empirical tables, latency percentiles, throughput scaling, and graphs |
+| [`docs/FINAL_TEST_REPORT.md`](docs/FINAL_TEST_REPORT.md) | Comprehensive report covering all 51 automated test assertions across 3 suites |
+| [`docs/KNOWN_LIMITATIONS.md`](docs/KNOWN_LIMITATIONS.md) | Environmental blockers, MSYS2 ENOSYS, virtualization floors, and capacity bounds |
+| [`docs/FINAL_REPOSITORY_AUDIT.md`](docs/FINAL_REPOSITORY_AUDIT.md) | Complete inventory of all source files, scripts, binaries, and artifacts |
+| [`docs/FINAL_ACADEMIC_REPORT.md`](docs/FINAL_ACADEMIC_REPORT.md) | 23-section academic research paper comparing findings with Danyliuk (2026) |
+| [`docs/FINAL_SUBMISSION_CHECKLIST.md`](docs/FINAL_SUBMISSION_CHECKLIST.md) | Complete verification and release readiness checklist |
+
+---
+
+## 2. Research Grounding
 
 This benchmark framework implements the experimental requirements established in:
 
