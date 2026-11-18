@@ -187,7 +187,14 @@ command -v make >/dev/null 2>&1 || { echo "ERROR: make not found in PATH" >&2; e
 find_python_with_deps() {
   local candidates=()
   [[ -n "${PYTHON_BIN:-}" ]] && candidates+=("$PYTHON_BIN")
-  candidates+=(python3 python)
+  candidates+=(
+    "$ROOT/.venv/bin/python"
+    "$ROOT/venv/bin/python"
+    "$HOME/.venv/bin/python"
+    "$HOME/venv/bin/python"
+    python3
+    python
+  )
   for wp in \
     "/c/Users/${USER:-ramsa}/AppData/Local/Programs/Python/Python314/python.exe" \
     "/c/Users/${USER:-ramsa}/AppData/Local/Programs/Python/Python312/python.exe" \
@@ -208,7 +215,14 @@ find_python_with_deps() {
 
 PYTHON_BIN="$(find_python_with_deps)" || {
   echo "ERROR: No Python 3 interpreter with pandas, numpy, and matplotlib found." >&2
-  echo "Set PYTHON_BIN=/path/to/python3 and retry." >&2
+  echo "" >&2
+  echo "To install system dependencies on Fedora Linux, run:" >&2
+  echo "  sudo dnf install -y python3-pandas python3-numpy python3-matplotlib" >&2
+  echo "" >&2
+  echo "Or via pip in a virtual environment:" >&2
+  echo "  python3 -m venv .venv && source .venv/bin/activate && pip install pandas numpy matplotlib" >&2
+  echo "" >&2
+  echo "Or point directly to an existing interpreter: export PYTHON_BIN=/path/to/python3" >&2
   exit 1
 }
 
