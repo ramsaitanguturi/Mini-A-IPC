@@ -1,0 +1,9 @@
+{
+  "run_id": "run_20261113_213410_10747",
+  "mode": "quick",
+  "trials": 2,
+  "messages": 1000,
+  "warmup": 100,
+  "payload_sizes": [64,1024,16384],
+  "output_dir": "results/unified_quick"
+}

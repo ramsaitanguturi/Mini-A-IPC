@@ -1,0 +1,107 @@
+Mini A-IPC Unified Benchmark Environment
+Experiment ID: exp_20261118T130321Z_5317
+Environment ID: Linux_x86_64_fedora
+Captured at (UTC): 2026-11-18T13:03:21Z
+
+[OS / Kernel]
+Linux fedora 7.3.3-300.fc45.x86_64 #1 SMP PREEMPT_DYNAMIC Fri Nov  6 20:37:28 UTC 2026 x86_64 GNU/Linux
+NAME="Fedora Linux"
+VERSION="45 (Workstation Edition)"
+RELEASE_TYPE=stable
+ID=fedora
+VERSION_ID=45
+VERSION_CODENAME=""
+PRETTY_NAME="Fedora Linux 45 (Workstation Edition)"
+ANSI_COLOR="0;38;2;60;110;180"
+LOGO=fedora-logo-icon
+CPE_NAME="cpe:/o:fedoraproject:fedora:45"
+DEFAULT_HOSTNAME="fedora"
+HOME_URL="https://fedoraproject.org/"
+DOCUMENTATION_URL="https://docs.fedoraproject.org/en-US/fedora/f45/"
+SUPPORT_URL="https://ask.fedoraproject.org/"
+BUG_REPORT_URL="https://bugzilla.redhat.com/"
+REDHAT_BUGZILLA_PRODUCT="Fedora"
+REDHAT_BUGZILLA_PRODUCT_VERSION=45
+REDHAT_SUPPORT_PRODUCT="Fedora"
+REDHAT_SUPPORT_PRODUCT_VERSION=45
+SUPPORT_END=2027-12-08
+VARIANT="Workstation Edition"
+VARIANT_ID=workstation
+
+[CPU]
+Architecture:                            x86_64
+CPU op-mode(s):                          32-bit, 64-bit
+Address sizes:                           39 bits physical, 48 bits virtual
+Byte Order:                              Little Endian
+CPU(s):                                  4
+On-line CPU(s) list:                     0-3
+Vendor ID:                               GenuineIntel
+Model name:                              Intel(R) Core(TM) 7 240H
+CPU family:                              6
+Model:                                   186
+Thread(s) per core:                      1
+Core(s) per socket:                      4
+Socket(s):                               1
+Stepping:                                2
+Microcode version:                       0xffffffff
+BogoMIPS:                                5990.39
+Flags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx rdtscp lm constant_tsc rep_good nopl xtopology nonstop_tsc cpuid tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch ibrs_enhanced fsgsbase bmi1 avx2 bmi2 invpcid rdseed adx clflushopt sha_ni arat md_clear flush_l1d arch_capabilities
+Hypervisor vendor:                       KVM
+Virtualization type:                     full
+L1d cache:                               192 KiB (4 instances)
+L1i cache:                               128 KiB (4 instances)
+L2 cache:                                5 MiB (4 instances)
+L3 cache:                                96 MiB (4 instances)
+NUMA node(s):                            1
+NUMA node0 CPU(s):                       0-3
+Vulnerability Gather data sampling:      Not affected
+Vulnerability Ghostwrite:                Not affected
+Vulnerability Indirect target selection: Mitigation; Aligned branch/return thunks
+Vulnerability Itlb multihit:             Not affected
+Vulnerability L1tf:                      Not affected
+Vulnerability Mds:                       Not affected
+Vulnerability Meltdown:                  Not affected
+Vulnerability Mmio stale data:           Not affected
+Vulnerability Old microcode:             Not affected
+Vulnerability Reg file data sampling:    Mitigation; Clear Register File
+Vulnerability Retbleed:                  Mitigation; Enhanced IBRS
+Vulnerability Spec rstack overflow:      Not affected
+Vulnerability Spec store bypass:         Vulnerable
+Vulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+Vulnerability Spectre v2:                Mitigation; Enhanced / Automatic IBRS; PBRSB-eIBRS SW sequence; BHI SW loop, KVM SW loop
+Vulnerability Srbds:                     Not affected
+Vulnerability Tsa:                       Not affected
+Vulnerability Tsx async abort:           Not affected
+Vulnerability Vmscape:                   Not affected
+
+[Memory]
+MemTotal:        3973064 kB
+MemFree:          225872 kB
+MemAvailable:    1892388 kB
+Buffers:            1488 kB
+Cached:          1856404 kB
+SwapCached:            4 kB
+Active:           927732 kB
+Inactive:        2399444 kB
+
+[Compiler & Flags]
+gcc (GCC) 16.2.1 20261029 (Red Hat 16.2.1-3)
+CFLAGS := -std=c11 -D_POSIX_C_SOURCE=200809L -D_GNU_SOURCE -Wall -Wextra -Wpedantic -O2 -Iinclude
+LDFLAGS := -pthread -lrt -lm
+
+[Python & Libraries]
+python: 3.15.2 pandas: 3.1.1 numpy: 2.5.5 matplotlib: 3.11.2
+
+[Instrumentation & Kernel Availability]
+CPU affinity status: SUPPORTED and ACTIVE (sched_setaffinity: producer=0, consumer=1)
+Kernel headers (/lib/modules/7.3.3-300.fc45.x86_64/build): PRESENT
+Linux strace: /usr/bin/strace
+Linux perf: MISSING
+GNU time: /usr/bin/time
+Pre-existing aipc_module loaded: NO
+
+[Experiment Parameters]
+MESSAGES=1000 WARMUP=100 TRIALS=2 SEED=20261111
+PAYLOADS=64,1024,16384
+CONCURRENCY_MATRIX=1:1,2:1,4:1,1:2,4:4 CONCURRENCY_PAYLOAD=256
+THRESHOLD=1024

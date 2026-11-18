@@ -1,0 +1,22 @@
+experiment_id,mechanism,selected_transport,payload_bytes,profile_messages,status,status_reason,producer_avg_rss_kb,consumer_avg_rss_kb,total_avg_rss_kb,producer_peak_rss_kb,consumer_peak_rss_kb,total_peak_rss_kb,rss_samples,kernel_mem_total_kb,kernel_mem_available_kb,kernel_slab_kb,profiling_method
+exp_20261118T134210Z_8303,pipe,pipe,64,200,PASS,ok,2088.0,1180.0,3169.67,2248.0,1180.0,3428.0,12,3973064,1122160,204456,linux_proc_status_rusage
+exp_20261118T134210Z_8303,fifo,fifo,64,200,PASS,ok,2152.0,1180.0,3233.67,2316.0,1180.0,3496.0,12,3973064,1120088,204456,linux_proc_status_rusage
+exp_20261118T134210Z_8303,sysv,sysv,64,200,PASS,ok,2374.33,1228.0,3500.0,2564.0,1228.0,3792.0,12,3973064,1119492,204456,linux_proc_status_rusage
+exp_20261118T134210Z_8303,posix,posix,64,200,PASS,ok,2083.38,1224.0,3119.08,2436.0,1224.0,3660.0,13,3973064,1119492,204456,linux_proc_status_rusage
+exp_20261118T134210Z_8303,shm,shm,64,200,PASS,ok,1973.82,1188.0,2945.82,2384.0,1188.0,3572.0,11,3973064,1119468,204452,linux_proc_status_rusage
+exp_20261118T134210Z_8303,uds,uds,64,200,PASS,ok,2132.0,1244.0,3262.91,2312.0,1244.0,3556.0,11,3973064,1119320,204452,linux_proc_status_rusage
+exp_20261118T134210Z_8303,adaptive,shm,64,200,PASS,ok,2155.67,1120.0,3182.33,2320.0,1120.0,3440.0,12,3973064,1119320,204452,linux_proc_status_rusage
+exp_20261118T134210Z_8303,pipe,pipe,1024,200,PASS,ok,2122.4,1136.0,3144.8,2356.0,1136.0,3492.0,10,3973064,1119320,204452,linux_proc_status_rusage
+exp_20261118T134210Z_8303,fifo,fifo,1024,200,PASS,ok,2117.09,1228.0,3233.45,2296.0,1228.0,3524.0,11,3973064,1119024,204452,linux_proc_status_rusage
+exp_20261118T134210Z_8303,sysv,sysv,1024,200,PASS,ok,2151.67,1116.0,3174.67,2316.0,1116.0,3432.0,12,3973064,1119024,204452,linux_proc_status_rusage
+exp_20261118T134210Z_8303,posix,posix,1024,200,PASS,ok,2094.4,1116.0,3098.8,2312.0,1116.0,3428.0,10,3973064,1119024,204452,linux_proc_status_rusage
+exp_20261118T134210Z_8303,shm,shm,1024,200,PASS,ok,2156.0,1188.0,3212.0,2384.0,1188.0,3572.0,9,3973064,1118728,204452,linux_proc_status_rusage
+exp_20261118T134210Z_8303,uds,uds,1024,200,PASS,ok,2012.73,1324.0,3096.0,2428.0,1324.0,3752.0,11,3973064,1118728,204452,linux_proc_status_rusage
+exp_20261118T134210Z_8303,adaptive,shm,1024,200,PASS,ok,2085.78,1120.0,3081.33,2320.0,1120.0,3440.0,9,3973064,1118272,204452,linux_proc_status_rusage
+exp_20261118T134210Z_8303,pipe,pipe,16384,200,PASS,ok,2010.67,1168.0,3048.89,2220.0,1168.0,3388.0,9,3973064,1118272,204452,linux_proc_status_rusage
+exp_20261118T134210Z_8303,fifo,fifo,16384,200,PASS,ok,2176.67,1288.0,3357.33,2344.0,1288.0,3632.0,12,3973064,1118272,204452,linux_proc_status_rusage
+exp_20261118T134210Z_8303,sysv,sysv,16384,200,UNSUPPORTED,sysv payload 16384 bytes exceeds transport limit (Message too long),,,,,,,0,3973064,1117816,204452,linux_proc_status_rusage
+exp_20261118T134210Z_8303,posix,posix,16384,200,UNSUPPORTED,posix payload 16384 bytes exceeds transport limit (Invalid argument),,,,,,,0,3973064,1117816,204452,linux_proc_status_rusage
+exp_20261118T134210Z_8303,shm,shm,16384,200,UNSUPPORTED,shm payload 16384 bytes exceeds transport limit (Message too long),,,,,,,0,3973064,1117816,204452,linux_proc_status_rusage
+exp_20261118T134210Z_8303,uds,uds,16384,200,PASS,ok,1910.67,1304.0,2924.89,2408.0,1304.0,3712.0,9,3973064,1117736,204452,linux_proc_status_rusage
+exp_20261118T134210Z_8303,adaptive,pipe,16384,200,PASS,ok,1886.67,1176.0,2801.33,2384.0,1176.0,3560.0,9,3973064,1117736,204452,linux_proc_status_rusage

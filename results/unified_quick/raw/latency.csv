@@ -1,43 +1,144 @@
-mechanism,payload_bytes,trial,count,avg_rtt_us,p50_rtt_us,p90_rtt_us,p95_rtt_us,p99_rtt_us,p999_rtt_us,min_rtt_us,max_rtt_us,stddev_rtt_us
-fifo,64,1,1000,122.973,108.403,165.772,204.202,272.372,494.687,55.322,660.713,39.307
-fifo,1024,1,1000,120.531,108.252,164.371,194.615,256.442,330.430,54.017,409.202,32.571
-fifo,16384,1,1000,125.513,112.176,169.140,201.890,260.547,407.129,55.712,469.227,35.974
-sysv,64,1,1000,130.835,109.767,174.072,206.581,315.274,2191.525,54.078,3109.999,122.943
-sysv,1024,1,1000,123.778,109.960,168.575,204.046,278.665,428.697,52.864,852.667,42.068
-posix,64,1,1000,127.181,108.413,184.430,217.850,306.453,532.969,55.812,689.397,46.902
-posix,1024,1,1000,121.908,108.630,173.354,200.805,255.728,288.059,69.894,475.846,34.106
-pipe,64,1,1000,128.123,108.038,178.597,214.324,411.874,904.370,57.208,2280.142,88.895
-pipe,1024,1,1000,122.029,108.135,166.958,204.166,274.804,335.054,72.539,456.540,35.880
-pipe,16384,1,1000,132.152,113.681,181.675,216.592,322.605,439.529,54.853,963.171,50.411
-shm,64,1,1000,123.133,107.738,175.465,204.276,277.136,411.470,53.478,422.309,38.284
-shm,1024,1,1000,125.369,107.842,165.063,205.037,317.826,543.463,0.749,2274.408,80.622
-adaptive,64,1,1000,119.777,107.647,157.567,196.814,246.451,325.251,52.622,325.409,31.328
-adaptive,1024,1,1000,128.736,108.462,190.284,225.865,313.283,456.740,54.874,574.382,46.542
-adaptive,16384,1,1000,124.785,112.359,168.862,199.594,260.271,314.186,57.347,389.813,32.193
-uds,64,1,1000,125.797,106.864,179.980,208.073,298.246,594.551,77.757,2319.319,81.638
-uds,1024,1,1000,127.145,106.796,185.628,226.134,378.011,577.291,78.370,951.199,59.673
-uds,16384,1,1000,121.642,108.082,170.610,204.345,251.249,356.689,79.037,426.336,33.753
-kernel,64,1,1000,0.841,0.722,0.749,0.769,1.254,81.918,0.683,81.918,2.619
-kernel,1024,1,1000,1.211,0.900,0.936,1.008,1.888,119.645,0.848,119.645,4.839
-kernel,16384,1,1000,3.178,2.937,3.051,3.670,4.348,77.090,2.818,77.090,3.230
-shm,64,2,1000,124.208,107.481,174.515,204.952,303.128,763.068,53.867,2429.617,85.142
-shm,1024,2,1000,123.643,107.729,164.739,204.897,272.346,624.492,77.040,2428.456,81.754
-fifo,64,2,1000,124.762,107.785,179.446,215.427,282.892,634.395,67.979,831.401,52.139
-fifo,1024,2,1000,130.434,108.963,191.145,219.591,299.904,515.579,53.012,696.535,47.746
-fifo,16384,2,1000,135.535,112.791,182.785,230.907,449.323,572.331,79.970,673.688,60.106
-posix,64,2,1000,119.853,107.459,149.852,184.439,308.265,430.318,74.536,741.695,40.984
-posix,1024,2,1000,125.690,108.211,160.114,214.202,309.876,766.109,82.564,809.208,58.142
-pipe,64,2,1000,125.868,107.477,164.953,220.855,329.070,743.676,55.177,769.508,58.597
-pipe,1024,2,1000,131.460,108.591,185.024,233.625,409.094,880.293,53.791,1090.817,70.988
-pipe,16384,2,1000,131.553,112.055,184.665,229.409,344.222,587.358,81.983,641.646,52.011
-uds,64,2,1000,129.014,106.862,187.053,236.046,370.277,609.919,84.181,822.847,57.781
-uds,1024,2,1000,121.329,106.253,160.927,206.206,367.737,495.147,79.208,503.174,47.396
-uds,16384,2,1000,128.749,108.293,177.987,221.811,367.332,920.851,94.028,1099.979,67.208
-sysv,64,2,1000,121.460,108.900,154.933,195.554,271.022,389.552,77.464,415.790,34.632
-sysv,1024,2,1000,117.166,108.637,118.975,160.080,272.201,615.229,68.625,724.543,39.727
-adaptive,64,2,1000,115.550,106.850,121.093,157.158,249.012,410.115,72.798,814.782,35.829
-adaptive,1024,2,1000,121.350,107.376,148.948,194.325,299.975,691.905,54.719,733.579,47.962
-adaptive,16384,2,1000,120.719,111.938,131.590,166.366,247.822,474.125,74.877,716.099,33.728
-kernel,64,2,1000,0.829,0.720,0.746,0.759,0.926,90.949,0.690,90.949,2.870
-kernel,1024,2,1000,1.107,0.897,0.968,1.161,1.694,84.565,0.851,84.565,3.633
-kernel,16384,2,1000,3.354,2.941,3.081,3.121,4.554,118.983,2.833,118.983,5.611
+experiment_id,timestamp_utc,workload_type,latency_semantics,mechanism,selected_transport,payload_bytes,trial,completed_messages,status,status_reason,avg_rtt_us,stddev_rtt_us,min_rtt_us,p50_rtt_us,p90_rtt_us,p95_rtt_us,p99_rtt_us,p999_rtt_us,max_rtt_us
+exp_20261118T134210Z_8303,2026-11-18T13:42:10.658199+00:00,single_pair_rtt,round_trip_rtt,adaptive,shm,64,1,1000,PASS,ok,127.999204,151.681878,43.771,111.2685,165.661,219.296,352.518,2381.82,3529.488
+exp_20261118T134210Z_8303,2026-11-18T13:42:10.804155+00:00,single_pair_rtt,round_trip_rtt,uds,uds,16384,1,1000,PASS,ok,129.455393,52.752826,30.78,111.9355,197.412,245.027,329.716,455.201,616.097
+exp_20261118T134210Z_8303,2026-11-18T13:42:10.942351+00:00,single_pair_rtt,round_trip_rtt,shm,shm,64,1,1000,PASS,ok,123.532679,47.517542,22.368,113.758,182.796,226.831,292.719,366.09,404.171
+exp_20261118T134210Z_8303,2026-11-18T13:42:10.944244+00:00,single_pair_rtt,round_trip_rtt,posix,posix,16384,1,0,UNSUPPORTED,posix payload 16384 bytes exceeds transport limit (Invalid argument),,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:10.945474+00:00,single_pair_rtt,round_trip_rtt,sysv,sysv,16384,1,0,UNSUPPORTED,sysv payload 16384 bytes exceeds transport limit (Message too long),,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:11.087401+00:00,single_pair_rtt,round_trip_rtt,adaptive,shm,1024,1,1000,PASS,ok,125.747272,116.746134,63.83,116.6145,172.131,225.604,298.837,529.83,3471.91
+exp_20261118T134210Z_8303,2026-11-18T13:42:11.227247+00:00,single_pair_rtt,round_trip_rtt,posix,posix,64,1,1000,PASS,ok,123.245996,104.746652,51.138,109.655,163.91,205.971,298.041,1814.666,2340.077
+exp_20261118T134210Z_8303,2026-11-18T13:42:11.357263+00:00,single_pair_rtt,round_trip_rtt,pipe,pipe,1024,1,1000,PASS,ok,114.539821,40.464661,70.872,108.1995,151.47,197.784,265.389,344.043,349.534
+exp_20261118T134210Z_8303,2026-11-18T13:42:11.510149+00:00,single_pair_rtt,round_trip_rtt,pipe,pipe,64,1,1000,PASS,ok,136.26018,67.812292,49.359,124.7265,205.325,257.176,400.478,766.682,884.058
+exp_20261118T134210Z_8303,2026-11-18T13:42:11.511465+00:00,single_pair_rtt,round_trip_rtt,shm,shm,16384,1,0,UNSUPPORTED,shm payload 16384 bytes exceeds transport limit (Message too long),,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:11.659183+00:00,single_pair_rtt,round_trip_rtt,sysv,sysv,64,1,1000,PASS,ok,126.844955,51.835036,72.36,123.9375,179.141,221.61,298.639,384.438,831.308
+exp_20261118T134210Z_8303,2026-11-18T13:42:11.786112+00:00,single_pair_rtt,round_trip_rtt,fifo,fifo,64,1,1000,PASS,ok,111.358748,36.231532,41.925,104.2375,143.275,170.605,253.61,326.002,358.345
+exp_20261118T134210Z_8303,2026-11-18T13:42:11.936274+00:00,single_pair_rtt,round_trip_rtt,sysv,sysv,1024,1,1000,PASS,ok,136.645963,194.082697,50.791,124.005,192.725,241.151,477.675,2854.241,4941.009
+exp_20261118T134210Z_8303,2026-11-18T13:42:12.089417+00:00,single_pair_rtt,round_trip_rtt,fifo,fifo,16384,1,1000,PASS,ok,136.105809,58.888391,50.813,134.57,207.675,251.149,344.302,568.76,593.357
+exp_20261118T134210Z_8303,2026-11-18T13:42:12.251813+00:00,single_pair_rtt,round_trip_rtt,uds,uds,1024,1,1000,PASS,ok,147.040064,187.867919,37.241,115.1565,199.425,242.644,452.115,2537.802,2809.585
+exp_20261118T134210Z_8303,2026-11-18T13:42:12.416546+00:00,single_pair_rtt,round_trip_rtt,posix,posix,1024,1,1000,PASS,ok,150.096813,93.092124,34.994,131.742,238.113,312.74,492.126,757.533,1678.498
+exp_20261118T134210Z_8303,2026-11-18T13:42:12.594910+00:00,single_pair_rtt,round_trip_rtt,adaptive,pipe,16384,1,1000,PASS,ok,159.144129,121.537517,36.46,139.3355,252.433,298.647,446.188,1530.497,2422.248
+exp_20261118T134210Z_8303,2026-11-18T13:42:12.758119+00:00,single_pair_rtt,round_trip_rtt,uds,uds,64,1,1000,PASS,ok,145.187558,55.43416,30.333,125.9275,215.838,258.95,332.85,408.24,892.467
+exp_20261118T134210Z_8303,2026-11-18T13:42:12.915717+00:00,single_pair_rtt,round_trip_rtt,shm,shm,1024,1,1000,PASS,ok,140.294121,54.251214,4.318,134.676,215.09,252.885,321.179,387.596,510.891
+exp_20261118T134210Z_8303,2026-11-18T13:42:13.061923+00:00,single_pair_rtt,round_trip_rtt,fifo,fifo,1024,1,1000,PASS,ok,128.64794,51.621596,29.687,121.2575,190.726,237.815,294.034,395.539,691.862
+exp_20261118T134210Z_8303,2026-11-18T13:42:13.219866+00:00,single_pair_rtt,round_trip_rtt,pipe,pipe,16384,1,1000,PASS,ok,142.892572,108.716797,55.79,135.6225,207.637,261.551,325.492,1489.241,2531.37
+exp_20261118T134210Z_8303,2026-11-18T13:42:13.371633+00:00,single_pair_rtt,round_trip_rtt,uds,uds,1024,2,1000,PASS,ok,131.692744,82.92418,52.479,114.3715,187.659,217.177,284.543,821.19,2278.089
+exp_20261118T134210Z_8303,2026-11-18T13:42:13.530398+00:00,single_pair_rtt,round_trip_rtt,sysv,sysv,1024,2,1000,PASS,ok,143.274912,59.59091,55.24,136.282,214.685,264.189,342.312,592.936,597.975
+exp_20261118T134210Z_8303,2026-11-18T13:42:13.685350+00:00,single_pair_rtt,round_trip_rtt,shm,shm,64,2,1000,PASS,ok,137.449786,55.069719,34.61,133.236,207.215,245.317,337.186,455.988,584.209
+exp_20261118T134210Z_8303,2026-11-18T13:42:13.850735+00:00,single_pair_rtt,round_trip_rtt,fifo,fifo,16384,2,1000,PASS,ok,144.093955,55.762862,50.052,141.259,223.064,257.485,322.425,400.573,473.634
+exp_20261118T134210Z_8303,2026-11-18T13:42:14.008738+00:00,single_pair_rtt,round_trip_rtt,pipe,pipe,16384,2,1000,PASS,ok,140.159128,55.377501,32.92,138.025,210.239,250.898,317.499,420.625,606.915
+exp_20261118T134210Z_8303,2026-11-18T13:42:14.168285+00:00,single_pair_rtt,round_trip_rtt,posix,posix,64,2,1000,PASS,ok,142.464562,58.789388,33.65,134.949,214.893,252.492,345.451,414.866,840.908
+exp_20261118T134210Z_8303,2026-11-18T13:42:14.169870+00:00,single_pair_rtt,round_trip_rtt,sysv,sysv,16384,2,0,UNSUPPORTED,sysv payload 16384 bytes exceeds transport limit (Message too long),,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:14.331459+00:00,single_pair_rtt,round_trip_rtt,adaptive,pipe,16384,2,1000,PASS,ok,144.954119,96.693846,28.112,138.86,205.819,249.752,341.385,1487.592,2242.817
+exp_20261118T134210Z_8303,2026-11-18T13:42:14.491016+00:00,single_pair_rtt,round_trip_rtt,adaptive,shm,1024,2,1000,PASS,ok,141.658326,56.641759,23.475,133.9765,219.418,264.288,324.587,469.02,472.194
+exp_20261118T134210Z_8303,2026-11-18T13:42:14.659233+00:00,single_pair_rtt,round_trip_rtt,uds,uds,64,2,1000,PASS,ok,149.739118,65.735278,42.332,126.82,226.277,269.855,350.939,692.484,920.372
+exp_20261118T134210Z_8303,2026-11-18T13:42:14.822130+00:00,single_pair_rtt,round_trip_rtt,posix,posix,1024,2,1000,PASS,ok,146.003119,68.783911,29.941,136.1155,222.802,268.761,383.725,609.045,806.304
+exp_20261118T134210Z_8303,2026-11-18T13:42:14.968908+00:00,single_pair_rtt,round_trip_rtt,pipe,pipe,1024,2,1000,PASS,ok,130.891062,108.603584,55.83,122.0645,183.335,226.568,313.054,1325.308,2591.777
+exp_20261118T134210Z_8303,2026-11-18T13:42:15.099977+00:00,single_pair_rtt,round_trip_rtt,pipe,pipe,64,2,1000,PASS,ok,116.745025,40.538812,68.291,109.7465,150.043,188.551,265.953,442.539,453.05
+exp_20261118T134210Z_8303,2026-11-18T13:42:15.229855+00:00,single_pair_rtt,round_trip_rtt,fifo,fifo,64,2,1000,PASS,ok,115.268231,36.298569,64.63,109.5845,147.292,180.977,238.068,334.29,360.717
+exp_20261118T134210Z_8303,2026-11-18T13:42:15.365001+00:00,single_pair_rtt,round_trip_rtt,shm,shm,1024,2,1000,PASS,ok,120.309344,46.562885,61.455,110.273,168.117,201.246,281.12,411.878,690.728
+exp_20261118T134210Z_8303,2026-11-18T13:42:15.366919+00:00,single_pair_rtt,round_trip_rtt,shm,shm,16384,2,0,UNSUPPORTED,shm payload 16384 bytes exceeds transport limit (Message too long),,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:15.517206+00:00,single_pair_rtt,round_trip_rtt,sysv,sysv,64,2,1000,PASS,ok,134.365196,157.521744,4.35,120.767,191.573,230.716,347.87,3377.795,3495.362
+exp_20261118T134210Z_8303,2026-11-18T13:42:15.665189+00:00,single_pair_rtt,round_trip_rtt,adaptive,shm,64,2,1000,PASS,ok,133.067621,113.198386,0.286,122.8545,200.079,246.197,327.403,467.28,3267.719
+exp_20261118T134210Z_8303,2026-11-18T13:42:15.666282+00:00,single_pair_rtt,round_trip_rtt,posix,posix,16384,2,0,UNSUPPORTED,posix payload 16384 bytes exceeds transport limit (Invalid argument),,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:15.806936+00:00,single_pair_rtt,round_trip_rtt,fifo,fifo,1024,2,1000,PASS,ok,125.15499,46.980737,63.791,122.762,177.762,223.887,295.682,374.063,382.436
+exp_20261118T134210Z_8303,2026-11-18T13:42:15.949138+00:00,single_pair_rtt,round_trip_rtt,uds,uds,16384,2,1000,PASS,ok,127.317555,44.829039,31.089,112.863,182.72,218.434,309.083,423.713,548.338
+exp_20261118T134210Z_8303,2026-11-18T13:42:15.951148+00:00,selector_overhead,decision_only,adaptive,shm,64,1,1000000,PASS,ok,0.000678498,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:15.953359+00:00,selector_overhead,decision_only,adaptive,shm,1024,1,1000000,PASS,ok,0.000613764,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:15.954959+00:00,selector_overhead,decision_only,adaptive,pipe,16384,1,1000000,PASS,ok,0.000613789,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.047748+00:00,mixed_80_20,round_trip_rtt,pipe,pipe,3315,1,1000,PASS,ok,88.68209,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.192025+00:00,mixed_80_20,round_trip_rtt,adaptive,adaptive,3315,1,1000,PASS,ok,142.1668,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.325972+00:00,mixed_80_20,round_trip_rtt,pipe,pipe,3315,2,1000,PASS,ok,132.37982,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.356685+00:00,mixed_80_20,round_trip_rtt,adaptive,adaptive,3315,2,1000,PASS,ok,29.30868,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.364211+00:00,concurrency_pipeline,one_way_pipeline,sysv,sysv,256,1,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.367096+00:00,concurrency_pipeline,one_way_pipeline,adaptive,shm,256,1,0,UNSUPPORTED,POSIX shared memory mailbox (src/ipc_shm.c) is a single-slot SPSC 1P/1C design,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.369051+00:00,concurrency_pipeline,one_way_pipeline,fifo,fifo,256,1,0,UNSUPPORTED,Byte-stream fifo guarantees atomic multi-writer writes only for size<=PIPE_BUF (4096 B) and 1 consumer,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.377990+00:00,concurrency_pipeline,one_way_pipeline,posix,posix,256,1,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.393265+00:00,concurrency_pipeline,one_way_pipeline,posix,posix,256,1,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.397888+00:00,concurrency_pipeline,one_way_pipeline,uds,uds,256,1,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.400422+00:00,concurrency_pipeline,one_way_pipeline,pipe,pipe,256,1,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.401462+00:00,concurrency_pipeline,one_way_pipeline,pipe,pipe,256,1,0,UNSUPPORTED,Byte-stream pipe guarantees atomic multi-writer writes only for size<=PIPE_BUF (4096 B) and 1 consumer,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.405218+00:00,concurrency_pipeline,one_way_pipeline,sysv,sysv,256,1,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.410881+00:00,concurrency_pipeline,one_way_pipeline,posix,posix,256,1,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.419528+00:00,concurrency_pipeline,one_way_pipeline,posix,posix,256,1,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.422444+00:00,concurrency_pipeline,one_way_pipeline,pipe,pipe,256,1,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.423351+00:00,concurrency_pipeline,one_way_pipeline,shm,shm,256,1,0,UNSUPPORTED,POSIX shared memory mailbox (src/ipc_shm.c) is a single-slot SPSC 1P/1C design,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.426829+00:00,concurrency_pipeline,one_way_pipeline,uds,uds,256,1,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.429774+00:00,concurrency_pipeline,one_way_pipeline,sysv,sysv,256,1,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.432995+00:00,concurrency_pipeline,one_way_pipeline,uds,uds,256,1,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.436446+00:00,concurrency_pipeline,one_way_pipeline,pipe,pipe,256,1,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.437432+00:00,concurrency_pipeline,one_way_pipeline,adaptive,shm,256,1,0,UNSUPPORTED,POSIX shared memory mailbox (src/ipc_shm.c) is a single-slot SPSC 1P/1C design,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.438337+00:00,concurrency_pipeline,one_way_pipeline,shm,shm,256,1,0,UNSUPPORTED,POSIX shared memory mailbox (src/ipc_shm.c) is a single-slot SPSC 1P/1C design,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.440734+00:00,concurrency_pipeline,one_way_pipeline,fifo,fifo,256,1,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.444611+00:00,concurrency_pipeline,one_way_pipeline,sysv,sysv,256,1,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.445622+00:00,concurrency_pipeline,one_way_pipeline,pipe,pipe,256,1,0,UNSUPPORTED,Byte-stream pipe guarantees atomic multi-writer writes only for size<=PIPE_BUF (4096 B) and 1 consumer,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.449126+00:00,concurrency_pipeline,one_way_pipeline,sysv,sysv,256,1,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.450575+00:00,concurrency_pipeline,one_way_pipeline,fifo,fifo,256,1,0,UNSUPPORTED,Byte-stream fifo guarantees atomic multi-writer writes only for size<=PIPE_BUF (4096 B) and 1 consumer,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.451604+00:00,concurrency_pipeline,one_way_pipeline,adaptive,shm,256,1,0,UNSUPPORTED,POSIX shared memory mailbox (src/ipc_shm.c) is a single-slot SPSC 1P/1C design,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.452589+00:00,concurrency_pipeline,one_way_pipeline,shm,shm,256,1,0,UNSUPPORTED,POSIX shared memory mailbox (src/ipc_shm.c) is a single-slot SPSC 1P/1C design,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.453577+00:00,concurrency_pipeline,one_way_pipeline,adaptive,shm,256,1,0,UNSUPPORTED,POSIX shared memory mailbox (src/ipc_shm.c) is a single-slot SPSC 1P/1C design,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.456416+00:00,concurrency_pipeline,one_way_pipeline,fifo,fifo,256,1,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.459778+00:00,concurrency_pipeline,one_way_pipeline,uds,uds,256,1,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.460872+00:00,concurrency_pipeline,one_way_pipeline,shm,shm,256,1,0,UNSUPPORTED,POSIX shared memory mailbox (src/ipc_shm.c) is a single-slot SPSC 1P/1C design,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.462518+00:00,concurrency_pipeline,one_way_pipeline,adaptive,shm,256,1,0,UNSUPPORTED,POSIX shared memory mailbox (src/ipc_shm.c) is a single-slot SPSC 1P/1C design,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.464176+00:00,concurrency_pipeline,one_way_pipeline,shm,shm,256,1,0,UNSUPPORTED,POSIX shared memory mailbox (src/ipc_shm.c) is a single-slot SPSC 1P/1C design,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.474653+00:00,concurrency_pipeline,one_way_pipeline,posix,posix,256,1,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.477632+00:00,concurrency_pipeline,one_way_pipeline,uds,uds,256,1,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.480629+00:00,concurrency_pipeline,one_way_pipeline,fifo,fifo,256,1,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.492143+00:00,concurrency_pipeline,one_way_pipeline,posix,posix,256,2,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.497774+00:00,concurrency_pipeline,one_way_pipeline,pipe,pipe,256,2,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.502949+00:00,concurrency_pipeline,one_way_pipeline,adaptive,shm,256,2,0,UNSUPPORTED,POSIX shared memory mailbox (src/ipc_shm.c) is a single-slot SPSC 1P/1C design,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.509694+00:00,concurrency_pipeline,one_way_pipeline,adaptive,shm,256,2,0,UNSUPPORTED,POSIX shared memory mailbox (src/ipc_shm.c) is a single-slot SPSC 1P/1C design,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.511180+00:00,concurrency_pipeline,one_way_pipeline,adaptive,shm,256,2,0,UNSUPPORTED,POSIX shared memory mailbox (src/ipc_shm.c) is a single-slot SPSC 1P/1C design,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.524760+00:00,concurrency_pipeline,one_way_pipeline,posix,posix,256,2,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.528719+00:00,concurrency_pipeline,one_way_pipeline,sysv,sysv,256,2,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.529814+00:00,concurrency_pipeline,one_way_pipeline,adaptive,shm,256,2,0,UNSUPPORTED,POSIX shared memory mailbox (src/ipc_shm.c) is a single-slot SPSC 1P/1C design,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.533328+00:00,concurrency_pipeline,one_way_pipeline,uds,uds,256,2,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.535683+00:00,concurrency_pipeline,one_way_pipeline,fifo,fifo,256,2,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.536631+00:00,concurrency_pipeline,one_way_pipeline,shm,shm,256,2,0,UNSUPPORTED,POSIX shared memory mailbox (src/ipc_shm.c) is a single-slot SPSC 1P/1C design,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.540312+00:00,concurrency_pipeline,one_way_pipeline,sysv,sysv,256,2,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.543811+00:00,concurrency_pipeline,one_way_pipeline,sysv,sysv,256,2,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.554042+00:00,concurrency_pipeline,one_way_pipeline,posix,posix,256,2,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.566268+00:00,concurrency_pipeline,one_way_pipeline,sysv,sysv,256,2,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.569823+00:00,concurrency_pipeline,one_way_pipeline,sysv,sysv,256,2,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.573013+00:00,concurrency_pipeline,one_way_pipeline,uds,uds,256,2,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.575936+00:00,concurrency_pipeline,one_way_pipeline,uds,uds,256,2,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.579830+00:00,concurrency_pipeline,one_way_pipeline,uds,uds,256,2,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.581218+00:00,concurrency_pipeline,one_way_pipeline,adaptive,shm,256,2,0,UNSUPPORTED,POSIX shared memory mailbox (src/ipc_shm.c) is a single-slot SPSC 1P/1C design,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.582244+00:00,concurrency_pipeline,one_way_pipeline,pipe,pipe,256,2,0,UNSUPPORTED,Byte-stream pipe guarantees atomic multi-writer writes only for size<=PIPE_BUF (4096 B) and 1 consumer,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.584921+00:00,concurrency_pipeline,one_way_pipeline,fifo,fifo,256,2,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.588168+00:00,concurrency_pipeline,one_way_pipeline,fifo,fifo,256,2,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.606747+00:00,concurrency_pipeline,one_way_pipeline,posix,posix,256,2,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.607816+00:00,concurrency_pipeline,one_way_pipeline,shm,shm,256,2,0,UNSUPPORTED,POSIX shared memory mailbox (src/ipc_shm.c) is a single-slot SPSC 1P/1C design,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.608877+00:00,concurrency_pipeline,one_way_pipeline,fifo,fifo,256,2,0,UNSUPPORTED,Byte-stream fifo guarantees atomic multi-writer writes only for size<=PIPE_BUF (4096 B) and 1 consumer,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.609942+00:00,concurrency_pipeline,one_way_pipeline,shm,shm,256,2,0,UNSUPPORTED,POSIX shared memory mailbox (src/ipc_shm.c) is a single-slot SPSC 1P/1C design,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.611045+00:00,concurrency_pipeline,one_way_pipeline,shm,shm,256,2,0,UNSUPPORTED,POSIX shared memory mailbox (src/ipc_shm.c) is a single-slot SPSC 1P/1C design,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.613581+00:00,concurrency_pipeline,one_way_pipeline,pipe,pipe,256,2,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.615873+00:00,concurrency_pipeline,one_way_pipeline,pipe,pipe,256,2,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.616916+00:00,concurrency_pipeline,one_way_pipeline,pipe,pipe,256,2,0,UNSUPPORTED,Byte-stream pipe guarantees atomic multi-writer writes only for size<=PIPE_BUF (4096 B) and 1 consumer,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.617811+00:00,concurrency_pipeline,one_way_pipeline,shm,shm,256,2,0,UNSUPPORTED,POSIX shared memory mailbox (src/ipc_shm.c) is a single-slot SPSC 1P/1C design,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.622182+00:00,concurrency_pipeline,one_way_pipeline,uds,uds,256,2,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.627848+00:00,concurrency_pipeline,one_way_pipeline,posix,posix,256,2,1000,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.628790+00:00,concurrency_pipeline,one_way_pipeline,fifo,fifo,256,2,0,UNSUPPORTED,Byte-stream fifo guarantees atomic multi-writer writes only for size<=PIPE_BUF (4096 B) and 1 consumer,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.631693+00:00,unidirectional_stream,one_way_pipeline,pipe,pipe,1024,1,200,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.636951+00:00,unidirectional_stream,one_way_pipeline,uds,uds,1024,1,200,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.644837+00:00,unidirectional_stream,one_way_pipeline,uds,uds,64,1,200,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.652000+00:00,unidirectional_stream,one_way_pipeline,fifo,fifo,16384,1,200,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.657207+00:00,unidirectional_stream,one_way_pipeline,posix,posix,64,1,200,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.664165+00:00,unidirectional_stream,one_way_pipeline,uds,uds,16384,1,200,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.669202+00:00,unidirectional_stream,one_way_pipeline,posix,posix,1024,1,200,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.671294+00:00,unidirectional_stream,one_way_pipeline,fifo,fifo,64,1,200,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.673126+00:00,unidirectional_stream,one_way_pipeline,pipe,pipe,64,1,200,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.679086+00:00,unidirectional_stream,one_way_pipeline,pipe,pipe,16384,1,200,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.680104+00:00,unidirectional_stream,one_way_pipeline,posix,posix,16384,1,0,UNSUPPORTED,mq_open(msgsize=16384) failed: Invalid argument,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.682375+00:00,unidirectional_stream,one_way_pipeline,fifo,fifo,1024,1,200,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.684325+00:00,unidirectional_stream,one_way_pipeline,pipe,pipe,64,2,200,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.691276+00:00,unidirectional_stream,one_way_pipeline,fifo,fifo,16384,2,200,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.695562+00:00,unidirectional_stream,one_way_pipeline,posix,posix,1024,2,200,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.702766+00:00,unidirectional_stream,one_way_pipeline,uds,uds,16384,2,200,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.705159+00:00,unidirectional_stream,one_way_pipeline,uds,uds,64,2,200,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.706143+00:00,unidirectional_stream,one_way_pipeline,posix,posix,16384,2,0,UNSUPPORTED,mq_open(msgsize=16384) failed: Invalid argument,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.708689+00:00,unidirectional_stream,one_way_pipeline,fifo,fifo,1024,2,200,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.711532+00:00,unidirectional_stream,one_way_pipeline,uds,uds,1024,2,200,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.713337+00:00,unidirectional_stream,one_way_pipeline,fifo,fifo,64,2,200,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.715904+00:00,unidirectional_stream,one_way_pipeline,pipe,pipe,1024,2,200,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.722831+00:00,unidirectional_stream,one_way_pipeline,pipe,pipe,16384,2,200,PASS,ok,,,,,,,,,
+exp_20261118T134210Z_8303,2026-11-18T13:42:16.727179+00:00,unidirectional_stream,one_way_pipeline,posix,posix,64,2,200,PASS,ok,,,,,,,,,

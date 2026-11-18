@@ -1,0 +1,4 @@
+payload_bytes,selected_transport,expected_transport,selection_accuracy_pct,adaptive_latency_us,adaptive_throughput_msg_sec,best_transport,best_latency_us,best_throughput_msg_sec,selection_overhead_ns,regret_percent,latency_difference_pct
+64,shm,shm,100.0%,117.663,8501.57,posix,123.517,8103.19,-5853,-4.74,-4.74%
+1024,shm,shm,100.0%,125.043,8004.24,sysv,120.472,8306.94,4571,3.79,3.79%
+16384,pipe,pipe,100.0%,122.752,8148.73,uds,125.195,7993.93,-2442,-1.95,-1.95%
