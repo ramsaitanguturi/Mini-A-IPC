@@ -1,7 +1,7 @@
 Mini A-IPC Unified Benchmark Environment
-Experiment ID: exp_20261118T134235Z_9116
+Experiment ID: exp_20261118T134516Z_9733
 Environment ID: Linux_x86_64_fedora
-Captured at (UTC): 2026-11-18T13:42:35Z
+Captured at (UTC): 2026-11-18T13:45:16Z
 
 [OS / Kernel]
 Linux fedora 7.3.3-300.fc45.x86_64 #1 SMP PREEMPT_DYNAMIC Fri Nov  6 20:37:28 UTC 2026 x86_64 GNU/Linux
@@ -76,13 +76,13 @@ Vulnerability Vmscape:                   Not affected
 
 [Memory]
 MemTotal:        3973064 kB
-MemFree:          303836 kB
-MemAvailable:    1128896 kB
+MemFree:          261684 kB
+MemAvailable:    1351652 kB
 Buffers:            1204 kB
-Cached:           982552 kB
-SwapCached:         1768 kB
-Active:          1761916 kB
-Inactive:        1109532 kB
+Cached:          1122212 kB
+SwapCached:         2224 kB
+Active:          1638324 kB
+Inactive:        1293376 kB
 
 [Compiler & Flags]
 gcc (GCC) 16.2.1 20261029 (Red Hat 16.2.1-3)

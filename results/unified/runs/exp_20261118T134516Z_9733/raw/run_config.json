@@ -1,0 +1,9 @@
+{
+  "run_id": "run_20261113_213428_11370",
+  "mode": "full",
+  "trials": 7,
+  "messages": 10000,
+  "warmup": 500,
+  "payload_sizes": [64,256,1024,4096,16384,65536,262144],
+  "output_dir": "results/unified"
+}
