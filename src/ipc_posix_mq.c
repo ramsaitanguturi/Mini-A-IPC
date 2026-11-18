@@ -220,6 +220,11 @@ int ipc_posix_run_opts(size_t payload_size, size_t count, const ipc_bench_opts_t
     *elapsed_ns = end >= start ? end - start : 0;
 
 exchange_done:
+    /* If an error occurred, proactively terminate child to prevent hanging waitpid */
+    if (*errors != 0 && child > 0) {
+        kill(child, SIGTERM);
+    }
+
     /* Reap child process */
     while (waitpid(child, &status, 0) < 0) {
         if (errno == EINTR) continue;

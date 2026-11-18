@@ -58,7 +58,7 @@ def cleanup_temp_ipc():
                 pass
 
 
-def run_unified_call(bin_path, args_list, timeout_s=600):
+def run_unified_call(bin_path, args_list, timeout_s=45):
     """Run bin/aipc_unified_bench and parse its JSON line output."""
     try:
         res = subprocess.run(
@@ -236,7 +236,7 @@ def main():
                     "--cpu-consumer", str(args.cpu_consumer),
                     "--experiment-id", args.experiment_id,
                 ]
-                data, err = run_unified_call(args.bin, cmd_args, timeout_s=600)
+                data, err = run_unified_call(args.bin, cmd_args, timeout_s=45)
                 if data is not None:
                     write_record(data, order_idx)
                     if data["status"] != "PASS" and trial == 1:

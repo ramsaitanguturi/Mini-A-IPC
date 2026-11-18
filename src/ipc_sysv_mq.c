@@ -69,6 +69,20 @@ int ipc_sysv_run_opts(size_t payload_size, size_t count, const ipc_bench_opts_t 
         return -1;
     }
 
+    /* Check payload against System V MSGMAX limit (default 8192 on Linux) */
+    size_t sysv_max = 8192;
+#if defined(__linux__)
+    FILE *fp = fopen("/proc/sys/kernel/msgmax", "r");
+    if (fp) {
+        if (fscanf(fp, "%zu", &sysv_max) != 1) sysv_max = 8192;
+        fclose(fp);
+    }
+#endif
+    if (payload_size > sysv_max) {
+        errno = EMSGSIZE;
+        return -1;
+    }
+
     alloc_size = sizeof(long) + payload_size;
     send_msg = malloc(alloc_size);
     recv_msg = malloc(alloc_size);
@@ -204,6 +218,15 @@ int ipc_sysv_run_opts(size_t payload_size, size_t count, const ipc_bench_opts_t 
     *elapsed_ns = end >= start ? end - start : 0;
 
 exchange_done:
+    /* If an error occurred, proactively terminate child and destroy queue to avoid hanging */
+    if (*errors != 0 && child > 0) {
+        kill(child, SIGTERM);
+    }
+    if (msqid >= 0 && *errors != 0) {
+        msgctl(msqid, IPC_RMID, NULL);
+        msqid = -1;
+    }
+
     /* Reap child process */
     while (waitpid(child, &status, 0) < 0) {
         if (errno == EINTR) continue;
