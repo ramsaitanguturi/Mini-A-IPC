@@ -1,0 +1,49 @@
+\section{Experimental Setup and Methodology}
+\label{sec:methodology}
+
+\input{tables/environment.tex}
+
+Rigorous performance evaluation of low-level systems software requires strict environmental isolation, reproducible execution protocols, and verifiable statistical metrics~\cite{gregg2020systems}. This section details our experimental testbed, workload configurations, and profiling methodology. Fig.~\ref{fig:benchmark_workflow} illustrates the end-to-end benchmark workflow.
+
+\begin{figure*}[!t]
+\centering
+\input{figures/benchmark_workflow.tex}
+\caption{End-to-End Unified Experimental Benchmarking Workflow, detailing trial-block randomization, CPU pinning, cache warm-up, and metrics extraction.}
+\label{fig:benchmark_workflow}
+\end{figure*}
+
+\subsection{Hardware and Software Environment}
+All primary experimental evaluations were conducted within a dedicated, isolated Linux systems environment. Table~\ref{tab:environment} lists the detailed system specifications and benchmark workload parameters.
+
+The primary experimental testbed runs Fedora 45 Linux within a Kernel-based Virtual Machine (KVM) guest environment, powered by an Intel(R) Core(TM) 7 240H host processor (x86\_64) with 4 dedicated virtual CPUs (vCPUs) and 3.8~GiB of DDR5 memory. The operating system runs Linux kernel \texttt{7.3.3-300.fc45.x86\_64} configured with dynamic preemption (\texttt{PREEMPT\_DYNAMIC}). All benchmarks and test harnesses were compiled natively using GCC 16.2.1 20261029 with optimization flags \texttt{-std=c11 -O2 -Wall -Wextra -D\_GNU\_SOURCE}. All reported empirical results originate from primary benchmark execution \texttt{exp\_20261118T134516Z\_9733} under configuration \texttt{run\_20261113\_213428\_11370}, aggregated via \texttt{bench/analyze\_results.py} into repository statistical records.
+
+\subsection{Workload Configurations and Scientific Controls}
+The benchmarking matrix evaluates seven discrete payload sizes spanning four orders of magnitude: $\mathcal{S} = \{64\text{ B}, 256\text{ B}, 1\text{ KB}, 4\text{ KB}, 16\text{ KB}, 64\text{ KB}, 256\text{ KB}\}$.
+For each payload size and mechanism, the benchmark executes $N = 7$ independent trial blocks. Each trial consists of 10,000 timed round-trip ping-pong exchanges preceded by 500 untimed warm-up exchanges, yielding 70,000 recorded exchanges per configuration cell. Across all 7 mechanism modes and 7 payload classes evaluated over 7 trial blocks, the test harness scheduled 3,430,000 single-pair exchanges ($7 \times 7 \times 7 \times 10,000$), recording 2,730,000 valid timed round-trip ping-pong exchanges across supported configurations (along with 171,500 untimed warm-up cycles, 525,000 concurrent pipeline messages, 140,000 mixed-payload exchanges, and 150,000 streaming transfers, totaling over 3.71 million experimental exchanges and exceeding 4.5 million discrete message transfers).
+
+To eliminate confounding measurement artifacts, the benchmarking harness enforces four scientific controls:
+\begin{enumerate}[leftmargin=*,noitemsep,topsep=1.5pt]
+    \item \textbf{Untimed Cache and TLB Priming:} Executing 500 untimed exchanges before measurement ensures that virtual memory pages are faulted in, CPU translation lookaside buffers (TLB) are populated, and kernel data structures reside in L1/L2 caches.
+    \item \textbf{Trial-Block Randomization:} Mechanism execution order within each trial block is shuffled using a deterministic Fisher-Yates generator. This prevents thermal throttling or periodic operating system background daemons from systematically biasing a specific transport.
+    \item \textbf{Strict CPU Affinity Pinning:} Processes are bound to guest virtual CPU cores (vCPU~0 for the producer and vCPU~1 for the consumer) via \texttt{sched\_setaffinity}. This isolates execution pipelines across virtual processors, while underlying physical core dispatch remains managed by the host hypervisor scheduler.
+    \item \textbf{High-Resolution Timing:} Timing measurements utilize \texttt{clock\_gettime(CLOCK\_MONOTONIC)}, which is served through the Linux virtual dynamic shared object (vDSO) on supported configurations to minimize system-call boundary crossings, with low nanosecond measurement overhead depending on the host timer source and hypervisor clock virtualization.
+\end{enumerate}
+
+\subsection{Performance Metrics}
+We report comprehensive latency, throughput, and system resource metrics:
+\begin{itemize}[leftmargin=*,noitemsep,topsep=1.5pt]
+    \item \textbf{Mean Round-Trip Latency ($\mu\text{s}$):} Arithmetic mean of round-trip transfer times across all measured iterations: $\bar{L} = \frac{1}{K} \sum_{i=1}^K (t_{\text{recv}, i} - t_{\text{send}, i})$ where $K = 10,000$ iterations.
+    \item \textbf{Tail Latency Percentiles ($P_{50}, P_{90}, P_{95}, P_{99}$):} Computed using the integer nearest-rank method over sorted sample arrays: $k = \lceil \frac{p}{100} \cdot K \rceil - 1$.
+    \item \textbf{Throughput (msg/s and MB/s):} Message frequency and wire bandwidth: $\text{Throughput}_{\text{msg/s}} = K / \Delta t_{\text{total}}$ and $\text{Throughput}_{\text{MB/s}} = (K \cdot s) / (1024^2 \cdot \Delta t_{\text{total}})$.
+    \item \textbf{Operating System Telemetry:} Gathered via \texttt{getrusage} (\texttt{RUSAGE\_SELF} and \texttt{RUSAGE\_CHILDREN}), capturing voluntary and involuntary context switches, CPU time, and peak RSS. System calls are classified via Linux \texttt{strace}.
+\end{itemize}
+
+% Queue Table III and Figure 5 for the top of Section VII on Page 8
+\input{tables/benchmark_results.tex}
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[height=4.2cm]{figures/latency_throughput_combined.pdf}
+\caption{Empirical Performance Scaling across Classical Linux IPC Mechanisms on Fedora 45 Linux: (a) Mean Round-Trip Latency ($\mu\text{s}$) vs. Payload Size (log-log scale), and (b) Wire Data Bandwidth (MB/s) vs. Payload Size (log-log scale).}
+\label{fig:latency_throughput}
+\end{figure*}

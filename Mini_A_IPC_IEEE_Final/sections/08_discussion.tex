@@ -9,7 +9,7 @@ Real-world systems frequently deploy concurrent multi-process topologies. The Mi
 
 \begin{figure}[!t]
 \centering
-\includegraphics[width=0.90\columnwidth]{figures/concurrency_scalability.pdf}
+\includegraphics[width=0.74\columnwidth]{figures/concurrency_scalability.pdf}
 \caption{Multi-Producer Multi-Consumer (MPMC) Concurrency Throughput for 256-Byte Payloads across Five Process Topologies.}
 \label{fig:concurrency}
 \end{figure}
@@ -22,9 +22,9 @@ Consequently, Mini-A-IPC's concurrency harness marks point-to-point stream pairs
 
 \textbf{2) Native MPMC Transports:} In contrast, kernel-managed queues and connection-multiplexed transports scale robustly across multi-process topologies:
 \begin{itemize}[leftmargin=*,noitemsep,topsep=1pt]
-    \item \textit{Unix Domain Sockets} sustained \textbf{1,737,338.0~msg/s} ($444.76$~MB/s at 256~B) at 4P:4C via full-duplex socket buffer multiplexing.
-    \item \textit{System V Message Queues} sustained \textbf{896,203.2~msg/s} ($229.43$~MB/s at 256~B) via kernel atomic queue locking.
-    \item \textit{POSIX Message Queues} processed \textbf{429,577.2~msg/s} ($109.97$~MB/s) cleanly at 4P:4C.
+    \item \textit{Unix Domain Sockets} sustained \textbf{1,737,338.0~msg/s} ($444.76$~MB/s at 256~B; $424.15$~MiB/s) at 4P:4C via full-duplex socket buffer multiplexing.
+    \item \textit{System V Message Queues} sustained \textbf{896,203.2~msg/s} ($229.43$~MB/s at 256~B; $218.80$~MiB/s) via kernel atomic queue locking.
+    \item \textit{POSIX Message Queues} processed \textbf{429,577.2~msg/s} ($109.97$~MB/s; $104.88$~MiB/s) cleanly at 4P:4C.
 \end{itemize}
 
 \subsection{Adaptive Selector Accuracy and Latency Regret}
@@ -34,54 +34,54 @@ Table~\ref{tab:adaptive_results} summarizes the performance of the static size-t
 
 \begin{figure}[!t]
 \centering
-\includegraphics[width=0.78\columnwidth]{figures/adaptive_vs_best.pdf}
+\includegraphics[width=0.64\columnwidth]{figures/adaptive_vs_best.pdf}
 \caption{Intra-Trial Latency Regret (\%) of Static Size-Threshold Selector vs. Empirical Global Oracle Across Seven Payload Classes ($N=7$ Randomized Trials).}
 \label{fig:adaptive_regret}
 \end{figure}
 
 The evaluation highlights four core insights into adaptive systems engineering:
-\textbf{1) Static Selector Accuracy:} Evaluated against the entire 6-mechanism space, the static two-tier selector matches the global oracle for 1 of 7 payload classes (\textbf{14.29\% global accuracy}), because System V MQ and Unix Domain Sockets frequently outperform both \texttt{shm} and \texttt{pipe} under KVM scheduling. When evaluated strictly between the two candidate transports it routes (\texttt{shm} vs. \texttt{pipe}), it correctly identifies the faster candidate for 5 of 7 payload classes (\textbf{71.43\% candidate accuracy}).
-\textbf{2) Intra-Trial Regret:} Across matched trial blocks, mean latency regret is \textbf{27.68\%}. At 16~KB, the selector routes to Anonymous Pipes (the oracle transport). Because baseline pipe and adaptive measurements were executed within matched trial blocks ($N=7$) under a randomized block design, minor within-block hypervisor scheduling jitter yielded an empirical difference of $-3.27\%$ ($136.00\,\mu\text{s}$ adaptive vs. $140.60\,\mu\text{s}$ pipe). A paired Student's $t$-test confirms this difference is statistically indistinguishable from zero ($t = -0.189, p = 0.86, \text{df} = 6$; Wilcoxon signed-rank $W = 11.0, p = 0.69$), retained to preserve experimental fidelity rather than clamped to zero. At 256~KB, selecting Pipes ($957.62\,\mu\text{s}$) over Unix Sockets ($449.64\,\mu\text{s}$) yields $112.97\%$ regret due to pipe circular buffer exhaustion. In mixed 80/20 workloads, the static selector incurs higher latency ($79.43\,\mu\text{s}$) than dedicated Pipes ($57.21\,\mu\text{s}$) due to alternating transport dispatch overhead.
+\textbf{1) Static Selector Accuracy:} Evaluated against the 6-mechanism space, the static selector matches the global oracle for 1 of 7 classes (\textbf{14.29\% global accuracy}). Evaluated strictly between candidate transports (\texttt{shm} vs. \texttt{pipe}), it correctly selects the faster candidate for 4 of 7 classes (\textbf{57.14\% candidate accuracy}), routing all payloads $>1$~KB to Pipes where shared memory is bounded, while semaphore contention elevates shared memory latency above pipes for $\le 1$~KB.
+\textbf{2) Intra-Trial Regret:} Across matched trial blocks, mean latency regret is \textbf{27.68\%}. At 16~KB, the selector routes to Anonymous Pipes (oracle). Matched baseline pipe and adaptive runs ($N=7$) yielded an empirical difference of $-3.27\%$ ($136.00\,\mu\text{s}$ vs. $140.60\,\mu\text{s}$) due to within-block jitter, statistically indistinguishable from zero ($t = -0.189, p = 0.86, \text{df} = 6$; Wilcoxon $W = 11.0, p = 0.69$). At 256~KB, selecting Pipes ($957.62\,\mu\text{s}$) over Unix Sockets ($449.64\,\mu\text{s}$) yields $112.97\%$ regret due to pipe buffer exhaustion. In mixed 80/20 workloads, the selector incurs $79.43\,\mu\text{s}$ vs. $57.21\,\mu\text{s}$ for Pipes from alternating dispatch overhead.
 \textbf{3) Negligible Overhead:} Over 1,000,000 iterations in compiled C, the static selector requires only \textbf{0.66~ns per call} ($< 0.0005\%$ of round-trip time).
-\textbf{4) Offline 3-Tier Calibration vs. Online Control:} Calibrating an offline 3-tier mapping ($\le 256$~B $\to$ System V MQ; 1~KB--64~KB $\to$ Unix Domain Sockets / FIFOs; 256~KB $\to$ Unix Domain Sockets) matches 100\% of oracle choices across the test suite, delineating an in-sample empirical fit establishing structural bounds rather than proven generalization. While the EWMA controller and hysteresis logic are implemented in \texttt{src/selector.c}, runtime benchmarking evaluated the deterministic threshold path; evaluating closed-loop online adaptation remains future work.
+\textbf{4) Offline 3-Tier Calibration vs. Online Control:} Calibrating an offline policy across three regimes—(i)~Sub-KB ($\le 256$~B) routing to System V MQ (64~B, 256~B); (ii)~Intermediate transfers (1~KB--16~KB) dispatching to empirical crossover winners: 1~KB to Unix Sockets ($128.28\,\mu\text{s}$), 4~KB to Named FIFOs ($119.44\,\mu\text{s}$, matching \texttt{PIPE\_BUF}), and 16~KB to Anonymous Pipes ($140.60\,\mu\text{s}$); and (iii)~Large transfers ($\ge 64$~KB) routing to Unix Sockets (64~KB, 256~KB) via buffer auto-tuning—matches 100\% (7 of 7 decisions) of oracle choices across the test suite. This in-sample baseline establishes achievable bounds rather than online generalization. While EWMA telemetry and hysteresis are implemented in \texttt{src/selector.c}, benchmarks exercised deterministic thresholding; closed-loop online adaptation remains future work.
 
 \subsection{Kernel Mailbox Evaluation and the Scheduler Floor}
 
 \begin{figure}[!t]
 \centering
-\includegraphics[width=0.58\columnwidth]{figures/kernel_vs_userspace.pdf}
+\includegraphics[width=0.35\columnwidth]{figures/kernel_vs_userspace.pdf}
 \caption{Custom Linux Kernel Mailbox (\texttt{/dev/aipc}) In-Process Loopback Latency Floor vs. KVM Multi-Process Scheduling Floor (64 B Payloads).}
 \label{fig:kernel_floor}
 \end{figure}
 
-Measurements of \texttt{/dev/aipc} originate from native driver validation (Fedora 45, Linux 7.3.3, Intel Core 7 240H, 350,000 loopback exchanges). In single-process loopback, the mailbox achieved an uncontended floor of $0.72\text{--}3.35\,\mu\text{s}$ (Table~\ref{tab:benchmark_results}, Fig.~\ref{fig:kernel_floor}). On our primary KVM testbed, module loading was recorded as \texttt{BLOCKED} due to unprivileged guest boundaries; multi-process transfers over \texttt{/dev/aipc} were not directly measured. In multi-process configurations, communication is bounded by the observed \textbf{95--130~$\mu$s} KVM context-switch floor; driver optimizations cannot bypass process descheduling, VM exits, and hypervisor dispatch delays.
+Measurements of \texttt{/dev/aipc} originate from native driver validation (Fedora 45, Linux 7.3.3, Intel Core 7 240H, 350,000 loopback exchanges). In single-process loopback, the mailbox achieved an uncontended floor of $0.72\text{--}0.79\,\mu\text{s}$ median latency and $2.95\text{--}11.45\,\mu\text{s}$ across-trial mean RTT across evaluated payloads ($2.95\text{--}3.35\,\mu\text{s}$ for $\le 1$~KB; Table~\ref{tab:benchmark_results}, Fig.~\ref{fig:kernel_floor}). On our primary KVM testbed, module loading was recorded as \texttt{BLOCKED} due to unprivileged guest boundaries; multi-process transfers over \texttt{/dev/aipc} were not directly measured. In multi-process configurations, communication is bounded by the observed \textbf{95--130~$\mu$s} KVM context-switch floor; driver optimizations cannot bypass process descheduling, VM exits, and hypervisor dispatch delays.
 
 \subsection{Buffer Saturation and Context-Switch Dynamics}
 
 \begin{figure}[!t]
 \centering
-\includegraphics[width=0.54\columnwidth]{figures/context_switches.pdf}
+\includegraphics[width=0.32\columnwidth]{figures/context_switches.pdf}
 \caption{Voluntary Context Switches vs. Payload Size for Stream Transports, demonstrating buffer exhaustion for 64 KB pipe buffers at 256 KB transfers.}
 \label{fig:context_switches}
 \end{figure}
 
-Fig.~\ref{fig:context_switches} exposes the cause of pipe throughput collapse at 256~KB. Up to 64~KB, voluntary context switches remain flat at $\approx 20,800$ per trial block across stream transports. At 256~KB, transfers exceed the 64~KB pipe buffer capacity; the sender blocks upon filling the buffer, forcing four chunked transfers per exchange and an explosive \textbf{7.0$\times$} surge in voluntary context switches (to 146,374). In contrast, Unix Domain Sockets leverage socket buffer auto-tuning (\texttt{tcp\_wmem}/\texttt{rmem} in \texttt{AF\_UNIX}), capping switches at 62,400 and sustaining 1,304~MB/s bandwidth.
+Fig.~\ref{fig:context_switches} exposes the cause of pipe throughput collapse at 256~KB. Up to 64~KB, voluntary context switches remain flat at $\approx 20,800$ per trial block across stream transports. At 256~KB, transfers exceed the 64~KB pipe buffer capacity; the sender blocks upon filling the buffer, forcing four chunked transfers and an explosive \textbf{7.0$\times$} surge in voluntary context switches (to 146,374). In contrast, Unix Domain Sockets leverage socket buffer auto-tuning (\texttt{tcp\_wmem}/\texttt{rmem}), capping switches at 62,400 and sustaining 1,304.44~MB/s wire bandwidth (652.22~MB/s payload; 1,244.01~MiB/s wire).
 
 \subsection{Systems Hypotheses and Discriminating Experiments}
 \input{tables/hypotheses.tex}
-To account for observed empirical behaviors, Table~\ref{tab:hypotheses} formulates four testable systems hypotheses and discriminating experiments for bare metal.
+To account for observed empirical behaviors, Table~\ref{tab:hypotheses} formulates four testable systems hypotheses and discriminating experiments for bare-metal evaluation.
 
 \subsection{Practitioner Recommendations and Summary of Findings}
 \input{tables/recommendations.tex}
-Synthesizing trade-offs across payloads, synchronization, and topologies, Table~\ref{tab:recommendations} presents concrete guidelines for Linux IPC transport selection. Table~\ref{tab:summary_findings} (Section~\ref{sec:conclusion}) summarizes the core findings alongside confidence levels.
+Table~\ref{tab:recommendations} provides concrete guidelines for Linux IPC transport selection across payloads, synchronization, and topologies; Table~\ref{tab:summary_findings} (Section~\ref{sec:conclusion}) summarizes core findings alongside confidence levels.
 
 \subsection{Synthesis and Answers to Research Questions}
-\textbf{RQ1 (Payload Sensitivity):} Payload dictates hierarchy: sub-512~B gives a descriptive lead to System V MQ ($123.33\,\mu\text{s}$ at 64~B, $115.13\,\mu\text{s}$ at 256~B; $p \ge 0.05$ under KVM floor); 1~KB favors Unix Sockets ($128.28\,\mu\text{s}$); 4~KB favors Named FIFOs ($119.44\,\mu\text{s}$); 16~KB favors Anonymous Pipes ($140.60\,\mu\text{s}$); and $\ge 64$~KB favors Unix Sockets ($123.53\,\mu\text{s}$ at 64~KB; $449.64\,\mu\text{s}$ at 256~KB, $2.54\times$ faster than pipes, $p < 0.001$).
-\textbf{RQ2 (Memory vs. Stream):} POSIX SHM eliminates data copies (0.00 syscalls) and reduces syscalls by 48.5\% (2.06 futex vs. 4.00 for streams), though semaphore contention elevates 1~KB latency.
-\textbf{RQ3 (Adaptive Selection):} Static selector evaluates in 0.66~ns with 27.68\% mean regret (71.43\% candidate accuracy; 14.29\% global accuracy); EWMA feedback is architected in \texttt{src/selector.c}.
-\textbf{RQ4 (Kernel Mailbox):} A character device achieves a $0.72\,\mu\text{s}$ loopback floor in native validation, but multi-process latency is bounded by the 95--130~$\mu\text{s}$ KVM scheduling floor.
+\textbf{RQ1 (Payload Sensitivity):} Hierarchy depends on payload: sub-512~B gives a descriptive lead to System V MQ ($123.33\,\mu\text{s}$ at 64~B, $115.13\,\mu\text{s}$ at 256~B; $p \ge 0.05$); 1~KB and 64~KB favor Unix Sockets ($128.28\,\mu\text{s}$, $123.53\,\mu\text{s}$); 4~KB favors Named FIFOs ($119.44\,\mu\text{s}$); 16~KB favors Anonymous Pipes ($140.60\,\mu\text{s}$); and 256~KB favors Unix Sockets ($449.64\,\mu\text{s}$, $2.54\times$ faster than pipes, $p < 0.001$).
+\textbf{RQ2 (Memory vs. Stream):} POSIX SHM eliminates data copies (0.00 syscalls) and cuts syscalls by 48.5\% (2.06 futex vs. 4.00 for streams).
+\textbf{RQ3 (Adaptive Selection):} Static selector evaluates in 0.66~ns with 27.68\% mean regret (57.14\% candidate accuracy; 14.29\% global accuracy; EWMA feedback architected).
+\textbf{RQ4 (Kernel Mailbox):} A character device achieves a $0.72\,\mu\text{s}$ loopback floor ($2.95\text{--}11.45\,\mu\text{s}$ across-trial mean RTT) in native validation, but multi-process latency is bounded by the 95--130~$\mu\text{s}$ KVM scheduling floor.
 \textbf{RQ5 (Concurrency):} Unframed streams cannot support M:N concurrency; Unix Sockets sustain 1.74M msg/s and System V MQ sustains 896k msg/s at 4P:4C.
 
 \subsection{Threats to Validity}
-\textbf{Internal Validity:} $N = 7$ randomized trial blocks (70,000 exchanges/condition) yield narrow 95\% confidence intervals ($\le \pm 0.925 \cdot s$). Paired $t$-tests confirm large-payload advantages (Unix Sockets over Pipes at 256~KB, $t=8.79, p < 0.001$) are significant, while sub-kilobyte variations ($p \ge 0.05$) reflect descriptive rankings within KVM noise.
-\textbf{Construct \& External Validity:} Ping-pong exchanges evaluate request-response latency without modeling asynchronous burst traffic. Tests run on a KVM Fedora 45 guest, where hypervisor scheduling, vCPU preemption, and VM exits dominate the 95--130~$\mu\text{s}$ floor. Relative rankings and buffer saturation generalize across Linux, but absolute latency should not be extrapolated directly to bare metal. Open logs ensure reproducibility.
+\textbf{Internal Validity:} $N = 7$ randomized blocks (70,000 exchanges/cell) yield narrow 95\% CIs ($\le \pm 0.925 \cdot s$). Paired $t$-tests confirm large-payload socket superiority at 256~KB ($t=6.40, p < 0.001$) is statistically significant; sub-kilobyte variations ($p \ge 0.05$) reflect descriptive rankings within KVM noise.
+\textbf{Construct \& External Validity:} While architectural boundaries (\texttt{PIPE\_BUF} 4,096~B atomicity, 64~KB pipe buffer exhaustion) reflect invariant Linux mechanisms, empirical latency rankings reflect our tested KVM guest (Fedora 45, kernel 7.3.3); on bare metal, the 95--130~$\mu$s floor may contract. Full logs ensure reproducibility.

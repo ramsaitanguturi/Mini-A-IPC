@@ -1,0 +1,71 @@
+\begin{tikzpicture}[
+    scale=0.92, every node/.style={transform shape},
+    proc/.style={draw=darknavy, fill=darknavy!10, rounded corners=2pt, font=\scriptsize\bfseries, minimum width=1.7cm, minimum height=0.58cm, align=center},
+    pipebuf/.style={draw=acadblue, fill=acadblue!15, rounded corners=2pt, font=\scriptsize, minimum width=2.6cm, minimum height=0.52cm, align=center},
+    fifobuf/.style={draw=mutedgreen, fill=mutedgreen!15, rounded corners=2pt, font=\scriptsize, minimum width=2.6cm, minimum height=0.52cm, align=center},
+    sysvbuf/.style={draw=mutedorange, fill=mutedorange!15, rounded corners=2pt, font=\scriptsize, minimum width=3.0cm, minimum height=0.58cm, align=center},
+    posixbuf/.style={draw=darknavy, fill=darknavy!15, rounded corners=2pt, font=\scriptsize, minimum width=2.6cm, minimum height=0.52cm, align=center},
+    shmbuf/.style={draw=medblue, fill=medblue!18, rounded corners=2pt, font=\scriptsize, minimum width=3.0cm, minimum height=0.58cm, align=center},
+    udsbuf/.style={draw=charcoal, fill=charcoal!15, rounded corners=2pt, font=\scriptsize, minimum width=3.0cm, minimum height=0.58cm, align=center},
+    arr/.style={->, >=stealth, thick, draw=charcoal},
+    darr/.style={<->, >=stealth, thick, draw=charcoal},
+    pnl/.style={fill=darknavy, text=white, font=\scriptsize\bfseries, rounded corners=1.5pt, inner sep=2pt}
+]
+
+% Row 1: Anonymous Pipes & Named FIFOs
+\node[pnl] at (3.2, 4.85) {(a) Anonymous Pipes};
+\node[proc] (p1) at (0, 3.8) {Parent};
+\node[pipebuf] (b1) at (3.2, 4.15) {Request Pipe (64 KB VFS)};
+\node[pipebuf] (b2) at (3.2, 3.45) {Response Pipe (64 KB VFS)};
+\node[proc] (c1) at (6.4, 3.8) {Child};
+\draw[arr] (p1.north east) -- (b1.west);
+\draw[arr] (b1.east) -- (c1.north west);
+\draw[arr] (c1.south west) -- (b2.east);
+\draw[arr] (b2.west) -- (p1.south east);
+
+\node[pnl] at (12.0, 4.85) {(b) Named FIFOs};
+\node[proc] (p2) at (8.8, 3.8) {Parent};
+\node[fifobuf] (f1) at (12.0, 4.15) {\texttt{/tmp/req.fifo} (Mode 0600)};
+\node[fifobuf] (f2) at (12.0, 3.45) {\texttt{/tmp/resp.fifo} (Mode 0600)};
+\node[proc] (c2) at (15.2, 3.8) {Child};
+\draw[arr] (p2.north east) -- (f1.west);
+\draw[arr] (f1.east) -- (c2.north west);
+\draw[arr] (c2.south west) -- (f2.east);
+\draw[arr] (f2.west) -- (p2.south east);
+
+% Row 2: System V MQ & POSIX MQ
+\node[pnl] at (3.2, 2.75) {(c) System V Message Queues};
+\node[proc] (p3) at (0, 1.9) {Parent};
+\node[sysvbuf] (mq1) at (3.2, 1.9) {System V Kernel Queue\\ \tiny \texttt{mtype = 1 (Req), 2 (Resp)}};
+\node[proc] (c3) at (6.4, 1.9) {Child};
+\draw[arr] (p3.25) -- (mq1.155);
+\draw[arr] (mq1.25) -- (c3.155);
+\draw[arr] (c3.205) -- (mq1.335);
+\draw[arr] (mq1.205) -- (p3.335);
+
+\node[pnl] at (12.0, 2.75) {(d) POSIX Message Queues};
+\node[proc] (p4) at (8.8, 1.9) {Parent};
+\node[posixbuf] (pmq1) at (12.0, 2.25) {\texttt{/mini\_req} (Max 10 Msgs)};
+\node[posixbuf] (pmq2) at (12.0, 1.55) {\texttt{/mini\_resp} (Max 10 Msgs)};
+\node[proc] (c4) at (15.2, 1.9) {Child};
+\draw[arr] (p4.north east) -- (pmq1.west);
+\draw[arr] (pmq1.east) -- (c4.north west);
+\draw[arr] (c4.south west) -- (pmq2.east);
+\draw[arr] (pmq2.west) -- (p4.south east);
+
+% Row 3: POSIX SHM & Unix Domain Sockets
+\node[pnl] at (3.2, 0.75) {(e) POSIX Shared Memory};
+\node[proc] (p5) at (0, 0.0) {Parent};
+\node[shmbuf] (shm) at (3.2, 0.0) {POSIX Shared Mailbox\\ \tiny \texttt{\_Alignas(64)} Semaphores + Slots};
+\node[proc] (c5) at (6.4, 0.0) {Child};
+\draw[darr] (p5) -- node[above, font=\scriptsize] {\texttt{mmap}} (shm);
+\draw[darr] (shm) -- node[above, font=\scriptsize] {\texttt{mmap}} (c5);
+
+\node[pnl] at (12.0, 0.75) {(f) Unix Domain Sockets};
+\node[proc] (p6) at (8.8, 0.0) {Parent};
+\node[udsbuf] (uds) at (12.0, 0.0) {\texttt{/tmp/uds.sock}\\ \tiny Dynamic Kernel Buffers (\texttt{struct sk\_buff})};
+\node[proc] (c6) at (15.2, 0.0) {Child};
+\draw[darr] (p6) -- node[above, font=\scriptsize] {\texttt{connect}} (uds);
+\draw[darr] (uds) -- node[above, font=\scriptsize] {\texttt{accept}} (c6);
+
+\end{tikzpicture}

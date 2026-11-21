@@ -3,26 +3,26 @@
 \caption{Summary of Core Empirical Findings and Confidence Levels}
 \label{tab:summary_findings}
 \scriptsize
-\renewcommand{\arraystretch}{1.02}
+\renewcommand{\arraystretch}{0.88}
 \begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}p{2.6cm}p{3.8cm}c}
 \toprule
 \textbf{Empirical Finding} & \textbf{Quantitative Evidence} & \textbf{Confidence} \\
 \midrule
 \textbf{SysV MQ Low-Payload Lead} & $123.33\,\mu\text{s}$ (64 B), $115.13\,\mu\text{s}$ (256 B); lowest sample mean ($p \ge 0.05$, paired $t$-test; descriptive lead under KVM floor). & Descriptive \\
-\addlinespace[1.5pt]
-\textbf{Unix Socket Scaling at 256 KB} & $449.64\,\mu\text{s}$ vs. $1144.22\,\mu\text{s}$ for Pipe ($2.54\times$ speedup, paired $t$-test $p < 0.001$, 1,304.4 MB/s wire throughput). & High \\
-\addlinespace[1.5pt]
+\addlinespace[0.4pt]
+\textbf{Unix Socket Scaling at 256 KB} & $449.64\,\mu\text{s}$ vs. $1144.22\,\mu\text{s}$ for Pipe ($2.54\times$ speedup, paired $t$-test $p < 0.001$; 1,304.44 MB/s wire, 652.22 MB/s payload). & High \\
+\addlinespace[0.4pt]
 \textbf{Pipe Buffer Saturation Penalty} & Voluntary context switches surge from 20.8k to 146.4k at 256 KB due to 64 KB capacity. & High \\
-\addlinespace[1.5pt]
+\addlinespace[0.4pt]
 \textbf{Shared Memory Kernel Bypass} & 0.00 data-path syscalls; 2.06 futex calls/exch vs. 4.00 for streams (48.5\% kernel entry drop). & High \\
-\addlinespace[1.5pt]
-\textbf{KVM Sched. Floor Bounds IPC} & Latencies cluster at 115--140 $\mu$s across multi-process transports despite 0.72 $\mu$s driver loopback floor (measured in native validation). & High \\
-\addlinespace[1.5pt]
-\textbf{Static Selector Efficiency} & 0.66 ns evaluation; 71.43\% candidate accuracy (SHM vs. Pipe; 14.29\% global); 27.68\% mean regret. & High \\
-\addlinespace[1.5pt]
+\addlinespace[0.4pt]
+\textbf{KVM Sched. Floor Bounds IPC} & Latencies cluster at 115--140 $\mu$s across multi-process transports despite 0.72--0.79 $\mu$s median loopback floor ($2.95\text{--}11.45\,\mu\text{s}$ across-trial mean, native validation). & High \\
+\addlinespace[0.4pt]
+\textbf{Static Selector Efficiency} & 0.66 ns evaluation; 57.14\% candidate accuracy (SHM vs. Pipe; 14.29\% global); 27.68\% mean regret. & High \\
+\addlinespace[0.4pt]
 \textbf{Offline 3-Tier Policy In-Sample Fit} & 100.0\% oracle match (7 of 7 payload classes) across evaluated single-pair workloads (in-sample baseline). & Supported \\
 \bottomrule
 \end{tabular*}
 \vskip 1.5pt
-{\tiny\noindent\emph{Confidence taxonomy}: \textbf{High}: Statistically significant separation ($\alpha = 0.05$) or deterministic OS telemetry. \textbf{Descriptive}: Consistent sample-mean ranking without statistically significant separation ($p \ge 0.05$). \textbf{Supported}: Empirically calibrated structural model.\par}
+{\scriptsize\noindent\emph{Confidence taxonomy}: \textbf{High}: Statistically significant separation ($\alpha = 0.05$) or deterministic OS telemetry. \textbf{Descriptive}: Consistent sample-mean ranking without statistically significant separation ($p \ge 0.05$). \textbf{Supported}: Empirically calibrated structural model.\par}
 \end{table}

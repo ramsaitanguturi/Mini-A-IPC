@@ -1,8 +1,9 @@
-\begin{table*}[t]
+\begin{table*}[!t]
 \centering
 \caption{Mean Round-Trip Latency ($\mu\text{s}$) Across Payload Sizes on Fedora 45 Linux ($N=7$ Randomized Trials, 10,000 Exchanges/Trial)}
 \label{tab:benchmark_results}
 \scriptsize
+\renewcommand{\arraystretch}{0.92}
 \begin{tabular}{lrrrrrrr}
 \toprule
 \textbf{Mechanism} & \textbf{64 B} & \textbf{256 B} & \textbf{1,024 B} & \textbf{4,096 B} & \textbf{16,384 B} & \textbf{65,536 B} & \textbf{262,144 B} \\
@@ -18,5 +19,5 @@
 \textbf{Kernel Mailbox (Loopback)*} & \textbf{3.29} $\pm$ 0.3 & \textbf{2.95} $\pm$ 0.2 & \textbf{3.35} $\pm$ 0.2 & \textbf{3.95} $\pm$ 0.3 & \textbf{11.45} $\pm$ 0.8 & \textit{Capacity} & \textit{Capacity} \\
 \bottomrule
 \end{tabular}
-{\vskip 1.5pt\tiny\noindent \textit{Note:} Lowest userspace round-trip latencies are highlighted in \textbf{bold}. Uncertainty values represent Sample Standard Deviation ($\pm s$, $N=7$ randomized trials); the corresponding 95\% Student-$t$ confidence interval half-width is $\pm t_{0.975, 6} \cdot s / \sqrt{7} = \pm 0.925 \cdot s$. Payloads marked \textit{Limit} reflect kernel/hardware bounds (\texttt{SHM\_MAX\_PAYLOAD} = 1,024 B, System V \texttt{kernel.msgmax} = 8,192 B, and POSIX \texttt{msgsize\_max} = 8,192 B). *Kernel mailbox measurements originate from a separate native host driver-validation environment (Fedora 45, Linux 7.3.3, Intel Core 7 240H) evaluating single-process loopback (350,000 exchanges; 0.72--3.35 $\mu\text{s}$ uncontended floor). On the primary KVM multi-process testbed, module loading was recorded as \texttt{BLOCKED} due to unprivileged guest credentials; multi-process transfers over \texttt{/dev/aipc} were not directly measured, but are fundamentally bounded by the independently observed 95--130 $\mu\text{s}$ hypervisor scheduling floor.\par}
+{\vskip 0.8pt\scriptsize\noindent \textit{Note:} Lowest userspace latencies in \textbf{bold}. Uncertainty is $\pm s$ ($N=7$; 95\% CI is $\pm 0.925 \cdot s$). \textit{Limit} denotes kernel bounds (\texttt{SHM\_MAX\_PAYLOAD}=1,024~B, SysV/POSIX \texttt{msgmax}=8,192~B). *Kernel mailbox loopback originates from native validation (Fedora 45, Linux 7.3.3, 350,000 exchanges; 2.95--11.45~$\mu$s across-trial mean RTT across 64~B--16~KB, with 0.72--0.79~$\mu$s median floor; at 1,024~B, intra-trial $\text{Min}=0.84\,\mu\text{s}, P_{50}=0.93\,\mu\text{s}, P_{95}=1.07\,\mu\text{s}, P_{99}=1.90\,\mu\text{s}, \text{Max}=4.88\,\mu\text{s}$, and $3.35\pm 0.2\,\mu\text{s}$ across-trial mean). Primary KVM multi-process driver loading was \texttt{BLOCKED} by unprivileged guest boundaries and is bounded by the 95--130~$\mu$s KVM scheduling floor.\par}
 \end{table*}

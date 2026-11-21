@@ -1,0 +1,24 @@
+\begin{table}[!t]
+\centering
+\caption{Practitioner Guidelines for Linux IPC Transport Selection}
+\label{tab:recommendations}
+\scriptsize
+\renewcommand{\arraystretch}{0.80}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}p{2.1cm}p{2.3cm}p{3.4cm}}
+\toprule
+\textbf{Workload Regime} & \textbf{Recommended IPC} & \textbf{Empirical Basis (Testbed-Specific)} \\
+\midrule
+\textbf{Sub-Kilobyte ($\le 256$ B)} & System V Message Queue & Lowest RTT ($115.1\text{--}123.3\,\mu\text{s}$, descriptive lead under KVM floor); avoids byte framing. \\
+\addlinespace[0.5pt]
+\textbf{Intermediate Crossovers} & 1 KB: UDS / POSIX MQ\newline 4 KB: Named FIFO\newline 16 KB: Anonymous Pipe & Crossovers: UDS ($128.3\,\mu\text{s}$ at 1 KB), FIFO ($119.4\,\mu\text{s}$ at 4 KB, \texttt{PIPE\_BUF} fit), Pipe ($140.6\,\mu\text{s}$ at 16 KB). \\
+\addlinespace[0.5pt]
+\textbf{Large Payloads ($\ge 64$ KB)} & Unix Domain Sockets & Auto-tuning socket buffers prevent chunking: $123.5\,\mu\text{s}$ at 64 KB, $449.6\,\mu\text{s}$ at 256 KB ($2.54\times$ speedup). \\
+\addlinespace[0.5pt]
+\textbf{Zero-Copy ($\le 1$ KB)} & POSIX Shared Memory & 0 data-path syscalls, 48.5\% fewer kernel transitions (2.06 futex vs. 4.00 for streams). \\
+\addlinespace[0.5pt]
+\textbf{MPMC (4P:4C)} & Unix Sockets / SysV MQ & Sockets sustain 1.74M msg/s; System V MQ sustains 896k msg/s under contention. \\
+\addlinespace[0.5pt]
+\textbf{Dynamic Workloads} & Adaptive Framework (Architectural) & Implemented EWMA controller ($\alpha=0.15$) and 8\% hysteresis; static dispatch verified (0.66 ns), while online dynamic adaptation remains unevaluated future work. \\
+\bottomrule
+\end{tabular*}
+\end{table}

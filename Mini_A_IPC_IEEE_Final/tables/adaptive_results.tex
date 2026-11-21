@@ -3,7 +3,7 @@
 \caption{Adaptive Selector Accuracy and Intra-Trial Latency Regret Evaluation}
 \label{tab:adaptive_results}
 \scriptsize
-\renewcommand{\arraystretch}{1.06}
+\renewcommand{\arraystretch}{0.88}
 \setlength{\tabcolsep}{2.2pt}
 \begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}rcccccc}
 \toprule
@@ -13,18 +13,18 @@
 64 B & \texttt{shm} & \texttt{sysv} & 132.07 & 123.33 & $+7.08\%$ & No \\
 256 B & \texttt{shm} & \texttt{sysv} & 147.01 & 115.13 & $+27.69\%$ & No \\
 1,024 B & \texttt{shm} & \texttt{uds} & 144.52 & 128.28 & $+12.66\%$ & No \\
-\addlinespace[1.5pt]
+\addlinespace[1.0pt]
 4,096 B & \texttt{pipe} & \texttt{fifo} & 135.78 & 119.44 & $+13.69\%$ & No \\
 16,384 B & \texttt{pipe} & \texttt{pipe} & 136.00 & 140.60 & $-3.27\%$ & \textbf{Yes} \\
 65,536 B & \texttt{pipe} & \texttt{uds} & 151.87 & 123.53 & $+22.94\%$ & No \\
 262,144 B & \texttt{pipe} & \texttt{uds} & 957.62 & 449.64 & $+112.97\%$ & No \\
 \midrule
-\multicolumn{4}{l}{\textbf{Candidate Accuracy (SHM vs. Pipe)}} & \multicolumn{3}{r}{\textbf{71.43\%} (5 of 7 classes)} \\
+\multicolumn{4}{l}{\textbf{Candidate Accuracy (SHM vs. Pipe)}} & \multicolumn{3}{r}{\textbf{57.14\%} (4 of 7 classes)} \\
 \multicolumn{4}{l}{\textbf{Global Selection Accuracy (vs. 6 Transports)}} & \multicolumn{3}{r}{\textbf{14.29\%} (1 of 7 classes)} \\
 \multicolumn{4}{l}{\textbf{Mean Intra-Trial Latency Regret}} & \multicolumn{3}{r}{\textbf{27.68\%} across workloads} \\
 \multicolumn{4}{l}{\textbf{Offline 3-Tier Policy In-Sample Fit}} & \multicolumn{3}{r}{\textbf{100.00\%} (7 of 7 matches)} \\
 \bottomrule
 \end{tabular*}
-\vskip 2pt
-{\tiny\noindent Regret computed within matched trial blocks ($N=7$) under a randomized block design. Candidate accuracy (71.43\%) measures correct routing strictly between the two compiled candidate transports (\texttt{shm} vs. \texttt{pipe}). Global accuracy (14.29\%) evaluates agreement against all six classical transports. Offline 3-tier calibration represents an in-sample structural baseline matching 7 of 7 oracle choices across the test suite. At 16~KB, Adaptive routes to Pipe; the $-3.27\%$ difference reflects within-block hypervisor scheduling jitter ($t = -0.189, p=0.86$, paired Student's $t$-test, statistically indistinguishable).\par}
+\vskip 1.5pt
+{\scriptsize\noindent Regret computed within matched trial blocks ($N=7$). Candidate accuracy (57.14\%) measures correct routing between candidates (\texttt{shm} vs. \texttt{pipe}), correctly choosing pipes for all payloads $>1$~KB where shared memory is bounded; global accuracy (14.29\%) evaluates all six classical transports. Offline 3-tier calibration is an in-sample structural baseline matching 7 of 7 oracle choices. At 16~KB, Adaptive routes to Pipe; the $-3.27\%$ difference reflects within-block hypervisor jitter ($t = -0.189, p=0.86$, statistically indistinguishable).\par}
 \end{table}
