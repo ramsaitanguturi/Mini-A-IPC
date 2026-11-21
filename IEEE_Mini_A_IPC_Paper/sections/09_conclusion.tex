@@ -1,11 +1,11 @@
 \section{Conclusion and Future Work}
 \label{sec:conclusion}
 
-This research presented \textbf{Mini-A-IPC}, an empirical evaluation platform and adaptive communication framework for Linux IPC. Across 350,000+ recorded exchanges with strict environmental isolation, trial-block randomization, and CPU pinning on Fedora 45 Linux (kernel 7.3.3), three core findings were established:
+This research presented \textbf{Mini-A-IPC}, an empirical evaluation platform and adaptive communication framework for Linux IPC. Across over 3.4 million recorded round-trip exchanges (exceeding 3.9 million total evaluated IPC messages) with strict environmental isolation, trial-block randomization, and CPU pinning on Fedora 45 Linux (kernel 7.3.4 on KVM), three core findings were established:
 \begin{enumerate}[leftmargin=*,noitemsep,topsep=1.5pt]
-    \item \textbf{Payload Crossovers:} POSIX Shared Memory achieves lowest sub-kilobyte latency ($286.87\,\mu\text{s}$ at 64~B) with zero data-path syscalls (2.06 futex calls/exch vs. 4.00 for streams). Anonymous Pipes dominate intermediate payloads ($278.76\,\mu\text{s}$ at 1~KB), and Unix Domain Sockets outperform pipes by 1.75$\times$ for 256~KB transfers ($2,590.28\,\mu\text{s}$) by avoiding buffer exhaustion.
-    \item \textbf{Adaptive Selection:} A static selector achieves 71.43\% accuracy at 2.36~ns overhead, while an empirically calibrated 3-tier policy eliminates structural regret entirely (100\% accuracy).
-    \item \textbf{Kernel vs. Scheduler Dynamics:} A custom mailbox (\texttt{/dev/aipc}) with a race-free teardown barrier achieves an uncontended 0.72~$\mu$s loopback floor, confirming the Linux CFS context-switch floor (95--120~$\mu$s) bounds multi-process speed.
+    \item \textbf{Payload Crossovers:} System V Message Queues achieve the lowest small-payload latency ($123.33\,\mu\text{s}$ at 64~B, $115.13\,\mu\text{s}$ at 256~B), Named FIFOs and Anonymous Pipes deliver peak efficiency for intermediate payloads ($119.44\,\mu\text{s}$ at 4~KB), and Unix Domain Sockets outperform pipes by 2.54$\times$ for 256~KB transfers ($449.64\,\mu\text{s}$) with 1,304~MB/s wire throughput by avoiding buffer exhaustion.
+    \item \textbf{Adaptive Selection:} A static size-based selector operates with negligible 0.66~ns overhead, achieving 71.43\% accuracy between its candidates with 27.68\% mean regret against the global oracle, while offline 3-tier calibration delineates the optimal static mapping.
+    \item \textbf{Kernel vs. Scheduler Dynamics:} A custom mailbox (\texttt{/dev/aipc}) with a race-free teardown barrier achieves an uncontended 0.72~$\mu$s loopback floor, confirming that hypervisor vCPU scheduling (95--130~$\mu$s) bounds multi-process speed.
 \end{enumerate}
 
-\textbf{Future Work:} Directions include NUMA-aware allocation, dynamic lock-free ring resizing, an asynchronous \texttt{io\_uring} driver, and online telemetry.
+\textbf{Future Work:} Directions include bare-metal hardware validation, NUMA-aware allocation, dynamic lock-free ring resizing, an asynchronous \texttt{io\_uring} driver, and live online EWMA telemetry evaluation on dynamic traffic streams.

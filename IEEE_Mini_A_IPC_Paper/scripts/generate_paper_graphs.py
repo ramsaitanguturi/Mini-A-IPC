@@ -32,11 +32,12 @@ plt.rcParams.update({
 OUT_DIR = os.path.join(os.path.dirname(__file__), '..', 'figures')
 os.makedirs(OUT_DIR, exist_ok=True)
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-CSV_PATH = os.path.join(REPO_ROOT, 'results', 'unified', 'processed', 'statistical_summary.csv')
+CSV_PATH = os.path.join(REPO_ROOT, 'results', 'unified', 'processed', 'aggregated_results.csv')
 
 # 1. COMBINED LATENCY & THROUGHPUT (2-PANEL WIDE FIGURE FOR TWO-COLUMN SPAN)
 def plot_latency_and_throughput_combined():
     df = pd.read_csv(CSV_PATH)
+    df = df[df['workload_type'] == 'single_pair_rtt'].copy()
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.0, 2.3))
     
     mechanisms = ['pipe', 'fifo', 'sysv', 'posix', 'shm', 'uds']
@@ -53,9 +54,9 @@ def plot_latency_and_throughput_combined():
     
     # Left: Latency
     for m in mechanisms:
-        sub = df[df['mechanism'] == m].sort_values('payload_bytes')
+        sub = df[(df['mechanism'] == m) & (df['status'] == 'PASS')].sort_values('payload_bytes')
         if not sub.empty:
-            ax1.plot(sub['payload_bytes'], sub['mean_avg_rtt_us'], 
+            ax1.plot(sub['payload_bytes'], sub['avg_rtt_us_mean'], 
                      marker=markers[m], color=colors[m], label=labels[m])
     ax1.set_xscale('log', base=2)
     ax1.set_yscale('log')
@@ -69,9 +70,9 @@ def plot_latency_and_throughput_combined():
     
     # Right: Throughput
     for m in mechanisms:
-        sub = df[df['mechanism'] == m].sort_values('payload_bytes')
+        sub = df[(df['mechanism'] == m) & (df['status'] == 'PASS')].sort_values('payload_bytes')
         if not sub.empty:
-            ax2.plot(sub['payload_bytes'], sub['mean_throughput_mb_sec'], 
+            ax2.plot(sub['payload_bytes'], sub['wire_mb_per_sec_mean'], 
                      marker=markers[m], color=colors[m], label=labels[m])
     ax2.set_xscale('log', base=2)
     ax2.set_yscale('log')
@@ -92,15 +93,16 @@ def plot_latency_and_throughput_combined():
 # Individual single-column plots (compact)
 def plot_latency_single():
     df = pd.read_csv(CSV_PATH)
+    df = df[df['workload_type'] == 'single_pair_rtt'].copy()
     fig, ax = plt.subplots(figsize=(3.4, 2.1))
     mechanisms = ['pipe', 'fifo', 'sysv', 'posix', 'shm', 'uds']
     labels = {'pipe': 'Anon. Pipe', 'fifo': 'Named FIFO', 'sysv': 'SysV MQ', 'posix': 'POSIX MQ', 'shm': 'POSIX SHM', 'uds': 'Unix Skt'}
     markers = {'pipe': 'o', 'fifo': 's', 'sysv': '^', 'posix': 'v', 'shm': 'D', 'uds': 'x'}
     colors = {'pipe': '#1f77b4', 'fifo': '#ff7f0e', 'sysv': '#2ca02c', 'posix': '#d62728', 'shm': '#9467bd', 'uds': '#8c564b'}
     for m in mechanisms:
-        sub = df[df['mechanism'] == m].sort_values('payload_bytes')
+        sub = df[(df['mechanism'] == m) & (df['status'] == 'PASS')].sort_values('payload_bytes')
         if not sub.empty:
-            ax.plot(sub['payload_bytes'], sub['mean_avg_rtt_us'], marker=markers[m], color=colors[m], label=labels[m])
+            ax.plot(sub['payload_bytes'], sub['avg_rtt_us_mean'], marker=markers[m], color=colors[m], label=labels[m])
     ax.set_xscale('log', base=2)
     ax.set_yscale('log')
     ax.set_xlabel('Payload Size (Bytes)')
@@ -115,15 +117,16 @@ def plot_latency_single():
 
 def plot_throughput_single():
     df = pd.read_csv(CSV_PATH)
+    df = df[df['workload_type'] == 'single_pair_rtt'].copy()
     fig, ax = plt.subplots(figsize=(3.4, 2.1))
     mechanisms = ['pipe', 'fifo', 'sysv', 'posix', 'shm', 'uds']
     labels = {'pipe': 'Anon. Pipe', 'fifo': 'Named FIFO', 'sysv': 'SysV MQ', 'posix': 'POSIX MQ', 'shm': 'POSIX SHM', 'uds': 'Unix Skt'}
     markers = {'pipe': 'o', 'fifo': 's', 'sysv': '^', 'posix': 'v', 'shm': 'D', 'uds': 'x'}
     colors = {'pipe': '#1f77b4', 'fifo': '#ff7f0e', 'sysv': '#2ca02c', 'posix': '#d62728', 'shm': '#9467bd', 'uds': '#8c564b'}
     for m in mechanisms:
-        sub = df[df['mechanism'] == m].sort_values('payload_bytes')
+        sub = df[(df['mechanism'] == m) & (df['status'] == 'PASS')].sort_values('payload_bytes')
         if not sub.empty:
-            ax.plot(sub['payload_bytes'], sub['mean_throughput_mb_sec'], marker=markers[m], color=colors[m], label=labels[m])
+            ax.plot(sub['payload_bytes'], sub['wire_mb_per_sec_mean'], marker=markers[m], color=colors[m], label=labels[m])
     ax.set_xscale('log', base=2)
     ax.set_yscale('log')
     ax.set_xlabel('Payload Size (Bytes)')
@@ -139,18 +142,19 @@ def plot_throughput_single():
 # 2. COMBINED PERCENTILES & RESOURCES (2-PANEL WIDE FIGURE)
 def plot_percentiles_and_resources_combined():
     df = pd.read_csv(CSV_PATH)
+    df = df[df['workload_type'] == 'single_pair_rtt'].copy()
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.0, 2.2))
     
     # Left: Percentiles
-    sub = df[df['payload_bytes'] == 1024].copy()
+    sub = df[(df['payload_bytes'] == 1024) & (df['status'] == 'PASS')].copy()
     mechanisms = ['pipe', 'fifo', 'sysv', 'posix', 'shm', 'uds']
     sub = sub[sub['mechanism'].isin(mechanisms)]
     sub['order'] = sub['mechanism'].map({'shm': 0, 'pipe': 1, 'sysv': 2, 'posix': 3, 'fifo': 4, 'uds': 5})
     sub = sub.sort_values('order')
     labels = ['SHM', 'Pipe', 'SysV', 'POSIX', 'FIFO', 'UDS']
-    p50 = sub['mean_p50_rtt_us'].values
-    p95 = sub['mean_p95_rtt_us'].values
-    p99 = sub['mean_p99_rtt_us'].values
+    p50 = sub['p50_rtt_us_mean'].values
+    p95 = sub['p95_rtt_us_mean'].values
+    p99 = sub['p99_rtt_us_mean'].values
     x = np.arange(len(labels))
     width = 0.25
     ax1.bar(x - width, p50, width, label='P50 (Median)', color='#2ca02c')
@@ -190,15 +194,16 @@ def plot_percentiles_and_resources_combined():
 
 def plot_percentiles_single():
     df = pd.read_csv(CSV_PATH)
-    sub = df[df['payload_bytes'] == 1024].copy()
+    df = df[df['workload_type'] == 'single_pair_rtt'].copy()
+    sub = df[(df['payload_bytes'] == 1024) & (df['status'] == 'PASS')].copy()
     mechanisms = ['pipe', 'fifo', 'sysv', 'posix', 'shm', 'uds']
     sub = sub[sub['mechanism'].isin(mechanisms)]
     sub['order'] = sub['mechanism'].map({'shm': 0, 'pipe': 1, 'sysv': 2, 'posix': 3, 'fifo': 4, 'uds': 5})
     sub = sub.sort_values('order')
     labels = ['SHM', 'Pipe', 'SysV', 'POSIX', 'FIFO', 'UDS']
-    p50 = sub['mean_p50_rtt_us'].values
-    p95 = sub['mean_p95_rtt_us'].values
-    p99 = sub['mean_p99_rtt_us'].values
+    p50 = sub['p50_rtt_us_mean'].values
+    p95 = sub['p95_rtt_us_mean'].values
+    p99 = sub['p99_rtt_us_mean'].values
     x = np.arange(len(labels))
     width = 0.25
     fig, ax = plt.subplots(figsize=(3.4, 2.1))
