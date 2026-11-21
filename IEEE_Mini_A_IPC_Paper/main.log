@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.10.24)  21 NOV 2026 13:44
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.10.24)  21 NOV 2026 21:55
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -193,8 +193,10 @@ Package: amsfonts 2013/01/14 v3.01 Basic AMSFonts support
 LaTeX Font Info:    Redeclaring math symbol \hbar on input line 98.
 LaTeX Font Info:    Overwriting math alphabet `\mathfrak' in version `bold'
 (Font)                  U/euf/m/n --> U/euf/b/n on input line 106.
-)) (C:\Users\ramsa\AppData\Local\Programs\MiKTeX\tex/latex/graphics\graphicx.st
-y
+)) (C:\Users\ramsa\AppData\Local\Programs\MiKTeX\tex/latex/psnfss\times.sty
+Package: times 2020/03/25 PSNFSS-v9.3 (SPQR) 
+)
+(C:\Users\ramsa\AppData\Local\Programs\MiKTeX\tex/latex/graphics\graphicx.sty
 Package: graphicx 2024/12/31 v1.2e Enhanced LaTeX Graphics (DPC,SPQR)
 
 (C:\Users\ramsa\AppData\Local\Programs\MiKTeX\tex/latex/graphics\keyval.sty
@@ -724,7 +726,7 @@ File: tikzlibrarybackgrounds.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 \pgf@layerboxsaved@background=\box80
 )
 Package translations Info: No language package found. I am going to use `englis
-h' as default language. on input line 43.
+h' as default language. on input line 54.
 
 (C:\Users\ramsa\AppData\Local\Programs\MiKTeX\tex/latex/l3backend\l3backend-pdf
 tex.def
@@ -733,20 +735,20 @@ File: l3backend-pdftex.def 2025-10-09 L3 backend support: PDF output (pdfTeX)
 ) (main.aux)
 \openout1 = `main.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 54.
+LaTeX Font Info:    ... okay on input line 54.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 54.
+LaTeX Font Info:    ... okay on input line 54.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 54.
+LaTeX Font Info:    ... okay on input line 54.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 54.
+LaTeX Font Info:    ... okay on input line 54.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 54.
+LaTeX Font Info:    ... okay on input line 54.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 54.
+LaTeX Font Info:    ... okay on input line 54.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 54.
+LaTeX Font Info:    ... okay on input line 54.
 
 -- Lines per column: 56 (exact).
 
@@ -785,35 +787,27 @@ File: translations-basic-dictionary-english.trsl (english translation file `tra
 nslations-basic-dictionary')
 )
 Package translations Info: loading dictionary `translations-basic-dictionary' f
-or `english'. on input line 43.
-LaTeX Font Info:    Calculating math sizes for size <11> on input line 59.
-LaTeX Font Info:    Trying to load font information for U+msa on input line 59.
+or `english'. on input line 54.
+LaTeX Font Info:    Calculating math sizes for size <11> on input line 66.
+LaTeX Font Info:    Trying to load font information for U+msa on input line 66.
 
 
 (C:\Users\ramsa\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
-LaTeX Font Info:    Trying to load font information for U+msb on input line 59.
+LaTeX Font Info:    Trying to load font information for U+msb on input line 66.
 
 
 (C:\Users\ramsa\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
-LaTeX Font Info:    Trying to load font information for OMS+ptm on input line 5
-9.
-
-(C:\Users\ramsa\AppData\Local\Programs\MiKTeX\tex/latex/psnfss\omsptm.fd
-File: omsptm.fd 
-)
-LaTeX Font Info:    Font shape `OMS/ptm/m/n' in size <10> not available
-(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 59.
 LaTeX Font Info:    Trying to load font information for OT1+pcr on input line 6
-2.
+9.
 
 (C:\Users\ramsa\AppData\Local\Programs\MiKTeX\tex/latex/psnfss\ot1pcr.fd
 File: ot1pcr.fd 2001/06/04 font definitions for OT1/pcr.
 )
-Underfull \hbox (badness 3009) in paragraph at lines 61--63
+Underfull \hbox (badness 3009) in paragraph at lines 68--70
 \OT1/ptm/b/n/9 op-er-at-ing sys-tem of-fers di-verse IPC primitives---spanning
  []
 
@@ -841,127 +835,118 @@ Underfull \hbox (badness 2735) in paragraph at lines 14--17
  []
 
 [2]) (sections/03_architecture.tex (figures/architecture.tex)
-Underfull \hbox (badness 3271) in paragraph at lines 14--19
-[]\OT1/ptm/m/n/10 The Mini-A-IPC ar-chi-tec-ture com-prises four pri-mary
- []
-
-
-Underfull \hbox (badness 1910) in paragraph at lines 14--19
-\OT1/ptm/m/n/10 si-cal Linux IPC mech-a-nisms ad-her-ing to the stan-dard-
- []
-
-
-Underfull \hbox (badness 1454) in paragraph at lines 14--19
-\OT1/pcr/m/n/10 /dev/aipc \OT1/ptm/m/n/10 (\OT1/pcr/m/n/10 kernel/aipc_module.c
-\OT1/ptm/m/n/10 ) pro-vid-ing in-
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 21--23
+Underfull \hbox (badness 10000) in paragraph at lines 23--25
 []\OT1/ptm/m/n/10 All six userspace IPC im-ple-men-ta-tions
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 21--23
+Underfull \hbox (badness 10000) in paragraph at lines 23--25
 \OT1/ptm/m/n/10 ad-here to a uni-fied in-vo-ca-tion sig-na-ture:
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 21--23
+Underfull \hbox (badness 10000) in paragraph at lines 23--25
 \OT1/pcr/m/n/10 ipc_<mode>_run_opts(payload_size, count,
  []
 
 
-Underfull \hbox (badness 5802) in paragraph at lines 21--23
+Underfull \hbox (badness 5802) in paragraph at lines 23--25
 \OT1/pcr/m/n/10 opts, &elapsed_ns, &errors)\OT1/ptm/m/n/10 . The con-fig-u-ra-t
 ion
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 21--23
+Underfull \hbox (badness 10000) in paragraph at lines 23--25
 \OT1/ptm/m/n/10 struc-ture \OT1/pcr/m/n/10 ipc_bench_opts_t \OT1/ptm/m/n/10 al-
 lows caller-specified
  []
 
 [3]) (sections/04_ipc_implementation.tex
-Underfull \hbox (badness 1436) in paragraph at lines 40--1
-[]\OT1/ptm/m/n/10 The ker-nel de-vice mail-box (\OT1/pcr/m/n/10 /dev/aipc\OT1/p
-tm/m/n/10 ) is an out-
- []
-
-
-Underfull \hbox (badness 2990) in paragraph at lines 40--1
+Underfull \hbox (badness 2990) in paragraph at lines 42--1
 \OT1/ptm/m/n/10 al-ter-na-tive to pipes and sock-ets. The driver main-tains
  []
 
 
-Underfull \hbox (badness 1845) in paragraph at lines 40--1
+Underfull \hbox (badness 1845) in paragraph at lines 42--1
 \OT1/ptm/m/n/10 a dy-nam-i-cally al-lo-cated 64 KB cir-cu-lar ring buffer in
  []
 
 
-Underfull \hbox (badness 3049) in paragraph at lines 40--1
+Underfull \hbox (badness 3049) in paragraph at lines 42--1
 \OT1/ptm/m/n/10 ar-chi-tec-ture in-cor-po-rates an atomic open-count track-ing
  []
 
 
-Underfull \hbox (badness 2828) in paragraph at lines 40--1
+Underfull \hbox (badness 3407) in paragraph at lines 42--1
+\OT1/ptm/m/n/10 mech-a-nism and a tear-down bar-rier in \OT1/pcr/m/n/10 aipc_ex
+it()
+ []
+
+
+Underfull \hbox (badness 6173) in paragraph at lines 42--1
+\OT1/ptm/m/n/10 de-signed to co-or-di-nate or-derly tear-down and pre-vent
+ []
+
+
+Underfull \hbox (badness 2828) in paragraph at lines 42--1
 \OT1/ptm/m/n/10 To en-sure sta-tis-ti-cal va-lid-ity, the uni-fied bench-mark-i
 ng
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 40--1
+Underfull \hbox (badness 10000) in paragraph at lines 42--1
 \OT1/ptm/m/n/10 suite (\OT1/pcr/m/n/10 bench/unified_bench.c\OT1/ptm/m/n/10 ) i
 m-ple-ments three
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 40--1
+Underfull \hbox (badness 10000) in paragraph at lines 42--1
 \OT1/ptm/m/n/10 and high-resolution tim-ing mea-sured ex-clu-sively via
  []
 
 (tables/ipc_comparison.tex
-Underfull \hbox (badness 10000) in paragraph at lines 8--8
-[]|\OT1/ptm/b/n/7 Data Struc-ture /
- []
-
-
-Underfull \hbox (badness 1603) in paragraph at lines 12--13
-[]|\OT1/pcr/m/n/7 msgget\OT1/ptm/m/n/7 , \OT1/pcr/m/n/7 msgsnd\OT1/ptm/m/n/7 , 
-\OT1/pcr/m/n/7 msgrcv\OT1/ptm/m/n/7 ,
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 13--14
-[]|\OT1/pcr/m/n/7 mq_open\OT1/ptm/m/n/7 , \OT1/pcr/m/n/7 mq_send\OT1/ptm/m/n/7 
-,
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 14--14
-[]|\OT1/ptm/m/n/7 Explicit (POSIX un-named
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 14--15
-[]|\OT1/pcr/m/n/7 shm_open\OT1/ptm/m/n/7 , \OT1/pcr/m/n/7 mmap\OT1/ptm/m/n/7 ,
- []
-
-
 Underfull \hbox (badness 10000) in paragraph at lines 15--15
+[]|\OT1/pcr/m/n/7 MSGMAX \OT1/ptm/m/n/7 / \OT1/pcr/m/n/7 MSGMNB
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 17--17
+[]|\OT1/ptm/m/n/7 Dynamic
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 17--17
+[]|\OT1/ptm/m/n/7 Implicit (pri-or-ity queue
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 19--19
+[]|\OT1/ptm/m/n/7 1,024 B
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 19--19
+[]|\OT1/ptm/m/n/7 Explicit (POSIX fu-tex
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 21--21
 []|\OT1/ptm/m/n/7 Socket buffer
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 15--16
-[]|\OT1/pcr/m/n/7 socket\OT1/ptm/m/n/7 , \OT1/pcr/m/n/7 bind\OT1/ptm/m/n/7 , \O
-T1/pcr/m/n/7 connect\OT1/ptm/m/n/7 ,
+Underfull \hbox (badness 10000) in paragraph at lines 21--21
+[]|\OT1/ptm/m/n/7 Socket buffer auto-
  []
 
 
-Overfull \hbox (148.47539pt too wide) in paragraph at lines 6--19
- [][] 
+Underfull \hbox (badness 5217) in paragraph at lines 23--23
+[]|\OT1/ptm/m/n/7 Sleepable mu-tex + wait
+ []
+
+
+Overfull \hbox (44.09978pt too wide) in alignment at lines 7--25
+[] [] [] [] [] [] [] [] 
  []
 
 ) (figures/ipc_mechanisms.tex)
@@ -989,7 +974,7 @@ Underfull \hbox (badness 2538) in paragraph at lines 21--24
 1/ptm/m/n/10 with PID-
  []
 
-
+[4]
 Underfull \hbox (badness 10000) in paragraph at lines 32--34
 []\OT1/ptm/m/n/10 POSIX mes-sage queues pro-vide struc-tured pri-or-ity
  []
@@ -1067,7 +1052,7 @@ Underfull \hbox (badness 3302) in paragraph at lines 36--40
 \OT1/ptm/m/n/10 cess with-out in-ter-me-di-ate ker-nel buffer-ing. False shar-
  []
 
-[4]) (sections/05_adaptive_kernel.tex
+[5]) (sections/05_adaptive_kernel.tex
 Underfull \hbox (badness 10000) in paragraph at lines 42--1
 []\OT1/ptm/m/n/10 Unix do-main sock-ets pro-vide bidi-rec-tional stream
  []
@@ -1107,7 +1092,7 @@ m/m/it/10 s\OT1/cmr/m/n/10 )\OML/cmm/m/it/10 ; s\OT1/cmr/m/n/10 )$\OT1/ptm/m/n/
 mm/m/it/10 s\OT1/cmr/m/n/10 ) =
  []
 
-[5]
+
 Underfull \hbox (badness 6758) in paragraph at lines 42--47
 []\OT1/ptm/m/n/10 To in-ves-ti-gate driver-assisted com-mu-ni-ca-tion with-out
  []
@@ -1129,7 +1114,7 @@ Underfull \hbox (badness 1655) in paragraph at lines 42--47
 em-ory copy op-er-a-
  []
 
-) (sections/06_methodology.tex
+[6]) (sections/06_methodology.tex
 Underfull \hbox (badness 1558) in paragraph at lines 49--1
 \OT1/ptm/m/n/10 ers with an \OT1/pcr/m/n/10 -EPIPE \OT1/ptm/m/n/10 er-ror. The 
 mod-ule un-load thread
@@ -1140,18 +1125,43 @@ Underfull \hbox (badness 7925) in paragraph at lines 49--1
 \OT1/ptm/m/n/10 sus-pends on \OT1/pcr/m/n/10 wait_event(aipc->teardown_wait,
  []
 
-(tables/environment.tex) (figures/benchmark_workflow.tex) [6]
-Underfull \hbox (badness 10000) in paragraph at lines 22--24
+
+Underfull \hbox (badness 4181) in paragraph at lines 49--1
+\OT1/pcr/m/n/10 atomic_read(&aipc->active_ops) == 0)\OT1/ptm/m/n/10 , en-sur-
+ []
+
+(tables/environment.tex
+Underfull \hbox (badness 10000) in paragraph at lines 14--15
+[]|\OT1/pcr/m/n/7 7.3.4-300.fc45.x86_64
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 17--18
+[]|\OT1/pcr/m/n/7 -std=c11 -O2 -Wall -Wextra
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 24--25
+[]|\OT1/pcr/m/n/7 clock_gettime(CLOCK_MONOTONIC)
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 25--26
+[]|\OT1/ptm/m/n/7 Nearest-rank method
+ []
+
+) (figures/benchmark_workflow.tex)
+Underfull \hbox (badness 10000) in paragraph at lines 21--23
 []\OT1/ptm/m/n/10 The bench-mark-ing ma-trix eval-u-ates seven dis-crete
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 22--24
+Underfull \hbox (badness 10000) in paragraph at lines 21--23
 \OT1/ptm/m/n/10 pay-load sizes span-ning four or-ders of mag-ni-tude:
  []
 
 
-Underfull \hbox (badness 2126) in paragraph at lines 22--24
+Underfull \hbox (badness 2126) in paragraph at lines 21--23
 \OMS/cmsy/m/n/10 S \OT1/cmr/m/n/10 = \OMS/cmsy/m/n/10 f\OT1/cmr/m/n/10 64[]\OML
 /cmm/m/it/10 ; \OT1/cmr/m/n/10 256[]\OML/cmm/m/it/10 ; \OT1/cmr/m/n/10 1[]\OML/
 cmm/m/it/10 ; \OT1/cmr/m/n/10 4[]\OML/cmm/m/it/10 ; \OT1/cmr/m/n/10 16[]\OML/cm
@@ -1160,94 +1170,235 @@ sy/m/n/10 g$\OT1/ptm/m/n/10 .
  []
 
 
-Underfull \hbox (badness 2119) in paragraph at lines 22--24
+Underfull \hbox (badness 2119) in paragraph at lines 21--23
 \OT1/ptm/m/n/10 For each pay-load size and mech-a-nism, the bench-mark
  []
 
 
-Underfull \hbox (badness 2772) in paragraph at lines 38--39
+Underfull \hbox (badness 2913) in paragraph at lines 21--23
+\OT1/ptm/m/n/10 150,000 stream-ing trans-fers, to-tal-ing over 3.71 mil-lion
+ []
+
+[7]
+Underfull \hbox (badness 3240) in paragraph at lines 29--30
+[]\OT1/ptm/b/n/10 High-Resolution Tim-ing: \OT1/ptm/m/n/10 Tim-ing mea-sure-men
+ts uti-
+ []
+
+
+Underfull \hbox (badness 2772) in paragraph at lines 37--38
 []\OT1/ptm/b/n/10 Throughput (msg/s and MB/s): \OT1/ptm/m/n/10 Mes-sage fre-que
 ncy
  []
 
 (tables/benchmark_results.tex)
-<figures/latency_throughput_combined.pdf, id=43, 505.89pt x 166.22101pt>
+<figures/latency_throughput_combined.pdf, id=49, 505.89pt x 169.8345pt>
 File: figures/latency_throughput_combined.pdf Graphic file (type pdf)
 <use figures/latency_throughput_combined.pdf>
 Package pdftex.def Info: figures/latency_throughput_combined.pdf  used on input
- line 47.
-(pdftex.def)             Requested size: 363.70016pt x 119.50148pt.
+ line 46.
+(pdftex.def)             Requested size: 355.97319pt x 119.50148pt.
 ) (sections/07_results.tex
 Underfull \hbox (badness 1377) in paragraph at lines 4--5
 []\OT1/ptm/m/n/10 This sec-tion presents the em-pir-i-cal bench-mark re-sults
  []
 
-[7]
-<figures/percentiles_resources_combined.pdf, id=50, 505.89pt x 158.99399pt>
+<figures/percentiles_resources_combined.pdf, id=50, 505.89pt x 169.8345pt>
 File: figures/percentiles_resources_combined.pdf Graphic file (type pdf)
 <use figures/percentiles_resources_combined.pdf>
 Package pdftex.def Info: figures/percentiles_resources_combined.pdf  used on in
 put line 11.
-(pdftex.def)             Requested size: 380.23479pt x 119.50148pt.
+(pdftex.def)             Requested size: 355.97319pt x 119.50148pt.
 
-Underfull \hbox (badness 2744) in paragraph at lines 28--29
-[]\OT1/ptm/b/n/10 Anonymous Pipes: \OT1/ptm/m/n/10 Low-est me-dian la-tency ($\
-OML/cmm/m/it/10 P[] \OT1/cmr/m/n/10 =
+Underfull \hbox (badness 1939) in paragraph at lines 20--21
+\OT1/cmr/m/n/10 8\OML/cmm/m/it/10 ; \OT1/cmr/m/n/10 463\OML/cmm/m/it/10 :\OT1/c
+mr/m/n/10 24 []$\OT1/ptm/m/n/10 ), while POSIX MQ mea-sures $\OT1/cmr/m/n/10 13
+4\OML/cmm/m/it/10 :\OT1/cmr/m/n/10 47 \OML/cmm/m/it/10 ^^V[]$\OT1/ptm/m/n/10 ,
  []
 
-[8 <./figures/latency_throughput_combined.pdf>]) (sections/08_discussion.tex
+[8]
+Underfull \vbox (badness 1097) has occurred while \output is active []
+
+ [9 <./figures/latency_throughput_combined.pdf> <./figures/percentiles_resource
+s_combined.pdf>]) (sections/08_discussion.tex
+<figures/concurrency_scalability.pdf, id=128, 245.718pt x 162.6075pt>
+File: figures/concurrency_scalability.pdf Graphic file (type pdf)
+<use figures/concurrency_scalability.pdf>
+Package pdftex.def Info: figures/concurrency_scalability.pdf  used on input lin
+e 12.
+(pdftex.def)             Requested size: 231.83954pt x 153.43166pt.
+
+Underfull \hbox (badness 2285) in paragraph at lines 25--26
+[]\OT1/ptm/m/it/10 Unix Do-main Sock-ets \OT1/ptm/m/n/10 demon-strated the high
+-est sym-
+ []
+
+
+Underfull \hbox (badness 4013) in paragraph at lines 25--26
+\OT1/ptm/m/n/10 met-ric scal-a-bil-ity un-der 4P:4C con-tention, sus-tain-ing
+ []
+
 (tables/adaptive_results.tex)
-Underfull \hbox (badness 2980) in paragraph at lines 14--18
-\OT1/ptm/m/n/10 achieved re-mark-able scal-a-bil-ity un-der sym-met-ric 4P:4C
+<figures/adaptive_vs_best.pdf, id=129, 245.718pt x 162.6075pt>
+File: figures/adaptive_vs_best.pdf Graphic file (type pdf)
+<use figures/adaptive_vs_best.pdf>
+Package pdftex.def Info: figures/adaptive_vs_best.pdf  used on input line 37.
+(pdftex.def)             Requested size: 231.83954pt x 153.43166pt.
+ [10 <./figures/concurrency_scalability.pdf>]
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+<figures/kernel_vs_userspace.pdf, id=148, 245.718pt x 162.6075pt>
+File: figures/kernel_vs_userspace.pdf Graphic file (type pdf)
+<use figures/kernel_vs_userspace.pdf>
+Package pdftex.def Info: figures/kernel_vs_userspace.pdf  used on input line 52
+.
+(pdftex.def)             Requested size: 231.83954pt x 153.43166pt.
+<figures/context_switches.pdf, id=149, 245.718pt x 162.6075pt>
+File: figures/context_switches.pdf Graphic file (type pdf)
+<use figures/context_switches.pdf>
+Package pdftex.def Info: figures/context_switches.pdf  used on input line 63.
+(pdftex.def)             Requested size: 231.83954pt x 153.43166pt.
+
+Underfull \vbox (badness 1231) has occurred while \output is active []
+
+ [11 <./figures/adaptive_vs_best.pdf> <./figures/kernel_vs_userspace.pdf> <./fi
+gures/context_switches.pdf>] (tables/hypotheses.tex
+Underfull \hbox (badness 10000) in paragraph at lines 9--10
+[]|\OT1/ptm/b/n/7 Discriminating
  []
 
 
-Underfull \hbox (badness 1701) in paragraph at lines 14--18
-\OT1/ptm/m/n/10 con-tention, pro-cess-ing \OT1/ptm/b/n/10 114,159.07 msg/s \OT1
-/ptm/m/n/10 ($\OT1/cmr/m/n/10 6\OML/cmm/m/it/10 :\OT1/cmr/m/n/10 97$ \OT1/ptm/m
-/n/10 MB/s at
+Underfull \hbox (badness 10000) in paragraph at lines 11--11
+[]|\OT1/ptm/b/n/7 Hypervisor vCPU
  []
 
 
-Underfull \hbox (badness 1484) in paragraph at lines 22--27
-\OT1/ptm/m/n/10 ory and 4--64 KB to Anony-mous Pipes. \OT1/ptm/b/n/10 2) Crosso
-ver
+Underfull \hbox (badness 3291) in paragraph at lines 11--12
+[]|\OT1/ptm/m/n/7 Repeat bench-mark sweep
  []
 
 
-Overfull \vbox (2.12112pt too high) has occurred while \output is active []
-
-
-Overfull \vbox (2.02463pt too high) has occurred while \output is active []
-
-
-Overfull \vbox (1.02464pt too high) has occurred while \output is active []
-
-
-[9 <./figures/percentiles_resources_combined.pdf>]
-Underfull \hbox (badness 1448) in paragraph at lines 35--36
-[]\OT1/ptm/b/n/10 RQ3 (Adap-tive Trans-port Se-lec-tion): \OT1/ptm/m/n/10 A sta
-tic size-
+Underfull \hbox (badness 10000) in paragraph at lines 11--12
+\OT1/ptm/m/n/7 on ded-i-cated bare-metal
  []
 
 
-Underfull \hbox (badness 5119) in paragraph at lines 37--38
-[]\OT1/ptm/b/n/10 RQ5 (Con-cur-rency Scal-a-bil-ity): \OT1/ptm/m/n/10 Point-to-
-point byte
+Underfull \hbox (badness 3291) in paragraph at lines 11--12
+\OT1/ptm/m/n/7 Linux sil-i-con; trace VM
  []
 
 
-Underfull \hbox (badness 4699) in paragraph at lines 42--43
-\OT1/ptm/m/n/10 ets out-per-formed shared mem-ory at small pay-loads
+Underfull \hbox (badness 10000) in paragraph at lines 11--12
+\OT1/ptm/m/n/7 ex-its via \OT1/pcr/m/n/7 perf kvm
  []
 
 
-Underfull \hbox (badness 3612) in paragraph at lines 43--44
-[]\OT1/ptm/b/n/10 Operating Sys-tem Bound-aries: \OT1/ptm/m/n/10 Sys-tem V IPC 
-re-
+Underfull \hbox (badness 10000) in paragraph at lines 13--13
+[]|\OT1/ptm/m/n/7 Two-process IPC over
  []
 
-) (sections/09_conclusion.tex) (main.bbl)
+
+Underfull \hbox (badness 10000) in paragraph at lines 13--13
+\OT1/pcr/m/n/7 /dev/aipc \OT1/ptm/m/n/7 ex-hibits
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 13--14
+\OT1/ptm/m/n/7 pong over \OT1/pcr/m/n/7 /dev/aipc
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 13--14
+\OT1/ptm/m/n/7 with root priv-i-leges;
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 13--14
+\OT1/ptm/m/n/7 mea-sure context-switch
+ []
+
+
+Underfull \hbox (badness 2582) in paragraph at lines 15--15
+[]|\OT1/ptm/m/n/7 Expanding pipe ca-pac-ity
+ []
+
+
+Underfull \hbox (badness 4582) in paragraph at lines 15--16
+[]|\OT1/ptm/m/n/7 Re-run 256 KB trans-fer
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 17--17
+[]|\OT1/ptm/b/n/7 Futex Semaphore
+ []
+
+
+Underfull \hbox (badness 7685) in paragraph at lines 17--17
+[]|\OT1/ptm/m/n/7 Lock-free atomic SPSC
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 17--18
+[]|\OT1/ptm/m/n/7 Benchmark SPSC ring
+ []
+
+
+Underfull \hbox (badness 4819) in paragraph at lines 17--18
+\OT1/ptm/m/n/7 against fu-tex semaphores
+ []
+
+) (tables/recommendations.tex
+Underfull \hbox (badness 10000) in paragraph at lines 11--11
+[]|\OT1/ptm/b/n/7 Sub-Kilobyte
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 11--11
+[]|\OT1/ptm/m/n/7 System V Mes-sage
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 11--12
+\OT1/ptm/m/n/7 struc-tured mes-sage pass-ing
+ []
+
+
+Underfull \hbox (badness 5862) in paragraph at lines 13--13
+[]|\OT1/ptm/b/n/7 Intermediate (1--64
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 15--16
+[]|\OT1/ptm/m/n/7 Auto-tuning buffers pre-vent
+ []
+
+
+Underfull \hbox (badness 3240) in paragraph at lines 15--16
+\OT1/ptm/m/n/7 chunk-ing ($\OT1/cmr/m/n/7 2\OML/cmm/m/it/7 :\OT1/cmr/m/n/7 54\O
+MS/cmsy/m/n/7 ^^B$ \OT1/ptm/m/n/7 faster than
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 17--17
+[]|\OT1/ptm/b/n/7 Multi-Process
+ []
+
+)) (sections/09_conclusion.tex [12] (tables/summary_of_findings.tex
+Underfull \hbox (badness 10000) in paragraph at lines 19--19
+[]|\OT1/ptm/b/n/7 KVM Sched. Floor
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 21--21
+[]|\OT1/ptm/b/n/7 Static Se-lec-tor
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 23--23
+[]|\OT1/ptm/b/n/7 Offline 3-Tier Pol-icy
+ []
+
+)) (main.bbl)
 
 ** Conference Paper **
 Before submitting the final camera ready copy, remember to:
@@ -1259,24 +1410,20 @@ Before submitting the final camera ready copy, remember to:
  uses only Type 1 fonts and that every step in the generation
  process uses the appropriate paper size.
 
-
-Overfull \vbox (12.63335pt too high) has occurred while \output is active []
-
-
-[10] (main.aux)
+[13] (main.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2025-12-24>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 22020 strings out of 467871
- 493247 string characters out of 5418375
- 887089 words of memory out of 5000000
- 50495 multiletter control sequences out of 15000+600000
+ 22122 strings out of 467871
+ 496380 string characters out of 5418375
+ 911201 words of memory out of 5000000
+ 50589 multiletter control sequences out of 15000+600000
  686578 words of font info for 163 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 84i,14n,104p,1755b,970s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 84i,14n,104p,2231b,971s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/ramsa/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/
 cmbx10.pfb><C:/Users/ramsa/AppData/Local/Programs/MiKTeX/fonts/type1/public/ams
 fonts/cm/cmex10.pfb><C:/Users/ramsa/AppData/Local/Programs/MiKTeX/fonts/type1/p
@@ -1304,9 +1451,9 @@ ers/ramsa/AppData/Local/Programs/MiKTeX/fonts/type1/urw/times/utmb8a.pfb><C:/Us
 ers/ramsa/AppData/Local/Programs/MiKTeX/fonts/type1/urw/times/utmbi8a.pfb><C:/U
 sers/ramsa/AppData/Local/Programs/MiKTeX/fonts/type1/urw/times/utmr8a.pfb><C:/U
 sers/ramsa/AppData/Local/Programs/MiKTeX/fonts/type1/urw/times/utmri8a.pfb>
-Output written on main.pdf (10 pages, 407713 bytes).
+Output written on main.pdf (13 pages, 527029 bytes).
 PDF statistics:
- 208 PDF objects out of 1000 (max. 8388607)
+ 311 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 500000)
- 23 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 43 words of extra memory for PDF output out of 10000 (max. 10000000)
 

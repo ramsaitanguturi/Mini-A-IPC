@@ -1,0 +1,24 @@
+\begin{table}[!t]
+\centering
+\caption{Practitioner Guidelines for Linux IPC Transport Selection}
+\label{tab:recommendations}
+\scriptsize
+\renewcommand{\arraystretch}{0.98}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}p{2.2cm}p{2.3cm}p{3.3cm}}
+\toprule
+\textbf{Workload Regime} & \textbf{Recommended IPC} & \textbf{Empirical Basis} \\
+\midrule
+\textbf{Sub-Kilobyte ($\le 256$ B)} & System V Message Queue & Lowest RTT ($115.1\text{--}123.3\,\mu\text{s}$); structured message passing avoids byte framing. \\
+\addlinespace[1.2pt]
+\textbf{Intermediate (1--64 KB)} & Named FIFO / Anon. Pipe & High efficiency ($119.4\,\mu\text{s}$ at 4 KB); 64 KB kernel buffer absorbs transfer in single pass. \\
+\addlinespace[1.2pt]
+\textbf{Large Payloads ($\ge 256$ KB)} & Unix Domain Sockets & Auto-tuning buffers prevent chunking ($2.54\times$ faster than pipes, 1,304 MB/s bandwidth). \\
+\addlinespace[1.2pt]
+\textbf{Multi-Process MPMC (4P:4C)} & Unix Domain Sockets / System V MQ & Robust contention scaling: Sockets sustain 1.74M msg/s; System V MQ sustains 896k msg/s. \\
+\addlinespace[1.2pt]
+\textbf{Zero-Copy Memory Transfers} & POSIX Shared Memory & 0 data-path syscalls, 48.5\% fewer kernel transitions (2.06 futex vs 4.00 for streams). \\
+\addlinespace[1.2pt]
+\textbf{Mixed / Automated Workloads} & Adaptive Selector (3-Tier) & 0.66 ns decision overhead; 100\% oracle capture under calibrated 3-tier mapping. \\
+\bottomrule
+\end{tabular*}
+\end{table}

@@ -3,7 +3,7 @@
 
 \input{tables/environment.tex}
 
-Rigorous performance evaluation of low-level systems software requires strict environmental isolation, reproducible execution protocols, and verifiable statistical metrics~\cite{gregg2020systems}. This section details our experimental testbeds, workload configurations, and profiling methodology. Fig.~\ref{fig:benchmark_workflow} illustrates the end-to-end benchmark workflow.
+Rigorous performance evaluation of low-level systems software requires strict environmental isolation, reproducible execution protocols, and verifiable statistical metrics~\cite{gregg2020systems}. This section details our experimental testbed, workload configurations, and profiling methodology. Fig.~\ref{fig:benchmark_workflow} illustrates the end-to-end benchmark workflow.
 
 \begin{figure*}[!t]
 \centering
@@ -12,11 +12,10 @@ Rigorous performance evaluation of low-level systems software requires strict en
 \label{fig:benchmark_workflow}
 \end{figure*}
 
-\subsection{Hardware and Software Environments}
-Experiments were conducted across two distinct physical environments to isolate bare-metal Linux behavior from hypervisor virtualization effects. Table~\ref{tab:environment} lists the detailed system specifications and workload parameters.
+\subsection{Hardware and Software Environment}
+All primary experimental evaluations were conducted within a dedicated, isolated Linux systems environment. Table~\ref{tab:environment} lists the detailed system specifications and benchmark workload parameters.
 
-The \textbf{Primary Testbed} runs Fedora 45 Linux within a KVM virtual machine guest (Linux kernel \texttt{7.3.4-300.fc45.x86\_64}, Intel Core 7 240H, 4 dedicated vCPUs) compiled with GCC 16.2.1. This environment provides uninhibited access to modern Linux kernel subsystems, preemptible scheduling (\texttt{PREEMPT\_DYNAMIC}), and the full System V IPC API.
-The \textbf{Comparative Testbed} runs Ubuntu 26.04 LTS under the Windows Subsystem for Linux 2 (WSL2, Microsoft Linux kernel \texttt{6.6.87.2}) on an AMD Ryzen 7 8845HS processor. This environment isolates the performance impacts of hypervisor-mediated context switching and virtualized memory page table walks.
+The primary experimental testbed runs Fedora 45 Linux within a Kernel-based Virtual Machine (KVM) guest environment, powered by an Intel(R) Core(TM) 7 240H host processor (x86\_64) with 4 dedicated virtual CPUs (vCPUs) and 3.8~GiB of DDR5 memory. The operating system runs Linux kernel \texttt{7.3.4-300.fc45.x86\_64} configured with dynamic preemption (\texttt{PREEMPT\_DYNAMIC}). All benchmarks and test harnesses were compiled natively using GCC 16.2.1 20261029 with optimization flags \texttt{-std=c11 -O2 -Wall -Wextra -D\_GNU\_SOURCE}. This environment provides uninhibited access to modern Linux kernel subsystems, complete POSIX compliance, preemptible scheduling, and native System V IPC facilities.
 
 \subsection{Workload Configurations and Scientific Controls}
 The benchmarking matrix evaluates seven discrete payload sizes spanning four orders of magnitude: $\mathcal{S} = \{64\text{ B}, 256\text{ B}, 1\text{ KB}, 4\text{ KB}, 16\text{ KB}, 64\text{ KB}, 256\text{ KB}\}$.

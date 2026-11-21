@@ -1,30 +1,30 @@
-\begin{table}[t]
+\begin{table}[!t]
 \centering
 \caption{Adaptive Selector Accuracy and Intra-Trial Latency Regret Evaluation}
 \label{tab:adaptive_results}
 \scriptsize
-\renewcommand{\arraystretch}{0.84}
-\setlength{\tabcolsep}{1.8pt}
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{rcccccc}
+\renewcommand{\arraystretch}{1.08}
+\setlength{\tabcolsep}{2.2pt}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}rcccccc}
 \toprule
-\textbf{Payload} & \textbf{Selected} & \textbf{Oracle} & \textbf{Adaptive} & \textbf{Oracle} & \textbf{Regret} & \textbf{Global} \\
+\textbf{Payload} & \textbf{Selected} & \textbf{Oracle} & \textbf{Adaptive} & \textbf{Oracle} & \textbf{Regret} & \textbf{Oracle} \\
 \textbf{Size} & \textbf{Mode} & \textbf{Best} & \textbf{RTT ($\mu\text{s}$)} & \textbf{RTT ($\mu\text{s}$)} & \textbf{(\%)} & \textbf{Match?} \\
 \midrule
-64 B & \texttt{shm} & \texttt{sysv} & 132.07 & 123.33 & +7.08\% & \textbf{NO} \\
-256 B & \texttt{shm} & \texttt{sysv} & 147.01 & 115.13 & +27.69\% & \textbf{NO} \\
-1,024 B & \texttt{shm} & \texttt{uds} & 144.52 & 128.28 & +12.66\% & \textbf{NO} \\
-4,096 B & \texttt{pipe} & \texttt{fifo} & 135.78 & 119.44 & +13.69\% & \textbf{NO} \\
-16,384 B & \texttt{pipe} & \texttt{pipe} & 136.00 & 140.60 & -3.27\% & \textbf{YES} \\
-65,536 B & \texttt{pipe} & \texttt{uds} & 151.87 & 123.53 & +22.94\% & \textbf{NO} \\
-262,144 B & \texttt{pipe} & \texttt{uds} & 957.62 & 449.64 & +112.97\% & \textbf{NO} \\
+64 B & \texttt{shm} & \texttt{sysv} & 132.07 & 123.33 & $+7.08\%$ & No \\
+256 B & \texttt{shm} & \texttt{sysv} & 147.01 & 115.13 & $+27.69\%$ & No \\
+1,024 B & \texttt{shm} & \texttt{uds} & 144.52 & 128.28 & $+12.66\%$ & No \\
+\addlinespace[1.5pt]
+4,096 B & \texttt{pipe} & \texttt{fifo} & 135.78 & 119.44 & $+13.69\%$ & No \\
+16,384 B & \texttt{pipe} & \texttt{pipe} & 136.00 & 140.60 & $-3.27\%$ & \textbf{Yes} \\
+65,536 B & \texttt{pipe} & \texttt{uds} & 151.87 & 123.53 & $+22.94\%$ & No \\
+262,144 B & \texttt{pipe} & \texttt{uds} & 957.62 & 449.64 & $+112.97\%$ & No \\
 \midrule
-\multicolumn{3}{l}{\textbf{Global Selection Accuracy}} & \multicolumn{4}{c}{\textbf{14.29\%} (1 of 7 payload classes)} \\
-\multicolumn{3}{l}{\textbf{Candidate Accuracy (SHM vs Pipe)}} & \multicolumn{4}{c}{\textbf{71.43\%} (5 of 7 payload classes)} \\
-\multicolumn{3}{l}{\textbf{Mean Latency Regret}} & \multicolumn{4}{c}{\textbf{27.68\%} across evaluated workloads} \\
-\multicolumn{3}{l}{\textbf{Empirical 3-Tier Policy (Offline)}} & \multicolumn{4}{c}{\textbf{100.00\%} (7 of 7 oracle matches)} \\
+\multicolumn{4}{l}{\textbf{Candidate Accuracy (SHM vs. Pipe)}} & \multicolumn{3}{r}{\textbf{71.43\%} (5 of 7 classes)} \\
+\multicolumn{4}{l}{\textbf{Global Selection Accuracy (vs. 6 Mechanisms)}} & \multicolumn{3}{r}{\textbf{14.29\%} (1 of 7 classes)} \\
+\multicolumn{4}{l}{\textbf{Mean Intra-Trial Latency Regret}} & \multicolumn{3}{r}{\textbf{27.68\%} across workloads} \\
+\multicolumn{4}{l}{\textbf{Offline 3-Tier Policy Calibration}} & \multicolumn{3}{r}{\textbf{100.00\%} (7 of 7 matches)} \\
 \bottomrule
-\end{tabular}%
-}
-{\vskip 1pt\tiny\noindent Regret computed within matched trial blocks ($N=7$). At 16~KB, Adaptive routes to Pipe; the $-3.27\%$ regret reflects inter-phase hypervisor scheduling noise between independent trial sweeps ($p=0.86$, statistically indistinguishable). Positive regret indicates unconsidered transports (e.g., SysV MQ, UDS) beat \texttt{shm}/\texttt{pipe}.\par}
+\end{tabular*}
+\vskip 2pt
+{\tiny\noindent Regret computed within matched trial blocks ($N=7$) under a randomized block design. At 16~KB, Adaptive routes to Pipe; the $-3.27\%$ difference reflects within-block hypervisor scheduling jitter ($t = -0.189, p=0.86$, paired Student's $t$-test, statistically indistinguishable). Positive regret indicates unconsidered transports (e.g., SysV MQ, UDS) beat \texttt{shm}/\texttt{pipe}.\par}
 \end{table}

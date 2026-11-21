@@ -1,48 +1,127 @@
 \begin{tikzpicture}[
-    scale=0.62, every node/.style={transform shape},
-    box/.style={draw=black!70, rounded corners=2pt, fill=blue!5, thick, text width=2.3cm, minimum height=0.75cm, align=center, font=\footnotesize},
-    kernbox/.style={draw=black!70, rounded corners=2pt, fill=red!8, thick, text width=2.3cm, minimum height=0.75cm, align=center, font=\footnotesize},
-    ctlbox/.style={draw=black!70, rounded corners=2pt, fill=green!8, thick, text width=2.3cm, minimum height=0.75cm, align=center, font=\footnotesize},
-    benchbox/.style={draw=black!70, rounded corners=2pt, fill=yellow!12, thick, text width=7.4cm, minimum height=0.65cm, align=center, font=\footnotesize},
-    layer/.style={draw=black!40, dashed, inner sep=3pt, fill=black!2},
-    arrow/.style={->, >=stealth, thick, draw=black!70}
+    scale=0.91, every node/.style={transform shape},
+    box/.style={draw=darknavy, rounded corners=2.5pt, fill=medblue!12, thick, text width=2.70cm, minimum height=0.85cm, align=center, font=\footnotesize},
+    apibox/.style={draw=darknavy, rounded corners=2.5pt, fill=acadblue!15, thick, text width=2.70cm, minimum height=0.85cm, align=center, font=\footnotesize},
+    kernbox/.style={draw=darknavy, rounded corners=2.5pt, fill=mutedorange!15, thick, text width=2.15cm, minimum height=0.85cm, align=center, font=\footnotesize},
+    kmodbox/.style={draw=darknavy, rounded corners=2.5pt, fill=mutedorange!25, thick, text width=2.25cm, minimum height=0.85cm, align=center, font=\footnotesize},
+    adaptbox/.style={draw=darknavy, rounded corners=2.5pt, fill=mutedgreen!15, thick, text width=5.80cm, minimum height=2.90cm, align=center, font=\footnotesize},
+    benchbox/.style={draw=darknavy, rounded corners=2.5pt, fill=acadblue!12, thick, text width=5.80cm, minimum height=2.50cm, align=center, font=\footnotesize},
+    layer/.style={draw=neutralgrey, dashed, fill=neutralgrey!5, inner sep=6pt, rounded corners=3pt},
+    banner/.style={fill=darknavy, text=white, font=\scriptsize\bfseries, rounded corners=2pt, inner sep=2.5pt},
+    arr/.style={->, >=stealth, thick, draw=charcoal},
+    ctrlarr/.style={->, >=stealth, thick, draw=acadblue},
+    dasharr/.style={->, >=stealth, thick, dashed, draw=mutedwine}
 ]
 
-% Userspace Layer
-\node[box] (pipe) at (0, 2.5) {\textbf{Pipes / FIFO}\\ \scriptsize \texttt{pipe()}, \texttt{mkfifo()}};
-\node[box] (mq) at (2.6, 2.5) {\textbf{Message Queues}\\ \scriptsize SysV \& POSIX MQ};
-\node[box] (shm) at (5.2, 2.5) {\textbf{Shared Memory}\\ \scriptsize \texttt{mmap}, POSIX Sem};
-\node[box] (uds) at (7.8, 2.5) {\textbf{Unix Sockets}\\ \scriptsize \texttt{AF\_UNIX} Stream};
+% =========================================================================
+% LEFT SECTION: CORE IPC EXECUTION STACK (Areas A, B, C)
+% =========================================================================
 
-% Adaptive Selector Layer
-\node[ctlbox] (static_sel) at (1.8, 1.3) {\textbf{Static Selector}\\ \scriptsize Size Threshold (1KB)};
-\node[ctlbox] (ewma_sel) at (5.9, 1.3) {\textbf{Adaptive EWMA}\\ \scriptsize Telemetry \& Hysteresis};
+% --- Area A: Application and API Layer (y = 6.45) ---
+\node[apibox] (cli) at (1.45, 6.45) {\textbf{CLI Applications}\\ \scriptsize \texttt{bin/mini-aipc}, \texttt{aipc\_client}};
+\node[apibox] (iface) at (4.75, 6.45) {\textbf{Unified IPC API}\\ \scriptsize \texttt{include/ipc.h} (\texttt{ipc\_opts})};
+\node[apibox] (disp) at (8.05, 6.45) {\textbf{Workload Dispatcher}\\ \scriptsize Single RTT $\cdot$ MPMC $\cdot$ Stream};
 
-% Kernel Layer
-\node[kernbox] (vfs) at (1.2, 0.05) {\textbf{Linux VFS / Pipes}\\ \scriptsize \texttt{pipe\_inode\_info}};
-\node[kernbox] (ipc_sub) at (3.9, 0.05) {\textbf{Kernel IPC Core}\\ \scriptsize Futex / MQ Subsystem};
-\node[kernbox] (kmod) at (6.6, 0.05) {\textbf{Kernel Mailbox}\\ \scriptsize \texttt{/dev/aipc} (Char Dev)};
+\draw[arr] (cli) -- (iface);
+\draw[arr] (iface) -- (disp);
 
-% Benchmarking Infrastructure
-\node[benchbox] (bench) at (3.9, -0.9) {\textbf{Unified Benchmarking \& Telemetry Suite}\\ \scriptsize Randomized Blocks $\cdot$ CPU Affinity $\cdot$ 500-cycle Warm-up $\cdot$ Syscall / RSS Tracing};
+% --- Area B: IPC Transport Layer (3 Columns x 2 Rows) ---
+% Column 1: Stream Transports (x = 1.45)
+\node[box] (pipe) at (1.45, 4.15) {\textbf{Anonymous Pipes}\\ \scriptsize \texttt{src/ipc\_pipe.c} $\cdot$ \texttt{pipe2()}};
+\node[box] (fifo) at (1.45, 2.90) {\textbf{Named FIFOs}\\ \scriptsize \texttt{src/ipc\_fifo.c} $\cdot$ \texttt{mkfifo()}};
 
-% Background Layers
+% Column 2: Message Queues (x = 4.75)
+\node[box] (sysv) at (4.75, 4.15) {\textbf{System V MQ}\\ \scriptsize \texttt{src/ipc\_sysv\_mq.c} $\cdot$ \texttt{msgget()}};
+\node[box] (posix) at (4.75, 2.90) {\textbf{POSIX MQ}\\ \scriptsize \texttt{src/ipc\_posix\_mq.c} $\cdot$ \texttt{mq\_open()}};
+
+% Column 3: Direct Memory & Sockets (x = 8.05)
+\node[box] (shm) at (8.05, 4.15) {\textbf{POSIX Shared Memory}\\ \scriptsize \texttt{src/ipc\_shm.c} $\cdot$ Futex Mailbox};
+\node[box] (uds) at (8.05, 2.90) {\textbf{Unix Domain Sockets}\\ \scriptsize \texttt{src/ipc\_uds.c} $\cdot$ \texttt{AF\_UNIX}};
+
+% Clean Dispatcher Bus connecting to all 3 Columns (Below Banner B)
+\draw[thick, draw=charcoal] (disp.south) -- (8.05, 4.95) coordinate (bus);
+\draw[thick, draw=charcoal] (bus) -- (1.45, 4.95) coordinate (busend);
+\draw[arr] (bus) -- (shm.north);
+\draw[arr] (bus -| sysv.north) -- (sysv.north);
+\draw[arr] (busend) -- (pipe.north);
+\node[above=2.5pt, font=\scriptsize\bfseries, text=darknavy, fill=white, inner sep=1.5pt, rounded corners=2pt] at (3.10, 4.95) {Workload Dispatch Bus};
+
+% Column drops from Row 1 to Row 2
+\draw[arr] (pipe.south) -- (fifo.north);
+\draw[arr] (sysv.south) -- (posix.north);
+\draw[arr] (shm.south) -- (uds.north);
+
+% --- User-Kernel Execution Boundary (y = 1.95) ---
+\draw[thick, dashed, draw=neutralgrey] (-0.10, 1.95) -- (9.50, 1.95);
+\node[font=\tiny\bfseries, fill=white, draw=neutralgrey, rounded corners=2pt, inner sep=2pt, text=charcoal] at (4.75, 1.95) {USER-KERNEL EXECUTION BOUNDARY};
+
+% --- Area C: Kernel Execution Layer (y = 0.90) ---
+\node[kernbox] (vfs) at (1.15, 0.90) {\textbf{Linux VFS Core}\\ \scriptsize Pipe Page Buffers};
+\node[kernbox] (mq) at (3.50, 0.90) {\textbf{Kernel MQs}\\ \scriptsize SysV / \texttt{/dev/mqueue}};
+\node[kernbox] (futex) at (5.85, 0.90) {\textbf{Futex / MM \& Skt}\\ \scriptsize Zero-Copy $\cdot$ \texttt{sk\_buff}};
+\node[kmodbox] (kmod) at (8.20, 0.90) {\textbf{Custom Mailbox}\\ \scriptsize \texttt{/dev/aipc} Char Device\\ \tiny 64KB Ring $\cdot$ Drain Barrier};
+
+% Direct downward connectors to kernel (Zero Crossings)
+\draw[arr] (fifo.south) -- ++(0,-0.35) -| (vfs.north);
+\draw[arr] (posix.south) -- ++(0,-0.35) -| (mq.north);
+\draw[arr] (uds.south) -- ++(0,-0.35) -| (futex.north);
+\draw[arr] (8.20, 1.95) -- (kmod.north);
+
+% =========================================================================
+% RIGHT SECTION: ADAPTIVE SELECTION & TELEMETRY SUITE (Area D)
+% =========================================================================
+
+\node[adaptbox] (adapt) at (14.60, 4.85) {
+    \textbf{\normalsize Adaptive Transport Selector}\\[1.5pt]
+    \scriptsize \texttt{src/selector.c}\\[4pt]
+    \raggedright
+    \textbf{1) Static Decision Policy (Thresholding):}\\[1.5pt]
+    \quad $\bullet$ $s \le 1024\text{ B} \implies$ Route to \textbf{POSIX SHM}\\[1.5pt]
+    \quad $\bullet$ $s > 1024\text{ B} \implies$ Route to \textbf{Anonymous Pipe}\\[4pt]
+    \textbf{2) Dynamic EWMA Telemetry Controller:}\\[1.5pt]
+    \quad $\bullet$ $\bar{L}^{(t)} = \alpha L + (1-\alpha)\bar{L}^{(t-1)}$ ($\alpha=0.15$)\\[1.5pt]
+    \quad $\bullet$ 8\% Hysteresis Switching Margin ($h=1.08$)\\[3.5pt]
+    \centering \textit{\scriptsize [Evaluated Candidates: SHM $\longleftrightarrow$ Pipe]}
+};
+
+\node[benchbox] (bench) at (14.60, 1.55) {
+    \textbf{\normalsize Benchmarking \& Telemetry Suite}\\[1.5pt]
+    \scriptsize \texttt{bench/unified\_bench.c} $\cdot$ \texttt{orchestrate.py}\\[4pt]
+    \raggedright
+    $\bullet$ \textbf{Scientific Controls:} Fisher-Yates trial shuffle, dedicated CPU affinity, 500 untimed priming cycles\\[2.5pt]
+    $\bullet$ \textbf{Telemetry Engine:} \texttt{CLOCK\_MONOTONIC} (vDSO ns), \texttt{getrusage} context switches, \texttt{strace} profiling
+};
+
+% =========================================================================
+% INTER-MODULE CONTROL & TELEMETRY LINKS (Generous Separation)
+% =========================================================================
+
+% Workload Dispatcher activates Adaptive Mode
+\draw[ctrlarr] (disp.east) -- node[above=2pt, font=\scriptsize\bfseries, text=acadblue, fill=white, inner sep=1.5pt] {Adaptive Mode} (adapt.165);
+
+% Adaptive Selector routes to Transport Layer (Clean Horizontal Link)
+\draw[ctrlarr] (adapt.195) -- node[above=2pt, font=\scriptsize\bfseries, text=acadblue, fill=white, inner sep=1.5pt] {Select Route} (shm.east);
+
+% Internal Telemetry Feedback within Area D
+\draw[dasharr] (bench.north) -- node[right=3pt, font=\scriptsize\bfseries, text=mutedwine] {EWMA Latency Feedback} (adapt.south);
+
+% OS Telemetry collection from Kernel Modules (Clean Horizontal Link with 0.8cm Margin)
+\draw[dasharr] (kmod.east) -- node[above=2.5pt, font=\scriptsize\bfseries, text=mutedwine, fill=white, inner sep=1.5pt] {Kernel Telemetry} (bench.west |- kmod.east);
+
+% =========================================================================
+% SECTION BANNERS & FRAMES
+% =========================================================================
+
+\node[banner, anchor=south west] at (-0.10, 7.10) {A. Application and API Layer};
+\node[banner, anchor=south west] at (-0.10, 5.30) {B. IPC Transport Layer (Six Classical Evaluated Transports)};
+\node[banner, anchor=north west] at (-0.10, 0.25) {C. Kernel Execution Layer \& Standalone Driver Mailbox};
+\node[banner, anchor=south west] at (11.70, 7.10) {D. Adaptive Selection \& Benchmarking Suite};
+
 \begin{scope}[on background layer]
-    \node[layer, fit=(pipe) (uds), label=above:{\scriptsize \textbf{Userspace Classical IPC Implementations}}] {};
-    \node[layer, fit=(static_sel) (ewma_sel), label=left:{\scriptsize \textbf{Decision Layer}}] {};
-    \node[layer, fit=(vfs) (kmod), label=below:{\scriptsize \textbf{Kernel-Space Execution Layer}}] {};
+    \node[layer, fit=(cli) (disp), inner ysep=7pt, inner xsep=5pt] {};
+    \node[layer, fit=(pipe) (uds), inner ysep=7pt, inner xsep=5pt] {};
+    \node[layer, fit=(vfs) (kmod), inner ysep=7pt, inner xsep=5pt] {};
+    \node[layer, fit=(adapt) (bench), inner ysep=7pt, inner xsep=5pt] {};
 \end{scope}
-
-% Arrows
-\draw[arrow] (static_sel) -- (pipe);
-\draw[arrow] (static_sel) -- (shm);
-\draw[arrow] (ewma_sel) -- (shm);
-\draw[arrow] (ewma_sel) -- (pipe);
-\draw[arrow] (pipe) -- (vfs);
-\draw[arrow] (mq) -- (ipc_sub);
-\draw[arrow] (shm) -- (ipc_sub);
-\draw[arrow] (uds) -- (vfs);
-\draw[arrow] (ewma_sel) -- (kmod);
-\draw[arrow, dashed] (bench) -- (ipc_sub);
 
 \end{tikzpicture}

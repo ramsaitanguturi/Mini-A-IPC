@@ -1,33 +1,33 @@
 \begin{tikzpicture}[
-    scale=0.88, every node/.style={transform shape},
-    box/.style={draw=black!70, rounded corners=3pt, text width=3.35cm, minimum height=1.00cm, align=center},
-    stageI/.style={box, fill=blue!10, draw=blue!70, thick},
-    ctrlI/.style={box, fill=orange!15, draw=orange!80, thick},
-    statII/.style={box, fill=green!15, draw=green!70!black, thick},
-    outII/.style={box, fill=purple!10, draw=purple!70, thick},
-    arr/.style={->, >=stealth, very thick, draw=black!75}
+    scale=0.82, every node/.style={transform shape},
+    box/.style={draw=darknavy, rounded corners=3pt, text width=3.35cm, minimum height=0.82cm, align=center},
+    stageI/.style={box, fill=acadblue!15, draw=acadblue, thick},
+    ctrlI/.style={box, fill=mutedorange!18, draw=mutedorange, thick},
+    statII/.style={box, fill=mutedgreen!18, draw=mutedgreen, thick},
+    outII/.style={box, fill=darknavy!15, draw=darknavy, thick},
+    arr/.style={->, >=stealth, very thick, draw=charcoal}
 ]
 
 % Row 1: Stage I - Execution & Scientific Controls (Left to Right)
-\node[stageI] (n1) at (0.0, 1.80) {
+\node[stageI] (n1) at (0.0, 1.55) {
     \textbf{\scriptsize 1. Workload Sweep}\\[1pt]
     \tiny 64 B to 256 KB Sweep\\
     \tiny 10,000 Exchanges / Trial
 };
 
-\node[ctrlI] (n2) at (4.2, 1.80) {
+\node[ctrlI] (n2) at (4.2, 1.55) {
     \textbf{\scriptsize 2. Scientific Controls}\\[1pt]
     \tiny Fisher-Yates Shuffling\\
-    \tiny Dedicated CPU Core Pinning
+    \tiny Dedicated CPU Pinning
 };
 
-\node[ctrlI] (n3) at (8.4, 1.80) {
+\node[ctrlI] (n3) at (8.4, 1.55) {
     \textbf{\scriptsize 3. Untimed Warm-Up}\\[1pt]
     \tiny 500 Untimed Cycles\\
     \tiny Cache \& TLB Priming
 };
 
-\node[stageI] (n4) at (12.6, 1.80) {
+\node[stageI] (n4) at (12.6, 1.55) {
     \textbf{\scriptsize 4. Precision Hot Loop}\\[1pt]
     \tiny \texttt{CLOCK\_MONOTONIC}\\
     \tiny Low-ns vDSO Monotonic Timer
@@ -58,12 +58,12 @@
     \tiny Verified LaTeX Tables
 };
 
-% Background Groups
+% Background Groups with clean banners
 \begin{scope}[on background layer]
-    \node[draw=blue!40, dashed, fill=blue!3, rounded corners=4pt, fit=(n1) (n4), inner ysep=5pt, inner xsep=4pt,
-          label={[font=\scriptsize\bfseries, text=blue!80!black]above:STAGE I: BENCHMARK EXECUTION AND EXPERIMENTAL SCIENTIFIC CONTROLS}] {};
-    \node[draw=green!50!black, dashed, fill=green!3, rounded corners=4pt, fit=(n8) (n5), inner ysep=5pt, inner xsep=4pt,
-          label={[font=\scriptsize\bfseries, text=green!60!black]below:STAGE II: STATISTICAL ANALYSIS AND TELEMETRY EXTRACTION}] {};
+    \node[draw=acadblue!50, dashed, fill=acadblue!4, rounded corners=4pt, fit=(n1) (n4), inner ysep=5pt, inner xsep=4pt,
+          label={[font=\scriptsize\bfseries, text=acadblue]above:STAGE I: BENCHMARK EXECUTION AND SCIENTIFIC CONTROLS}] {};
+    \node[draw=mutedgreen!60, dashed, fill=mutedgreen!4, rounded corners=4pt, fit=(n8) (n5), inner ysep=5pt, inner xsep=4pt,
+          label={[font=\scriptsize\bfseries, text=mutedgreen!80!black]below:STAGE II: STATISTICAL ANALYSIS AND TELEMETRY EXTRACTION}] {};
 \end{scope}
 
 % Forward Arrows

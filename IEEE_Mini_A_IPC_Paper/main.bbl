@@ -39,7 +39,7 @@ M.~Herlihy and N.~Shavit, \emph{The Art of Multiprocessor Programming},
 \bibitem{posix2018standard}
 {IEEE and The Open Group}, \emph{Standard for Information Technology---Portable
   Operating System Interface (POSIX) Base Specifications, Issue 7}, IEEE Std.
-  Std 1003.1-2017, 2018.
+  1003.1-2017, 2018.
 
 \bibitem{stevens1999unixipc}
 W.~R. Stevens, \emph{UNIX Network Programming, Volume 2: Interprocess
@@ -65,10 +65,10 @@ E.~Renault and M.~Bacou, ``Analyzing and optimizing inter-process communication
 U.~Drepper, ``What every programmer should know about memory,'' \emph{Red Hat
   Inc.}, 2007.
 
-\bibitem{molnar2003futex}
-I.~Molnar, R.~Russell, and U.~Drepper, ``Fuss, futexes and furwocks: Fast
-  userlevel locking in {Linux},'' \emph{Ottawa Linux Symposium}, pp. 479--495,
-  2003.
+\bibitem{franke2002futex}
+H.~Franke, R.~Russell, and M.~Kirkwood, ``Fuss, futexes and furwocks: Fast
+  userlevel locking in {Linux},'' in \emph{Proc. Ottawa Linux Symp.}, 2002, pp.
+  479--495.
 
 \bibitem{bovet2005understanding}
 D.~P. Bovet and M.~Cesati, \emph{Understanding the Linux Kernel}, 3rd~ed.\hskip
