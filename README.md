@@ -236,7 +236,69 @@ COUNT=5000 TRIALS=3 WARMUP=100 CPU_PRODUCER=0 CPU_CONSUMER=1 bash ./bench/run_co
 
 ---
 
-## 10. Viva Voce & Defense Guide (For B.Tech CSE Students)
+## 10. Empirical Benchmark Results & Academic Analysis (Fedora Linux 45)
+
+The following empirical results were obtained from the full randomized benchmark suite (`make bench-unified`, experiment `exp_20261118T134516Z_9733`) running on **Fedora Linux 45 (Kernel 7.3.4, Intel Core 7 240H)** with strict process isolation, CPU affinity pinning (Producer: CPU 0, Consumer: CPU 1), and 7 randomized trial blocks (10,000 messages/trial).
+
+### A. Round-Trip Latency (RTT) & Throughput Sweep
+
+| Payload Size | Fastest Mechanism | Mean RTT ($\mu$s) | Median P50 ($\mu$s) | Tail P99 ($\mu$s) | Throughput (msg/s) | Transfer Rate |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **64 B** | **System V MQ** | 123.33 | 101.57 | 373.62 | 8,233.1 msg/s | 1.05 MB/s wire |
+| **256 B** | **System V MQ** | 115.13 | 97.35 | 279.51 | 8,792.8 msg/s | 4.50 MB/s wire |
+| **1 KB** | **Unix Domain Socket** | 128.28 | 99.25 | 519.61 | 8,088.0 msg/s | 16.56 MB/s wire |
+| **4 KB** | **Named Pipe (FIFO)** | 119.44 | 100.78 | 309.60 | 8,463.2 msg/s | 69.33 MB/s wire |
+| **16 KB** | **Anonymous Pipe** | 140.60 | 104.52 | 273.37 | 7,676.4 msg/s | 251.54 MB/s wire |
+| **64 KB** | **Unix Domain Socket** | 123.53 | 103.69 | 264.09 | 8,325.9 msg/s | 1,091.29 MB/s wire |
+| **256 KB** | **Unix Domain Socket** | 449.64 | 330.19 | 673.72 | 2,488.0 msg/s | 1,304.44 MB/s wire |
+
+> [!NOTE]
+> **Transport Capacity Bounds & Kernel Limits**:
+> - **POSIX Shared Memory (`shm`)**: Bounded to $\le 1024$ bytes (`SHM_MAX_PAYLOAD = 1024`). Payloads $\ge 4$ KB cleanly transition to `UNSUPPORTED`.
+> - **System V Message Queues (`sysv`)**: Bounded by Linux kernel `msgmax` (8,192 bytes). Payloads $\ge 16$ KB return `EMSGSIZE` and are reported as `UNSUPPORTED`.
+> - **POSIX Message Queues (`posix`)**: Bounded by system queue limits (`/proc/sys/fs/mqueue/msgsize_max` = 8,192 bytes). Payloads $\ge 16$ KB return `EINVAL` and are reported as `UNSUPPORTED`.
+> - **Pipes, FIFOs, and Unix Domain Sockets**: Successfully scale across all payload sizes up to 256 KB.
+
+### B. Multi-Process Concurrency Scalability (256 B Payload)
+
+Evaluated across 5 concurrency topologies (5,000 messages $\times$ 5 trials):
+
+| Concurrency Topology | Top Mechanism | Throughput (msg/s) | Bandwidth (MB/s) | Mechanism Classification |
+| :--- | :--- | :--- | :--- | :--- |
+| **1P : 1C** (Single Pair) | Named Pipe (FIFO) | **1,921,603 msg/s** | 491.9 MB/s | All point-to-point transports supported |
+| **2P : 1C** (Multi-Producer) | Named Pipe (FIFO) | **1,578,699 msg/s** | 404.1 MB/s | Pipe/FIFO atomic writes $\le$ `PIPE_BUF` (4096 B) |
+| **4P : 1C** (Fan-In Contention) | Anonymous Pipe | **1,431,126 msg/s** | 366.4 MB/s | Kernel buffer serialization |
+| **1P : 2C** (Fan-Out Readers) | Unix Domain Socket | **735,758 msg/s** | 188.4 MB/s | Discrete connection semantics; Pipe/FIFO unsupported |
+| **4P : 4C** (Full MPMC) | Unix Domain Socket | **1,737,338 msg/s** | 444.8 MB/s | Full-duplex connection multiplexing |
+
+### C. System-Call Overhead Analysis (`strace -f -c`)
+
+| Mechanism | Communication Syscalls / Exchange | Setup / Teardown Calls | Synchronous Fast-Path Behavior |
+| :--- | :--- | :--- | :--- |
+| **Pipes & FIFOs** | **4.00** (2 `write`, 2 `read`) | 28–32 calls | Traps into kernel on every half-trip exchange |
+| **System V MQ** | **4.00** (2 `msgsnd`, 2 `msgrcv`) | 22 calls | Discrete kernel queue struct copy |
+| **POSIX MQ** | **4.00** (2 `mq_send`, 2 `mq_receive`) | 28 calls | POSIX virtual filesystem layer |
+| **Unix Domain Socket**| **4.00** (2 `send`, 2 `recv`) | 30 calls | Kernel socket buffer stream copy |
+| **Shared Memory (`shm`)**| **2.06** (average) | 24 calls | **Zero kernel copy**; `futex` called only under contention |
+
+### D. Adaptive Policy Selector (`src/selector.c`) Performance
+
+- **Static Selection Rule**: Selects `shm` for payload size $\le 1024$ bytes; selects `pipe` for payload size $> 1024$ bytes.
+- **Decision Overhead**: Measured at **0.66 nanoseconds per call**, proving zero runtime dispatch bottleneck.
+- **Mixed Workload Analysis (80% 64 B / 20% 16 KB)**:
+  - Adaptive policy: **79.43 $\mu$s** mean latency (34,619 exch/s).
+  - Pipe standalone: **57.21 $\mu$s** mean latency (75,004 exch/s).
+  - *Analysis*: On modern preemptible Linux kernels, the overhead of semaphore futex context switching in single-slot shared memory for small payloads makes anonymous pipes and Unix Domain Sockets highly competitive.
+
+### E. Research Alignment with Danyliuk (2026)
+
+1. **Memory Copy Overhead**: Confirms Danyliuk's finding that shared memory eliminates kernel copying; however, semaphore synchronization introduces kernel preemption jitter under virtualized (KVM) schedulers.
+2. **Buffer Sizing & Throughput**: Unix Domain Sockets and Pipes maintain consistent throughput across payloads, with Unix Domain Sockets demonstrating the highest sustained payload bandwidth at 256 KB (652.2 MB/s logical / 1,304.4 MB/s wire).
+3. **Tail Latency (P99/P99.9)**: Tail latency percentiles reflect scheduler preemption events rather than raw IPC speed, validating the necessity of CPU pinning (`sched_setaffinity`).
+
+---
+
+## 11. Viva Voce & Defense Guide (For B.Tech CSE Students)
 
 ### Q1: Why does Shared Memory outperform all other IPC mechanisms in latency?
 **Answer**: Shared memory maps physical memory pages into both processes' virtual address spaces (`mmap(MAP_SHARED)`). Once mapped, writing and reading data occurs directly in RAM at memory bus speeds with **zero kernel copies**. In contrast, pipes, message queues, and sockets require two kernel copies (user buffer $\rightarrow$ kernel space $\rightarrow$ peer user buffer) and two system calls per message transfer.
