@@ -3,12 +3,13 @@
 \caption{Adaptive Selector Accuracy and Intra-Trial Latency Regret Evaluation}
 \label{tab:adaptive_results}
 \scriptsize
-\renewcommand{\arraystretch}{0.88}
-\setlength{\tabcolsep}{2.2pt}
+\renewcommand{\arraystretch}{0.84}
+\setlength{\tabcolsep}{1.8pt}
+\resizebox{\columnwidth}{!}{%
 \begin{tabular}{rcccccc}
 \toprule
 \textbf{Payload} & \textbf{Selected} & \textbf{Oracle} & \textbf{Adaptive} & \textbf{Oracle} & \textbf{Regret} & \textbf{Global} \\
-\textbf{Size} & \textbf{Transport} & \textbf{Best} & \textbf{RTT ($\mu\text{s}$)} & \textbf{RTT ($\mu\text{s}$)} & \textbf{(\%)} & \textbf{Match?} \\
+\textbf{Size} & \textbf{Mode} & \textbf{Best} & \textbf{RTT ($\mu\text{s}$)} & \textbf{RTT ($\mu\text{s}$)} & \textbf{(\%)} & \textbf{Match?} \\
 \midrule
 64 B & \texttt{shm} & \texttt{sysv} & 132.07 & 123.33 & +7.08\% & \textbf{NO} \\
 256 B & \texttt{shm} & \texttt{sysv} & 147.01 & 115.13 & +27.69\% & \textbf{NO} \\
@@ -23,6 +24,7 @@
 \multicolumn{3}{l}{\textbf{Mean Latency Regret}} & \multicolumn{4}{c}{\textbf{27.68\%} across evaluated workloads} \\
 \multicolumn{3}{l}{\textbf{Empirical 3-Tier Policy (Offline)}} & \multicolumn{4}{c}{\textbf{100.00\%} (7 of 7 oracle matches)} \\
 \bottomrule
-\end{tabular}
-{\vskip 1pt\tiny\noindent Regret values are computed strictly within matched randomized trial blocks ($N=7$). Positive regret reflects cases where an unconsidered transport (e.g., System V MQ or Unix Domain Sockets) outperformed the static \texttt{shm}/\texttt{pipe} rule.\par}
+\end{tabular}%
+}
+{\vskip 1pt\tiny\noindent Regret computed within matched trial blocks ($N=7$). At 16~KB, Adaptive routes to Pipe; the $-3.27\%$ regret reflects inter-phase hypervisor scheduling noise between independent trial sweeps ($p=0.86$, statistically indistinguishable). Positive regret indicates unconsidered transports (e.g., SysV MQ, UDS) beat \texttt{shm}/\texttt{pipe}.\par}
 \end{table}

@@ -38,7 +38,7 @@
 
 % Compact list formatting to eliminate vertical gaps
 \setlist{leftmargin=*,noitemsep,topsep=1.5pt,parsep=0pt,partopsep=0pt}
-\def\BIBdecl{\setlength{\itemsep}{-0.5pt}\parsep=0pt}
+\def\BIBdecl{\setlength{\itemsep}{-1.5pt}\parsep=0pt}
 
 \begin{document}
 
@@ -59,7 +59,7 @@
 \maketitle
 
 \begin{abstract}
-Inter-Process Communication (IPC) is fundamental to concurrent multi-process systems and High-Performance Computing (HPC) software architectures. While the Linux operating system offers diverse IPC primitives---spanning byte streams, kernel message queues, and memory-mapped segments---selecting the optimal transport remains a non-trivial challenge dictated by message size, process topology, and virtualization. This paper presents Mini-A-IPC, an empirical evaluation platform and adaptive communication framework. We systematically evaluate six classical Linux IPC mechanisms (Anonymous Pipes, Named FIFOs, POSIX Shared Memory, System V Message Queues, POSIX Message Queues, and Unix Domain Sockets), implement a custom Linux character device mailbox (\texttt{/dev/aipc}) with a race-free teardown barrier, and evaluate an adaptive transport selector employing static thresholding and dynamic EWMA telemetry with hysteresis. Across over 3.4 million recorded round-trip exchanges (exceeding 3.9 million total evaluated IPC messages) on Fedora 45 Linux (Kernel 7.3.4, KVM virtualization), we find that System V Message Queues achieve the lowest small-payload latency ($123.33\,\mu\text{s}$ at 64~B and $115.13\,\mu\text{s}$ at 256~B), Named FIFOs and Anonymous Pipes dominate intermediate payloads ($119.44\,\mu\text{s}$ at 4~KB and $140.60\,\mu\text{s}$ at 16~KB), and Unix Domain Sockets achieve superior scalability for large transfers ($449.64\,\mu\text{s}$ at 256~KB, $2.54\times$ faster than pipes, sustaining 1,304~MB/s wire throughput). In single-process loopback testing, the custom kernel mailbox demonstrates an uncontended floor of $0.72\,\mu\text{s}$, while multi-process scheduling exposes the 95--130~$\mu\text{s}$ context-switch floor imposed by KVM virtualization. The static selector evaluates in 0.66~ns, achieving 71.4\% accuracy between shared memory and pipes, while an offline-calibrated 3-tier policy captures the full multi-transport spectrum.
+Inter-Process Communication (IPC) is fundamental to concurrent multi-process systems and High-Performance Computing (HPC) software architectures. While the Linux operating system offers diverse IPC primitives---spanning byte streams, kernel message queues, and memory-mapped segments---selecting the optimal transport remains a non-trivial challenge dictated by message size, process topology, and virtualization. This paper presents Mini-A-IPC, an empirical evaluation platform and adaptive communication framework. We systematically evaluate six classical Linux IPC mechanisms (Anonymous Pipes, Named FIFOs, POSIX Shared Memory, System V Message Queues, POSIX Message Queues, and Unix Domain Sockets), implement a custom Linux character device mailbox (\texttt{/dev/aipc}) with an atomic reference-counting teardown barrier, and evaluate an adaptive transport selector employing static thresholding and dynamic EWMA telemetry with hysteresis. Across over 3.4 million scheduled round-trip exchanges (2.73 million valid timed exchanges and exceeding 4.5 million total evaluated IPC transmissions) on Fedora 45 Linux (Kernel 7.3.4, KVM virtualization), we find that System V Message Queues achieve the lowest small-payload latency ($123.33\,\mu\text{s}$ at 64~B and $115.13\,\mu\text{s}$ at 256~B), Named FIFOs and Anonymous Pipes dominate intermediate payloads ($119.44\,\mu\text{s}$ at 4~KB and $140.60\,\mu\text{s}$ at 16~KB), and Unix Domain Sockets achieve superior scalability for large transfers ($449.64\,\mu\text{s}$ at 256~KB, $2.54\times$ faster than pipes, sustaining 1,304~MB/s wire throughput). In single-process loopback testing, the custom kernel mailbox demonstrates an uncontended floor of $0.72\,\mu\text{s}$, while multi-process scheduling exposes the 95--130~$\mu\text{s}$ context-switch floor imposed by KVM virtualization. The static selector evaluates in 0.66~ns, achieving 71.4\% accuracy between shared memory and pipes, while an offline-calibrated 3-tier policy captures the full multi-transport spectrum.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -73,7 +73,6 @@ Inter-process communication, Linux, operating systems, POSIX, System V, shared m
 \input{sections/05_adaptive_kernel.tex}
 \input{sections/06_methodology.tex}
 \input{sections/07_results.tex}
-\balance
 \input{sections/08_discussion.tex}
 \input{sections/09_conclusion.tex}
 

@@ -23,17 +23,20 @@ def _bash_bin():
         if os.path.exists(cand):
             return cand
     found = shutil.which("bash")
-    assert found, "bash binary not found"
+    if not found:
+        pytest.skip("bash binary not found on host")
     return found
 
 
 def _unified_bin():
-    for cand in (
-        os.path.join(ROOT, "bin", "aipc_unified_bench.exe"),
-        os.path.join(ROOT, "bin", "aipc_unified_bench"),
-    ):
+    if os.name == "nt":
+        cand = os.path.join(ROOT, "bin", "aipc_unified_bench.exe")
         if os.path.exists(cand):
             return cand
+        pytest.skip("Windows executable bin/aipc_unified_bench.exe not built; ELF binary cannot run on NT")
+    cand = os.path.join(ROOT, "bin", "aipc_unified_bench")
+    if os.path.exists(cand):
+        return cand
     pytest.skip("bin/aipc_unified_bench not built yet")
 
 
