@@ -1,0 +1,28 @@
+\begin{table*}[!t]
+\centering
+\caption{Experimental Hardware, Software Testbeds, and Benchmarking Workload Parameters}
+\label{tab:environment}
+\scriptsize
+\renewcommand{\arraystretch}{0.93}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lll}
+\toprule
+\textbf{Parameter / Dimension} & \textbf{Primary Testbed (Fedora 45)} & \textbf{Comparative Testbed (WSL2)} \\
+\midrule
+\textbf{Host Architecture} & Intel(R) Core(TM) 7 240H (x86\_64) & AMD Ryzen 7 8845HS (x86\_64) \\
+\textbf{Core Topology} & 4 Dedicated VCPUs (Host: 16) & 16 Virtual Processors \\
+\textbf{Operating System} & Fedora 45 Linux & Ubuntu 26.04 LTS (WSL2) \\
+\textbf{Kernel Release} & \texttt{7.3.3-300.fc45.x86\_64} & \texttt{6.6.87.2-microsoft-standard} \\
+\textbf{Memory Capacity} & 3.8 GiB DDR5 & 15.3 GiB DDR5 \\
+\textbf{C Compiler} & GCC 16.2.1 20261029 (Red Hat) & GCC 13.3.0 (Ubuntu) \\
+\textbf{Compiler Flags} & \multicolumn{2}{l}{\texttt{-std=c11 -O2 -Wall -Wextra -D\_GNU\_SOURCE}} \\
+\textbf{CPU Core Affinity} & Core 0 (Producer) / Core 1 (Consumer) & Core 0 (Producer) / Core 1 (Consumer) \\
+\midrule
+\textbf{Payload Sweep} & \multicolumn{2}{l}{64 B, 256 B, 1024 B, 4096 B, 16384 B, 65536 B, 262144 B} \\
+\textbf{Measurement Loop} & \multicolumn{2}{l}{10,000 timed round-trip exchanges per trial} \\
+\textbf{Untimed Warm-up} & \multicolumn{2}{l}{500 untimed exchanges preceding measurement} \\
+\textbf{Independent Trials} & \multicolumn{2}{l}{$N = 7$ randomized trial blocks per configuration cell} \\
+\textbf{Sampling Method} & \multicolumn{2}{l}{\texttt{clock\_gettime(CLOCK\_MONOTONIC)} (Nanosecond resolution)} \\
+\textbf{Percentile Metric} & \multicolumn{2}{l}{Nearest-rank method ($P_{50}, P_{90}, P_{95}, P_{99}, P_{99.9}$)} \\
+\bottomrule
+\end{tabular*}
+\end{table*}

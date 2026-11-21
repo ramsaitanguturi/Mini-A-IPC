@@ -1,0 +1,29 @@
+\begin{tikzpicture}[
+    scale=0.72, every node/.style={transform shape},
+    startstop/.style={draw=black!70, fill=red!10, rounded corners=2pt, font=\scriptsize\bfseries, minimum height=0.6cm, align=center},
+    decision/.style={diamond, draw=black!70, fill=orange!15, font=\scriptsize, aspect=1.8, inner sep=2pt, align=center},
+    block/.style={draw=black!70, fill=blue!10, rounded corners=2pt, font=\scriptsize, minimum height=0.6cm, align=center},
+    arr/.style={->, >=stealth, thick, draw=black!70}
+]
+
+\node[startstop] (start) at (3.8, 4.3) {Message Payload $s$};
+\node[decision] (check_size) at (3.8, 3.2) {$s > 1,024\text{ B}$?};
+\node[block] (pipe_route) at (6.8, 3.2) {Route to \textbf{PIPE}\\ \scriptsize ($s > \text{SHM Limit}$)};
+
+\node[decision] (check_ctrl) at (3.8, 1.8) {EWMA Active?};
+\node[decision] (check_hyst) at (1.4, 0.5) {$\bar{L}(\text{SHM}) > 1.08 \bar{L}(\text{PIPE})$?};
+
+\node[block] (static_shm) at (6.0, 1.8) {Route to \textbf{SHM}\\ \scriptsize ($s \le 1,024\text{ B}$)};
+
+\node[block] (switch_pipe) at (-0.2, -0.8) {Switch \textbf{PIPE}\\ \scriptsize Increment switches};
+\node[block] (stay_shm) at (3.0, -0.8) {Retain / Switch \textbf{SHM}\\ \scriptsize Zero futex copy};
+
+\draw[arr] (start) -- (check_size);
+\draw[arr] (check_size) -- node[above, font=\tiny] {Yes} (pipe_route);
+\draw[arr] (check_size) -- node[right, font=\tiny] {No} (check_ctrl);
+\draw[arr] (check_ctrl) -- node[above, font=\tiny] {No} (static_shm);
+\draw[arr] (check_ctrl) -| node[above, font=\tiny] {Yes} (check_hyst);
+\draw[arr] (check_hyst) -| node[left, font=\tiny] {Yes} (switch_pipe);
+\draw[arr] (check_hyst) -| node[right, font=\tiny] {No} (stay_shm);
+
+\end{tikzpicture}

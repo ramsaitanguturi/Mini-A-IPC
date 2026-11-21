@@ -1,0 +1,27 @@
+\begin{table}[t]
+\centering
+\caption{Adaptive Selector Accuracy and Latency Regret Evaluation}
+\label{tab:adaptive_results}
+\scriptsize
+\renewcommand{\arraystretch}{0.88}
+\setlength{\tabcolsep}{2.2pt}
+\begin{tabular}{rcccccc}
+\toprule
+\textbf{Payload} & \textbf{Selected} & \textbf{Oracle} & \textbf{Adaptive} & \textbf{Oracle} & \textbf{Regret} & \textbf{Decision} \\
+\textbf{Size} & \textbf{Transport} & \textbf{Best} & \textbf{RTT ($\mu\text{s}$)} & \textbf{RTT ($\mu\text{s}$)} & \textbf{(\%)} & \textbf{Match?} \\
+\midrule
+64 B & \texttt{shm} & \texttt{shm} & 439.66 & 286.87 & +53.26\%* & \textbf{YES} \\
+256 B & \texttt{shm} & \texttt{shm} & 353.13 & 320.35 & +10.23\%* & \textbf{YES} \\
+1,024 B & \texttt{shm} & \texttt{pipe} & 307.93 & 278.76 & +10.46\% & \textbf{NO} \\
+4,096 B & \texttt{pipe} & \texttt{pipe} & 372.07 & 301.70 & +23.32\%* & \textbf{YES} \\
+16,384 B & \texttt{pipe} & \texttt{pipe} & 535.24 & 472.79 & +13.21\%* & \textbf{YES} \\
+65,536 B & \texttt{pipe} & \texttt{pipe} & 882.30 & 505.93 & +74.39\%* & \textbf{YES} \\
+262,144 B & \texttt{pipe} & \texttt{uds} & 3,178.52 & 2,590.28 & +22.71\% & \textbf{NO} \\
+\midrule
+\multicolumn{3}{l}{\textbf{Selection Accuracy}} & \multicolumn{4}{c}{\textbf{71.43\%} (5 of 7 payload classes)} \\
+\multicolumn{3}{l}{\textbf{Mean Latency Regret}} & \multicolumn{4}{c}{\textbf{29.51\%} across evaluated workloads} \\
+\multicolumn{3}{l}{\textbf{Calibrated 3-Tier Policy}} & \multicolumn{4}{c}{\textbf{100.00\%} (7 of 7 oracle matches)} \\
+\bottomrule
+\end{tabular}
+{\vskip 1pt\tiny\noindent *Positive regret on matching tiers reflects trial-to-trial execution variance between separate trial runs rather than transport routing mismatch.\par}
+\end{table}

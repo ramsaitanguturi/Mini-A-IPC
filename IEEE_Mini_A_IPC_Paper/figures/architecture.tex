@@ -1,0 +1,48 @@
+\begin{tikzpicture}[
+    scale=0.62, every node/.style={transform shape},
+    box/.style={draw=black!70, rounded corners=2pt, fill=blue!5, thick, text width=2.3cm, minimum height=0.75cm, align=center, font=\footnotesize},
+    kernbox/.style={draw=black!70, rounded corners=2pt, fill=red!8, thick, text width=2.3cm, minimum height=0.75cm, align=center, font=\footnotesize},
+    ctlbox/.style={draw=black!70, rounded corners=2pt, fill=green!8, thick, text width=2.3cm, minimum height=0.75cm, align=center, font=\footnotesize},
+    benchbox/.style={draw=black!70, rounded corners=2pt, fill=yellow!12, thick, text width=7.4cm, minimum height=0.65cm, align=center, font=\footnotesize},
+    layer/.style={draw=black!40, dashed, inner sep=3pt, fill=black!2},
+    arrow/.style={->, >=stealth, thick, draw=black!70}
+]
+
+% Userspace Layer
+\node[box] (pipe) at (0, 2.5) {\textbf{Pipes / FIFO}\\ \scriptsize \texttt{pipe()}, \texttt{mkfifo()}};
+\node[box] (mq) at (2.6, 2.5) {\textbf{Message Queues}\\ \scriptsize SysV \& POSIX MQ};
+\node[box] (shm) at (5.2, 2.5) {\textbf{Shared Memory}\\ \scriptsize \texttt{mmap}, POSIX Sem};
+\node[box] (uds) at (7.8, 2.5) {\textbf{Unix Sockets}\\ \scriptsize \texttt{AF\_UNIX} Stream};
+
+% Adaptive Selector Layer
+\node[ctlbox] (static_sel) at (1.8, 1.3) {\textbf{Static Selector}\\ \scriptsize Size Threshold (1KB)};
+\node[ctlbox] (ewma_sel) at (5.9, 1.3) {\textbf{Adaptive EWMA}\\ \scriptsize Telemetry \& Hysteresis};
+
+% Kernel Layer
+\node[kernbox] (vfs) at (1.2, 0.05) {\textbf{Linux VFS / Pipes}\\ \scriptsize \texttt{pipe\_inode\_info}};
+\node[kernbox] (ipc_sub) at (3.9, 0.05) {\textbf{Kernel IPC Core}\\ \scriptsize Futex / MQ Subsystem};
+\node[kernbox] (kmod) at (6.6, 0.05) {\textbf{Kernel Mailbox}\\ \scriptsize \texttt{/dev/aipc} (Char Dev)};
+
+% Benchmarking Infrastructure
+\node[benchbox] (bench) at (3.9, -0.9) {\textbf{Unified Benchmarking \& Telemetry Suite}\\ \scriptsize Randomized Blocks $\cdot$ CPU Affinity $\cdot$ 500-cycle Warm-up $\cdot$ Syscall / RSS Tracing};
+
+% Background Layers
+\begin{scope}[on background layer]
+    \node[layer, fit=(pipe) (uds), label=above:{\scriptsize \textbf{Userspace Classical IPC Implementations}}] {};
+    \node[layer, fit=(static_sel) (ewma_sel), label=left:{\scriptsize \textbf{Decision Layer}}] {};
+    \node[layer, fit=(vfs) (kmod), label=below:{\scriptsize \textbf{Kernel-Space Execution Layer}}] {};
+\end{scope}
+
+% Arrows
+\draw[arrow] (static_sel) -- (pipe);
+\draw[arrow] (static_sel) -- (shm);
+\draw[arrow] (ewma_sel) -- (shm);
+\draw[arrow] (ewma_sel) -- (pipe);
+\draw[arrow] (pipe) -- (vfs);
+\draw[arrow] (mq) -- (ipc_sub);
+\draw[arrow] (shm) -- (ipc_sub);
+\draw[arrow] (uds) -- (vfs);
+\draw[arrow] (ewma_sel) -- (kmod);
+\draw[arrow, dashed] (bench) -- (ipc_sub);
+
+\end{tikzpicture}

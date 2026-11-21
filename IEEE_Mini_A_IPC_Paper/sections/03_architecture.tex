@@ -1,0 +1,41 @@
+\section{System Architecture and Design}
+\label{sec:architecture}
+
+The Mini-A-IPC framework is architected as a modular, three-tier systems evaluation and adaptive execution platform. As illustrated in Fig.~\ref{fig:architecture}, the system decouples high-level workload orchestration from low-level communication primitives while providing seamless integration between user-space mechanisms and custom kernel modules.
+
+\begin{figure}[t]
+\centering
+\input{figures/architecture.tex}
+\caption{Overall Mini-A-IPC Architectural Topology, illustrating the relationship between the userspace classical transports, the adaptive telemetry controller, the custom kernel mailbox device, and the benchmarking framework.}
+\label{fig:architecture}
+\end{figure}
+
+\subsection{Overall Architecture}
+The Mini-A-IPC architecture comprises four primary subsystems:
+(1)~\textbf{Userspace Communication Layer:} Self-contained, POSIX-compliant implementations of the six classical Linux IPC mechanisms adhering to the standardized interface in \texttt{include/ipc.h};
+(2)~\textbf{Adaptive Decision Layer:} Static size-threshold routing logic and a closed-loop EWMA telemetry controller (\texttt{src/selector.c}) that dynamically selects optimal transports;
+(3)~\textbf{Kernel-Space Device Subsystem:} A custom Linux character device driver \texttt{/dev/aipc} (\texttt{kernel/aipc\_module.c}) providing in-kernel ring buffering with sleepable synchronization; and
+(4)~\textbf{Benchmarking and Profiling Suite:} An automated C and Python benchmarking harness executing randomized trial blocks, CPU core pinning, nanosecond latency sampling, and OS resource telemetry via \texttt{getrusage} and system-call tracing.
+
+\subsection{Userspace Communication Layer}
+All six userspace IPC implementations adhere to a unified invocation signature: \texttt{ipc\_<mode>\_run\_opts(payload\_size, count, opts, \&elapsed\_ns, \&errors)}. The configuration structure \texttt{ipc\_bench\_opts\_t} allows caller-specified untimed warm-up cycles, explicit CPU affinity pinning for producer and consumer processes, and optional collection of per-exchange round-trip time (RTT) samples into pre-allocated memory buffers. 
+To eliminate startup race conditions during process rendezvous, all mechanisms enforce strict synchronization protocols prior to entering the timed execution loop: processes establish channels, configure signal handlers, and execute warm-up exchanges before starting monotonic timing.
+
+\subsection{Adaptive Transport Selection}
+The adaptive framework addresses the trade-off between low-latency shared-memory synchronization for small messages and high-bandwidth kernel streaming for large messages. The system architecture supports two selection tiers:
+\begin{itemize}
+    \item \textbf{Static Size-Threshold Selector:} A deterministic, zero-overhead branch evaluating payload size $s$ against threshold $T$ (defaulting to 1,024~B, matching \texttt{SHM\_MAX\_PAYLOAD}):
+    \begin{equation}
+    \mathcal{T}_{\text{static}}(s) = 
+    \begin{cases} 
+    \text{SHM}, & \text{if } s \le \min(T, S_{\max}) \\ 
+    \text{PIPE}, & \text{otherwise} 
+    \end{cases}
+    \end{equation}
+    where $S_{\max} = 1024$~B is the maximum shared memory payload capacity.
+    \item \textbf{Dynamic EWMA Telemetry Controller:} A runtime feedback controller that maintains rolling latency estimates for active transports, employing an 8\% hysteresis band to suppress transport thrashing under transient scheduling noise (detailed in Section~\ref{sec:adaptive_kernel}).
+\end{itemize}
+
+\subsection{Kernel Mailbox and Benchmarking Framework}
+The kernel device mailbox (\texttt{/dev/aipc}) is an out-of-tree character device driver providing a kernel-buffered alternative to pipes and sockets. The driver maintains a dynamically allocated 64~KB circular ring buffer in kernel space. Reader and writer threads synchronize using Linux wait queues and a sleepable mutex. Crucially, the architecture incorporates an atomic open-count tracking mechanism and a teardown barrier in \texttt{aipc\_exit()} that mathematically eliminates module-unload race conditions.
+To ensure statistical validity, the unified benchmarking suite (\texttt{bench/unified\_bench.c}) implements three controls: trial-block randomization via Fisher-Yates shuffling, dedicated CPU core pinning via \texttt{sched\_setaffinity()}, and high-resolution timing measured exclusively via \texttt{clock\_gettime(CLOCK\_MONOTONIC)}.

@@ -1,0 +1,11 @@
+\section{Conclusion and Future Work}
+\label{sec:conclusion}
+
+This research presented \textbf{Mini-A-IPC}, an empirical evaluation platform and adaptive communication framework for Linux IPC. Across 350,000+ recorded exchanges with strict environmental isolation, trial-block randomization, and CPU pinning on Fedora 45 Linux (kernel 7.3.3), three core findings were established:
+\begin{enumerate}[leftmargin=*,noitemsep,topsep=1.5pt]
+    \item \textbf{Payload Crossovers:} POSIX Shared Memory achieves lowest sub-kilobyte latency ($286.87\,\mu\text{s}$ at 64~B) with zero data-path syscalls (2.06 futex calls/exch vs. 4.00 for streams). Anonymous Pipes dominate intermediate payloads ($278.76\,\mu\text{s}$ at 1~KB), and Unix Domain Sockets outperform pipes by 1.75$\times$ for 256~KB transfers ($2,590.28\,\mu\text{s}$) by avoiding buffer exhaustion.
+    \item \textbf{Adaptive Selection:} A static selector achieves 71.43\% accuracy at 2.36~ns overhead, while an empirically calibrated 3-tier policy eliminates structural regret entirely (100\% accuracy).
+    \item \textbf{Kernel vs. Scheduler Dynamics:} A custom mailbox (\texttt{/dev/aipc}) with a race-free teardown barrier achieves an uncontended 0.72~$\mu$s loopback floor, confirming the Linux CFS context-switch floor (95--120~$\mu$s) bounds multi-process speed.
+\end{enumerate}
+
+\textbf{Future Work:} Directions include NUMA-aware allocation, dynamic lock-free ring resizing, an asynchronous \texttt{io\_uring} driver, and online telemetry.

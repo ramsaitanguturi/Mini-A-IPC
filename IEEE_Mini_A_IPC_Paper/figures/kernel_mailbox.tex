@@ -1,0 +1,35 @@
+\begin{tikzpicture}[
+    scale=0.72, every node/.style={transform shape},
+    box/.style={draw=black!70, fill=blue!10, rounded corners=2pt, font=\scriptsize, align=center, minimum height=0.6cm},
+    kbox/.style={draw=black!70, fill=red!10, rounded corners=2pt, font=\scriptsize, align=center, minimum height=0.6cm},
+    ring/.style={draw=black!70, fill=yellow!20, rounded corners=3pt, font=\scriptsize\bfseries, align=center, minimum width=6.0cm, minimum height=0.9cm},
+    barrier/.style={draw=red!70, fill=red!5, dashed, font=\tiny, align=center, minimum width=6.0cm, minimum height=0.65cm},
+    arr/.style={->, >=stealth, thick, draw=black!70}
+]
+
+% Userspace processes
+\node[box, minimum width=2.4cm] (writer) at (0, 3.2) {Producer Process\\ \scriptsize \texttt{write(fd, buf, len)}};
+\node[box, minimum width=2.4cm] (reader) at (5.2, 3.2) {Consumer Process\\ \scriptsize \texttt{read(fd, buf, len)}};
+
+% Kernel Boundary
+\draw[thick, dashed, draw=black!40] (-1.5, 2.4) -- (6.8, 2.4);
+\node[font=\tiny\bfseries, text=black!60] at (5.8, 2.6) {USER-KERNEL BOUNDARY};
+
+% Wait Queues
+\node[kbox, minimum width=2.4cm] (wq_write) at (0, 1.55) {Writer Wait Queue\\ \tiny \texttt{wait\_event\_interruptible}};
+\node[kbox, minimum width=2.4cm] (wq_read) at (5.2, 1.55) {Reader Wait Queue\\ \tiny \texttt{wait\_event\_interruptible}};
+
+% Mutex & Ring Buffer
+\node[ring] (rb) at (2.6, 0.3) {Kernel Circular Ring Buffer (64 KB Capacity)\\ \scriptsize Sleepable Mutex Protected (\texttt{mutex\_lock\_interruptible})\\ \tiny State: \texttt{head}, \texttt{tail}, \texttt{used}};
+
+% Teardown barrier
+\node[barrier] (teardown) at (2.6, -0.85) {Module Teardown Safety Barrier (\texttt{aipc\_exit})\\ \tiny \texttt{wait\_event(teardown\_wait, atomic\_read(\&active\_ops) == 0)} $\to$ Zero UAF Panics};
+
+% Connecting Arrows
+\draw[arr] (writer) -- node[left, font=\tiny] {\texttt{copy\_from\_user}} (wq_write);
+\draw[arr] (wq_write) -- (rb.160);
+\draw[arr] (rb.20) -- (wq_read);
+\draw[arr] (wq_read) -- node[right, font=\tiny] {\texttt{copy\_to\_user}} (reader);
+\draw[arr, dashed] (rb) -- (teardown);
+
+\end{tikzpicture}
