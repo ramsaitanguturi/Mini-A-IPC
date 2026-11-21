@@ -1,0 +1,50 @@
+\section{Adaptive IPC Framework and Kernel Module}
+\label{sec:adaptive_kernel}
+
+This section describes the mathematical formulation of the adaptive IPC selection policies, the closed-loop EWMA telemetry controller, and the architectural design of the custom Linux kernel mailbox module.
+
+\subsection{Payload-Based Transport Selection}
+Different IPC mechanisms exhibit distinct overhead characteristics depending on payload size. For small messages, system-call transition overhead and buffer copying dominate execution time; for large messages, memory copy bandwidth and buffer exhaustion govern latency.
+
+To capture this relationship, we formulate an empirical oracle selector. Let $\mathcal{M} = \{\text{pipe}, \text{fifo}, \text{sysv}, \text{posix}, \text{shm}, \text{uds}\}$ denote the set of available IPC transports, and let $\mathcal{S}$ denote the discrete set of payload sizes. The empirical best transport $m^*(s)$ for payload size $s$ is defined as:
+\begin{equation}
+m^*(s) = \arg\min_{m \in \mathcal{M}} L(m, s)
+\end{equation}
+where $L(m, s)$ represents the mean round-trip latency of transport $m$ transferring a payload of $s$ bytes.
+
+\begin{figure*}[!t]
+\centering
+\subfloat[Adaptive Transport Selection Decision Flowchart]{\input{figures/adaptive_selector.tex}\label{fig:adaptive_selector}}
+\hfil
+\subfloat[Custom Linux Kernel Mailbox Architecture (\texttt{/dev/aipc})]{\input{figures/kernel_mailbox.tex}\label{fig:kernel_mailbox}}
+\caption{Adaptive Telemetry Control and Kernel Mailbox Subsystems: (a) Decision logic enforcing payload threshold boundaries, EWMA telemetry evaluation, and an 8\% hysteresis switching band; and (b) Kernel character device architecture featuring a 64 KB circular ring buffer, sleepable mutex synchronization, blocking wait queues, and an atomic teardown barrier.}
+\label{fig:adaptive_and_kernel}
+\end{figure*}
+
+The \textbf{Latency Regret} incurred by selecting transport $m$ instead of optimal transport $m^*(s)$ is $R_{\text{lat}}(s) = L(m, s) - L(m^*(s), s)$, expressed as a percentage: $R_{\text{lat, \%}}(s) = \frac{L(m, s) - L(m^*(s), s)}{L(m^*(s), s)} \times 100\%$.
+The overall \textbf{Selection Accuracy} of an adaptive policy across all evaluated payload sizes $\mathcal{S}$ is:
+\begin{equation}
+\text{Accuracy} = \frac{1}{|\mathcal{S}|} \sum_{s \in \mathcal{S}} \mathbf{1}\left(m_{\text{selected}}(s) = m^*(s)\right) \times 100\%
+\end{equation}
+
+\subsection{EWMA-Based Telemetry Controller and Hysteresis}
+Static size thresholds cannot adapt to transient runtime contention or host virtualization pauses. To achieve closed-loop adaptation, Mini-A-IPC implements an Exponentially Weighted Moving Average (EWMA) latency tracking controller in \texttt{src/selector.c}. 
+Upon each completed message exchange, the controller updates the smoothed latency estimate $\bar{L}^{(t)}$ for active transport $m$:
+\begin{equation}
+\bar{L}^{(t)}_m = \alpha \cdot L_{\text{sample}} + (1 - \alpha) \cdot \bar{L}^{(t-1)}_m
+\end{equation}
+where $\alpha = 0.15$ is the empirical smoothing factor, chosen to balance responsiveness to genuine phase shifts against resilience to transient measurement spikes.
+
+Under noisy multi-tenant execution, adjacent transports with comparable mean latencies can oscillate rapidly (flapping), incurring prohibitive reconfiguration costs. To prevent thrashing, the controller enforces an 8\% hysteresis switching margin ($h = 1.08$): $\text{SHM} \to \text{PIPE}$ requires $\bar{L}_{\text{SHM}} > 1.08 \bar{L}_{\text{PIPE}}$, and $\text{PIPE} \to \text{SHM}$ requires $\bar{L}_{\text{PIPE}} > 1.08 \bar{L}_{\text{SHM}}$.
+As detailed in Fig.~\ref{fig:adaptive_and_kernel}(a), payloads $> 1024$~bytes immediately bypass shared memory and route to streaming transports due to the structural capacity boundary of the shared mailbox. While the EWMA smoothing filter ($\alpha = 0.15$) and hysteresis switching logic are fully implemented in \texttt{src/selector.c} and verified via unit tests, our controlled benchmark suite evaluated the deterministic size-threshold fast path to quantify pure baseline dispatch overhead; dynamic online adaptation under non-stationary traffic is an architectural capability reserved for live workloads.
+
+\subsection{Kernel Mailbox Design (\texttt{/dev/aipc})}
+To investigate driver-assisted communication without user-space semaphore synchronization, we implemented \texttt{/dev/aipc}, an out-of-tree Linux character device driver (\texttt{kernel/aipc\_module.c}). Fig.~\ref{fig:adaptive_and_kernel}(b) illustrates the driver architecture.
+The driver maintains a 64~KB circular ring buffer allocated in kernel memory via \texttt{kmalloc(GFP\_KERNEL)}. Key design features include:
+\textbf{1) Sleepable Mutex Synchronization:} Access to the circular buffer indices (\texttt{head}, \texttt{tail}, \texttt{used}) is protected by a Linux kernel mutex (\texttt{struct mutex lock}). Because memory copy operations between user and kernel space (\texttt{copy\_from\_user}, \texttt{copy\_to\_user}) can trigger page faults and sleep, spinlocks cannot be held during data copying. The sleepable mutex safely accommodates page faults without deadlocking the kernel.
+\textbf{2) Wait Queue Flow Control:} When the buffer is empty, reader threads suspend on the \texttt{readers} wait queue using \texttt{wait\_event\_interruptible()}. When the buffer is full, writer threads suspend on the \texttt{writers} wait queue. Each successful write wakes blocked readers, and each read wakes blocked writers.
+\textbf{3) VFS 6.12+ Compatibility:} Modern Linux kernels (Linux 6.12+) deprecate the legacy \texttt{no\_llseek} file operation pointer. The driver incorporates \texttt{noop\_llseek} to ensure seamless compilation across modern kernels.
+
+\subsection{Teardown Barrier and Memory Safety}
+A notorious vulnerability in out-of-tree kernel modules is the Use-After-Free (UAF) race condition during module unloading (\texttt{rmmod}). In unoptimized drivers, executing \texttt{wake\_up\_all()} followed immediately by \texttt{kfree(aipc)} panics the kernel if a waking reader thread accesses the deallocated device structure.
+Mini-A-IPC addresses this hazard by implementing an atomic reference-counting teardown barrier designed to mitigate use-after-free conditions: the driver maintains \texttt{atomic\_t active\_ops}, incremented on \texttt{aipc\_open()} and decremented on \texttt{aipc\_release()}. In \texttt{aipc\_exit()}, the driver sets \texttt{shutdown = true} under the mutex lock and wakes sleeping readers and writers with an \texttt{-EPIPE} error. The module unload thread suspends on \texttt{wait\_event(aipc->teardown\_wait, atomic\_read(\&aipc->active\_ops) == 0)}, ensuring that \texttt{kfree()} deallocation proceeds only after all open file descriptors have terminated and released driver structures.

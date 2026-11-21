@@ -1,0 +1,28 @@
+\begin{table}[!t]
+\centering
+\caption{Experimental Hardware, Software Environment, and Benchmarking Workload Parameters}
+\label{tab:environment}
+\scriptsize
+\renewcommand{\arraystretch}{0.92}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lp{4.7cm}}
+\toprule
+\textbf{Parameter / Dimension} & \textbf{Primary Testbed (Fedora 45 KVM)} \\
+\midrule
+\textbf{Host Architecture} & Intel(R) Core(TM) 7 240H (x86\_64) \\
+\textbf{Core Topology} & 4 Dedicated VCPUs (Host: 16 Cores) \\
+\textbf{Operating System} & Fedora 45 Linux (KVM Virtual Guest) \\
+\textbf{Kernel Release} & \texttt{7.3.3-300.fc45.x86\_64} (\texttt{PREEMPT\_DYNAMIC}) \\
+\textbf{Memory Capacity} & 3.8 GiB DDR5 \\
+\textbf{C Compiler} & GCC 16.2.1 20261029 (Red Hat) \\
+\textbf{Compiler Flags} & \texttt{-std=c11 -O2 -Wall -Wextra -D\_GNU\_SOURCE} \\
+\textbf{CPU Core Affinity} & Core 0 (Producer) / Core 1 (Consumer) \\
+\midrule
+\textbf{Payload Sweep} & 64 B, 256 B, 1024 B, 4096 B, 16384 B, 65536 B, 262144 B \\
+\textbf{Measurement Loop} & 10,000 timed round-trip exchanges per trial \\
+\textbf{Untimed Warm-up} & 500 untimed exchanges preceding measurement \\
+\textbf{Independent Trials} & $N = 7$ randomized trial blocks per configuration cell \\
+\textbf{Sampling Method} & \texttt{clock\_gettime(CLOCK\_MONOTONIC)} (Nanosecond resolution) \\
+\textbf{Percentile Metric} & Nearest-rank method ($P_{50}, P_{90}, P_{95}, P_{99}, P_{99.9}$) \\
+\bottomrule
+\end{tabular*}
+\end{table}

@@ -1,0 +1,20 @@
+\begin{table}[!t]
+\centering
+\caption{Systems Hypotheses and Discriminating Empirical Experiments}
+\label{tab:hypotheses}
+\scriptsize
+\renewcommand{\arraystretch}{0.80}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}p{2.2cm}p{2.6cm}p{3.0cm}}
+\toprule
+\textbf{Hypothesis} & \textbf{Prediction if True} & \textbf{Discriminating Experiment} \\
+\midrule
+\textbf{Hypervisor vCPU Floor} & RTT floor drops from $\approx 120\,\mu\text{s}$ to $1\text{--}5\,\mu\text{s}$ on bare metal. & Benchmark sweep on dedicated bare-metal silicon; trace VM exits via \texttt{perf kvm stat}. \\
+\addlinespace[0.6pt]
+\textbf{In-Process vs. Multi-Process Gap} & Two-process IPC over \texttt{/dev/aipc} exhibits $\approx 120\,\mu\text{s}$ floor. & Multi-process ping-pong over \texttt{/dev/aipc} with root privileges; measure context-switch overhead. \\
+\addlinespace[0.6pt]
+\textbf{Pipe Saturation at 256 KB} & Expanding pipe capacity eliminates switch surge (20k $\to$ 146k). & Re-run 256 KB transfer with pipe size expanded via \texttt{fcntl(F\_SETPIPE\_SZ, 1048576)}. \\
+\addlinespace[0.6pt]
+\textbf{Futex Contention in SHM} & Lock-free atomic SPSC ring eliminates futex wait queues and tightens $P_{99}$. & Benchmark SPSC ring with atomic acquire/release against futex semaphores under pinned cores. \\
+\bottomrule
+\end{tabular*}
+\end{table}
