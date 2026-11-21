@@ -1,6 +1,6 @@
 # Mini A-IPC: Classical Linux IPC Research Benchmarking Suite
 
-A comprehensive C and Linux interprocess communication (IPC) research and benchmarking framework developed for Ubuntu Linux on WSL2.
+A comprehensive C and Linux interprocess communication (IPC) research and benchmarking framework evaluated and validated on Fedora Linux 45 (Kernel 7.3.3) on bare-metal and KVM virtualization environments.
 
 Mini A-IPC implements, tests, and evaluates all **six classical Linux IPC mechanisms** analyzed in high-performance computing (HPC) research:
 
@@ -52,7 +52,7 @@ Key research requirements:
 
 ---
 
-## 2. Architecture
+## 3. Architecture
 
 ```mermaid
 flowchart TD
@@ -87,7 +87,7 @@ flowchart TD
 
 ---
 
-## 3. Overview of the Six IPC Mechanisms
+## 4. Overview of the Six IPC Mechanisms
 
 | Mechanism | Source File | Key System Calls | Synchronization | Data Transfer Overhead |
 |---|---|---|---|---|
@@ -100,7 +100,24 @@ flowchart TD
 
 ---
 
-## 4. Build Instructions
+## 5. Target Hardware & Evaluation Environment
+
+The unified benchmarking suite, concurrency scaling, and latency distributions were measured and verified on the following Linux host environment:
+
+| Attribute | Specification |
+| :--- | :--- |
+| **Operating System** | Fedora Linux 45 (Workstation Edition), x86_64 |
+| **Linux Kernel** | `7.3.3-300.fc45.x86_64 #1 SMP PREEMPT_DYNAMIC` |
+| **Processor (CPU)** | Intel(R) Core(TM) 7 240H (4 vCPUs allocated, `x86_64`) |
+| **Virtualization / Hypervisor** | KVM (Kernel-based Virtual Machine) |
+| **C Compiler & Toolchain** | GCC 16.2.1 20261029 (Red Hat 16.2.1-3), C11 (`-std=c11 -O2`) |
+| **C Standard Library** | GNU C Library (GLIBC) 2.44 |
+| **Python Analytics Stack** | Python 3.15.2 (`pandas` 3.1.1, `numpy` 2.5.5, `matplotlib` 3.11.2) |
+| **Processor Pinning** | Core 0 (Producer / Parent), Core 1 (Consumer / Child) |
+
+---
+
+## 6. Build Instructions
 
 The project uses standard Linux C11 with POSIX 2008 and GNU extensions (`gcc`, `-pthread`, `-lrt`). No third-party frameworks or external dependencies are required.
 
@@ -112,7 +129,7 @@ make
 
 ---
 
-## 5. Execution Commands
+## 7. Execution Commands
 
 ### A. Unified Multi-Mode CLI (`./mini-aipc`)
 
@@ -156,7 +173,7 @@ make
 
 ---
 
-## 6. Automated Testing
+## 8. Automated Testing
 
 Mini A-IPC includes an extensive automated verification test suite checking communication correctness, multi-size payload integrity, argument validation, child exit fault recovery, and filesystem/kernel resource cleanup:
 
@@ -170,9 +187,34 @@ python tests/final_verification_test.py
 
 ---
 
-## 7. Comparative Research Benchmarking
+## 9. Comparative & Unified Research Benchmarking
 
-Run the complete comparative experiment across all six IPC mechanisms and all five payload sizes:
+Mini A-IPC provides two experimental benchmark harnesses: the full unified research suite and the legacy comparative script.
+
+### A. Unified Controlled Benchmark Suite (`make bench-unified`)
+
+The unified benchmark suite executes a randomized, multi-trial experimental matrix covering:
+- **Phase 1: Single-pair RTT sweep** (7 trials $\times$ 7 payloads $\times$ 7 modes)
+- **Phase 2: Adaptive selector & mixed 80/20 workload evaluation**
+- **Phase 3: Multi-process concurrency scalability** (5 topologies: 1P:1C, 2P:1C, 4P:1C, 1P:2C, 4P:4C)
+- **Phase 4: Matched unidirectional streaming throughput**
+- **Phase 5: System-call profiling** (`strace -f -c`) and OS resource tracking (RSS, voluntary/involuntary context switches)
+
+```bash
+# Full publication-grade benchmark (7 trials, 10,000 messages, all topologies):
+make bench-unified
+
+# Rapid verification benchmark (2 trials, 1,000 messages, lightweight sweep):
+make bench-unified-quick
+```
+
+Outputs are automatically generated under `results/unified/` (or `results/unified_quick/`):
+- `reports/FINAL_BENCHMARK_REPORT.md`: Comprehensive 24-section publication-ready Markdown report.
+- `figures/*.png` & `figures/*.pdf`: 13 publication-quality vector and raster visualization charts.
+- `processed/aggregated_results.csv` & `processed/statistical_summary.csv`: Aggregated datasets.
+- `processed/benchmark_metadata.json`: Machine-readable metadata and provenance record.
+
+### B. Classical Comparative Sweep (`run_comparative.sh`)
 
 ```bash
 # Run with default settings (10,000 exchanges, 5 trials, 500 warm-up exchanges)
@@ -182,24 +224,17 @@ bash ./bench/run_comparative.sh
 COUNT=5000 TRIALS=3 WARMUP=100 CPU_PRODUCER=0 CPU_CONSUMER=1 bash ./bench/run_comparative.sh
 ```
 
-### Benchmark Outputs:
+#### Benchmark Outputs:
 1. `results/comparative_benchmark.csv`:
-   Empirical RTT latency measurements, including:
-   - `avg_rtt_us`: Arithmetic mean round-trip time in microseconds.
-   - `p50_rtt_us`: Median latency (P50).
-   - `p99_rtt_us`: 99th percentile tail latency.
-   - `p999_rtt_us`: 99.9th percentile tail latency.
-   - `min_rtt_us`: Minimum observed round-trip latency.
-   - `max_rtt_us`: Maximum observed round-trip latency.
-   - `throughput_msg_sec`: Message exchanges per second.
+   Empirical RTT latency measurements, including `avg_rtt_us`, `p50_rtt_us`, `p99_rtt_us`, `p999_rtt_us`, `min_rtt_us`, `max_rtt_us`, and `throughput_msg_sec`.
 2. `results/syscall_benchmark.csv`:
    Kernel system-call counts profiled via `strace -f -c`, separating communication data-path system calls from process setup and cleanup.
 3. `results/environment.txt`:
-   Full record of CPU model, Linux kernel, WSL version, compiler version, and build flags.
+   Full record of CPU model, Linux kernel, distribution release, compiler version, and build flags.
 
 ---
 
-## 8. Viva Voce & Defense Guide (For B.Tech CSE Students)
+## 10. Viva Voce & Defense Guide (For B.Tech CSE Students)
 
 ### Q1: Why does Shared Memory outperform all other IPC mechanisms in latency?
 **Answer**: Shared memory maps physical memory pages into both processes' virtual address spaces (`mmap(MAP_SHARED)`). Once mapped, writing and reading data occurs directly in RAM at memory bus speeds with **zero kernel copies**. In contrast, pipes, message queues, and sockets require two kernel copies (user buffer $\rightarrow$ kernel space $\rightarrow$ peer user buffer) and two system calls per message transfer.
