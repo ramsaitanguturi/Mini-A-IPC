@@ -27,7 +27,7 @@ To eliminate confounding measurement artifacts, the benchmarking harness enforce
     \item \textbf{Untimed Cache and TLB Priming:} Executing 500 untimed exchanges before measurement ensures that virtual memory pages are faulted in, CPU translation lookaside buffers (TLB) are populated, and kernel data structures reside in L1/L2 caches.
     \item \textbf{Trial-Block Randomization:} Mechanism execution order within each trial block is shuffled using a deterministic Fisher-Yates generator. This prevents thermal throttling or periodic operating system background daemons from systematically biasing a specific transport.
     \item \textbf{Strict CPU Affinity Pinning:} Processes are bound to dedicated physical CPU cores via \texttt{sched\_setaffinity}: Core~0 for the producer and Core~1 for the consumer, isolating communication across execution pipelines while keeping L3 cache access uniform.
-    \item \textbf{High-Resolution Timing:} Timing measurements utilize \texttt{clock\_gettime(CLOCK\_MONOTONIC)}, which is implemented as a direct userspace VDSO call to the x86\_64 Time Stamp Counter (\texttt{RDTSC}), incurring sub-20~ns measurement overhead.
+    \item \textbf{High-Resolution Timing:} Timing measurements utilize \texttt{clock\_gettime(CLOCK\_MONOTONIC)}, which is served through the Linux virtual dynamic shared object (vDSO) on supported configurations to minimize system-call boundary crossings, with low nanosecond measurement overhead depending on the host timer source and hypervisor clock virtualization.
 \end{enumerate}
 
 \subsection{Performance Metrics}

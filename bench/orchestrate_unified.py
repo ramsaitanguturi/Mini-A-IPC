@@ -132,7 +132,7 @@ def run_mixed_call(mixed_bin, policy, count, threshold, trial, exp_id, env_id):
         "latency_semantics": "round_trip_rtt",
         "requested_mode": policy,
         "selected_transport": policy,
-        "payload_bytes": 3315, # weighted mean payload (0.8*64 + 0.2*16384 = 3328 B)
+        "payload_bytes": 3328, # weighted mean payload: (0.8 * 64) + (0.2 * 16384) = 51.2 + 3276.8 = 3328 B
         "producers": 1,
         "consumers": 1,
         "trial": trial,
@@ -191,6 +191,9 @@ def main():
 
     os.makedirs(os.path.dirname(args.out_csv) or ".", exist_ok=True)
     os.makedirs(os.path.dirname(args.meta_out) or ".", exist_ok=True)
+
+    start_dt = datetime.datetime.now(datetime.timezone.utc)
+    started_at_utc = start_dt.isoformat()
 
     trial_orders = {}
     # Known blocked/unsupported cache per (workload, mode, payload, P, C) to avoid
@@ -340,11 +343,19 @@ def main():
                     if data:
                         write_record(data, idx)
 
-    # Save initial metadata JSON
+    completed_dt = datetime.datetime.now(datetime.timezone.utc)
+    completed_at_utc = completed_dt.isoformat()
+    if start_dt > completed_dt:
+        raise ValueError("Benchmark started_at_utc timestamp cannot occur after completed_at_utc")
+    duration_total_s = (completed_dt - start_dt).total_seconds()
+
+    # Save benchmark execution metadata JSON
     meta = {
         "experiment_id": args.experiment_id,
         "environment_id": args.environment_id,
-        "started_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "started_at_utc": started_at_utc,
+        "completed_at_utc": completed_at_utc,
+        "duration_total_seconds": duration_total_s,
         "host_os": platform.system(),
         "platform_detail": platform.platform(),
         "kernel_release": platform.release(),

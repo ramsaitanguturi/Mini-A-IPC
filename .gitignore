@@ -1,0 +1,56 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# C/C++ Build Artifacts and Executables
+bin/
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.exe
+mini-aipc
+mini-aipc-mixed
+mini-aipc-concurrency
+aipc-client
+aipc_unified_bench
+
+# Linux Kernel Build Artifacts
+*.ko
+*.mod
+*.mod.c
+*.mod.o
+*.cmd
+modules.order
+Module.symvers
+.tmp_versions/
+
+# Scratch & Temporary Run Folders
+scratch/
+tmp/
+*.tmp
+
+# Python Virtual Environments
+.venv/
+venv/
+ENV/
+
+# LaTeX Auxiliaries (keep tracked PDFs and PNGs)
+*.aux
+*.log
+*.bbl
+*.blg
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+
+# OS and Editor Artifacts
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

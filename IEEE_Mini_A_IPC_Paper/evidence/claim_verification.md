@@ -27,24 +27,33 @@ Environment: Intel Core 7 240H (4 vCPUs, 3.8 GiB RAM), Fedora 45 Linux (KVM Gues
 | **256 B** | Unix Domain Socket | 121.28 | 121.280 | **MATCH** |
 | **256 B** | Kernel Mailbox | **2.95** (P50: 0.77) | 2.947 (mean_p50: 0.771) | **MATCH** (In-process loopback floor) |
 | **256 B** | Adaptive Policy | 147.01 | 147.009 | **MATCH** (Routed to SHM) |
-| **1,024 B** | Anonymous Pipe | 136.21 | 136.208 | **MATCH** |
-| **1,024 B** | Named FIFO | 134.40 | 134.398 | **MATCH** |
-| **1,024 B** | System V MQ | 134.12 | 134.120 | **MATCH** |
-| **1,024 B** | POSIX MQ | 130.65 | 130.651 | **MATCH** |
-| **1,024 B** | POSIX SHM | 139.73 | 139.734 | **MATCH** |
-| **1,024 B** | Unix Domain Socket | **128.28** | **128.283** | **MATCH** (Lowest userspace RTT) |
+| **1,024 B** | Anonymous Pipe | 131.33 | 131.326 | **MATCH** |
+| **1,024 B** | Named FIFO | 132.13 | 132.132 | **MATCH** |
+| **1,024 B** | System V MQ | 140.64 | 140.642 | **MATCH** |
+| **1,024 B** | POSIX MQ | 128.59 | 128.590 | **MATCH** |
+| **1,024 B** | POSIX SHM | 139.68 | 139.677 | **MATCH** |
+| **1,024 B** | Unix Domain Socket | **128.28** | **128.280** | **MATCH** (Lowest userspace RTT) |
 | **1,024 B** | Kernel Mailbox | **3.35** (P50: 0.93) | 3.349 (mean_p50: 0.925) | **MATCH** (In-process loopback floor) |
-| **1,024 B** | Adaptive Policy | 138.83 | 138.834 | **MATCH** (Routed to SHM) |
-| **4,096 B** | Anonymous Pipe | 125.75 | 125.751 | **MATCH** |
-| **4,096 B** | Named FIFO | **119.44** | **119.439** | **MATCH** (Lowest userspace RTT) |
-| **4,096 B** | Unix Domain Socket | 134.02 | 134.019 | **MATCH** |
+| **1,024 B** | Adaptive Policy | 144.52 | 144.524 | **MATCH** (Routed to SHM) |
+| **4,096 B** | Anonymous Pipe | 156.48 | 156.479 | **MATCH** |
+| **4,096 B** | Named FIFO | **119.44** | **119.437** | **MATCH** (Lowest userspace RTT) |
+| **4,096 B** | POSIX MQ | 134.47 | 134.473 | **MATCH** |
+| **4,096 B** | System V MQ | 137.13 | 137.130 | **MATCH** |
+| **4,096 B** | Unix Domain Socket | 135.11 | 135.110 | **MATCH** |
 | **4,096 B** | POSIX SHM | N/A (EMSGSIZE) | Bounded capacity $\le 1024$ B | **MATCH** |
+| **4,096 B** | Adaptive Policy | 135.78 | 135.784 | **MATCH** (Routed to Pipe) |
 | **16,384 B** | Anonymous Pipe | **140.60** | **140.602** | **MATCH** (Lowest userspace RTT) |
-| **16,384 B** | Unix Domain Socket | 142.14 | 142.142 | **MATCH** |
-| **65,536 B** | Anonymous Pipe | 135.57 | 135.568 | **MATCH** (7,508.6 msg/s, 984.2 MB/s wire) |
-| **65,536 B** | Unix Domain Socket | **123.53** | **123.533** | **MATCH** (8,325.9 msg/s, 1,091.3 MB/s wire, lowest RTT) |
-| **262,144 B** | Anonymous Pipe | 1,144.22 | 1144.218 | **MATCH** (958.2 msg/s, 502.4 MB/s wire) |
-| **262,144 B** | Unix Domain Socket | **449.64** | **449.643** | **MATCH** (2,488.0 msg/s, 1,304.4 MB/s wire, 2.54x faster) |
+| **16,384 B** | Named FIFO | 151.67 | 151.669 | **MATCH** |
+| **16,384 B** | Unix Domain Socket | 148.90 | 148.903 | **MATCH** |
+| **16,384 B** | Adaptive Policy | 136.00 | 136.002 | **MATCH** (Routed to Pipe) |
+| **65,536 B** | Anonymous Pipe | 135.57 | 135.566 | **MATCH** (7,508.6 msg/s, 984.2 MB/s wire) |
+| **65,536 B** | Named FIFO | 149.84 | 149.840 | **MATCH** (7,030.2 msg/s) |
+| **65,536 B** | Unix Domain Socket | **123.53** | **123.532** | **MATCH** (8,325.9 msg/s, 1,091.3 MB/s wire, lowest RTT) |
+| **65,536 B** | Adaptive Policy | 151.87 | 151.866 | **MATCH** (Routed to Pipe) |
+| **262,144 B** | Anonymous Pipe | 1,144.22 | 1144.219 | **MATCH** (958.2 msg/s, 502.4 MB/s wire) |
+| **262,144 B** | Named FIFO | 1,080.16 | 1080.162 | **MATCH** (1,005.7 msg/s) |
+| **262,144 B** | Unix Domain Socket | **449.64** | **449.641** | **MATCH** (2,488.0 msg/s, 1,304.4 MB/s wire, 2.54x faster) |
+| **262,144 B** | Adaptive Policy | 957.62 | 957.619 | **MATCH** (Routed to Pipe) |
 
 ---
 

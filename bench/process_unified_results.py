@@ -62,17 +62,52 @@ MECHANISM_LABELS = {
 }
 
 
+# Exact two-sided 95% Student-t critical values for degrees of freedom df = n - 1 (df = 1 to 30)
+STUDENT_T_CRIT_95 = {
+    1: 12.7062, 2: 4.3027, 3: 3.1824, 4: 2.7764, 5: 2.5706,
+    6: 2.4469, 7: 2.3646, 8: 2.3060, 9: 2.2622, 10: 2.2281,
+    11: 2.2010, 12: 2.1788, 13: 2.1604, 14: 2.1448, 15: 2.1314,
+    16: 2.1199, 17: 2.1098, 18: 2.1009, 19: 2.0930, 20: 2.0860,
+    21: 2.0796, 22: 2.0739, 23: 2.0687, 24: 2.0639, 25: 2.0595,
+    26: 2.0555, 27: 2.0518, 28: 2.0484, 29: 2.0452, 30: 2.0423
+}
+
+
+def get_t_critical(df, confidence=0.95):
+    """Returns two-sided Student-t critical value for given df and confidence."""
+    if df < 1:
+        return 0.0
+    try:
+        from scipy import stats
+        return float(stats.t.ppf((1.0 + confidence) / 2.0, df=df))
+    except Exception:
+        # Fallback to exact table for 95% confidence
+        if abs(confidence - 0.95) < 1e-4:
+            if df in STUDENT_T_CRIT_95:
+                return STUDENT_T_CRIT_95[df]
+            if df > 30:
+                return 1.95996 + (2.376 / df)
+        return 1.95996
+
+
 def compute_confidence_interval(data, confidence=0.95):
-    """Calculates Student-t or Normal confidence interval half-width."""
+    """Calculates exact two-sided Student-t confidence interval half-width.
+    
+    Distinguishes standard deviation, standard error, and confidence interval:
+      standard_deviation = sqrt(sum((x - mean)^2) / (n - 1))
+      standard_error = standard_deviation / sqrt(n)
+      confidence_interval = t_crit(df = n - 1, confidence) * standard_error
+    """
     n = len(data)
     if n < 2:
         return 0.0
     mean = sum(data) / n
     variance = sum((x - mean) ** 2 for x in data) / (n - 1)
     stddev = math.sqrt(variance)
-    # Approximate t-critical for 95% (n around 5-10: ~2.26)
-    t_crit = 2.262 if n <= 10 else 1.960
-    return t_crit * (stddev / math.sqrt(n))
+    df = n - 1
+    t_crit = get_t_critical(df, confidence)
+    standard_error = stddev / math.sqrt(n)
+    return t_crit * standard_error
 
 
 def load_csv(path):
@@ -732,6 +767,16 @@ def generate_final_report(processed_data, raw_dir, reports_dir, env_info, metada
     print(f"Generated research report: {report_path}")
 
 
+def to_float(val, default=0.0):
+    """Safely converts value to float, handling empty strings and invalid formats."""
+    try:
+        if val is None or val == "":
+            return default
+        return float(val)
+    except (ValueError, TypeError):
+        return default
+
+
 def process_benchmark_data(input_dir, output_dir, allow_incomplete=False):
     raw_dir = os.path.join(input_dir, "raw")
     processed_dir = os.path.join(output_dir, "processed")
@@ -745,14 +790,20 @@ def process_benchmark_data(input_dir, output_dir, allow_incomplete=False):
     all_csv_path = os.path.join(raw_dir, "all_results.csv")
     rows = load_csv(all_csv_path)
 
-    # Group by mechanism and payload_bytes
+    # Group by mechanism and payload_bytes for single_pair_rtt
     grouped = defaultdict(list)
     for r in rows:
+        if r.get("workload_type") and r.get("workload_type") != "single_pair_rtt":
+            continue
         m = r.get("mechanism") or r.get("requested_mode")
         if not m:
             continue
         r["mechanism"] = m
-        key = (m, int(r["payload_bytes"]))
+        try:
+            p_bytes = int(r["payload_bytes"])
+        except (ValueError, TypeError):
+            continue
+        key = (m, p_bytes)
         grouped[key].append(r)
 
     processed_rows = []
@@ -760,20 +811,20 @@ def process_benchmark_data(input_dir, output_dir, allow_incomplete=False):
 
     for (m, size), items in sorted(grouped.items()):
         # Filter valid items
-        valid = [x for x in items if float(x.get("avg_rtt_us", 0.0)) > 0]
+        valid = [x for x in items if to_float(x.get("avg_rtt_us")) > 0]
         if not valid:
             continue
 
         n_trials = len(valid)
-        avg_list = [float(x["avg_rtt_us"]) for x in valid]
-        p50_list = [float(x["p50_rtt_us"]) for x in valid]
-        p90_list = [float(x.get("p90_rtt_us", 0.0)) for x in valid]
-        p95_list = [float(x.get("p95_rtt_us", 0.0)) for x in valid]
-        p99_list = [float(x["p99_rtt_us"]) for x in valid]
-        tput_list = [float(x["throughput_msg_sec"]) for x in valid]
-        mb_list = [float(x.get("throughput_mb_sec", 0.0)) for x in valid]
-        min_list = [float(x["min_rtt_us"]) for x in valid]
-        max_list = [float(x["max_rtt_us"]) for x in valid]
+        avg_list = [to_float(x.get("avg_rtt_us")) for x in valid]
+        p50_list = [to_float(x.get("p50_rtt_us")) for x in valid]
+        p90_list = [to_float(x.get("p90_rtt_us")) for x in valid]
+        p95_list = [to_float(x.get("p95_rtt_us")) for x in valid]
+        p99_list = [to_float(x.get("p99_rtt_us")) for x in valid]
+        tput_list = [to_float(x.get("throughput_msg_s") or x.get("throughput_msg_sec")) for x in valid]
+        mb_list = [to_float(x.get("mb_per_sec") or x.get("throughput_mb_sec")) for x in valid]
+        min_list = [to_float(x.get("min_rtt_us")) for x in valid]
+        max_list = [to_float(x.get("max_rtt_us")) for x in valid]
 
         mean_avg = statistics.mean(avg_list)
         std_avg = statistics.stdev(avg_list) if n_trials > 1 else 0.0
