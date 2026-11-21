@@ -1,6 +1,6 @@
 # Mini A-IPC: Classical Linux IPC Research Benchmarking Suite
 
-A comprehensive C and Linux interprocess communication (IPC) research and benchmarking framework evaluated and validated on Fedora Linux 45 (Kernel 7.3.3) on bare-metal and KVM virtualization environments.
+A comprehensive C and Linux interprocess communication (IPC) research and benchmarking framework evaluated and validated on Fedora Linux 45 (Kernel 7.3.4) on bare-metal and KVM virtualization environments.
 
 Mini A-IPC implements, tests, and evaluates all **six classical Linux IPC mechanisms** analyzed in high-performance computing (HPC) research:
 
@@ -106,9 +106,11 @@ The unified benchmarking suite, concurrency scaling, and latency distributions w
 
 | Attribute | Specification |
 | :--- | :--- |
-| **Operating System** | Fedora Linux 45 (Workstation Edition), x86_64 |
-| **Linux Kernel** | `7.3.3-300.fc45.x86_64 #1 SMP PREEMPT_DYNAMIC` |
-| **Processor (CPU)** | Intel(R) Core(TM) 7 240H (4 vCPUs allocated, `x86_64`) |
+| **Operating System** | Fedora Linux 45 (Workstation Edition), `x86_64` |
+| **Linux Kernel** | `7.3.4-300.fc45.x86_64` (Preempt Dynamic) |
+| **Processor (CPU)** | Intel(R) Core(TM) 7 240H |
+| **vCPU Topology** | 4 vCPUs (1 socket, 4 cores/socket, 1 thread/core, NUMA node 0: CPUs 0–3) |
+| **System Memory (RAM)** | 3.8 GiB Physical RAM (3.8 GiB Swap) |
 | **Virtualization / Hypervisor** | KVM (Kernel-based Virtual Machine) |
 | **C Compiler & Toolchain** | GCC 16.2.1 20261029 (Red Hat 16.2.1-3), C11 (`-std=c11 -O2`) |
 | **C Standard Library** | GNU C Library (GLIBC) 2.44 |
